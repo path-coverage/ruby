@@ -30,6 +30,7 @@ class PostTest < TidTest
       PathCoverage::Render.run(operands, {}, config)
     end
     expected = {
+      '$schema' => PathCoverage::JsonWriter::SCHEMA,
       'decisions' => {
         'source/kata.rb:3:23' => [
           { 'truthy' => 2, 'falsy' => 1 },

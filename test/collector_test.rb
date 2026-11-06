@@ -304,6 +304,7 @@ class CollectorTest < TidTest
   def report(truthy, falsy)
     counts = { 'truthy' => truthy, 'falsy' => falsy }
     {
+      '$schema' => PathCoverage::JsonWriter::SCHEMA,
       'decisions' => { 'source/kata.rb:3:23' => [counts] },
       'kinds' => %w(block case chain choice contains safe write)
     }

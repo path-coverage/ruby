@@ -13,7 +13,12 @@ module PathCoverage
     # The version of the source report's shape.
     SCHEMA = 1
 
-    # The source report of a run: config's ignored operators, the
+    # The URL of the schema the source report follows.
+    SCHEMA_URL = 'https://path-coverage.github.io/schemas/v1/' \
+                 'path_coverage.source.schema.json'.freeze
+
+    # The source report of a run, headed by its schema's URL and
+    # version: config's ignored operators, the
     # covered files of each of config's groups, each top of the
     # rows of cards, { def decision => card }, coloured, and each of
     # files', { full path => {source:, decisions:} }, lines and
@@ -26,9 +31,9 @@ module PathCoverage
         [config.relative(full_path),
          file(parsed, decision_paths, tops)]
       end
-      { schema: SCHEMA, ignored: config.ignored,
-        groups: groups(config, shown.keys), labels: labels(rows),
-        files: shown }
+      { '$schema': SCHEMA_URL, schema: SCHEMA,
+        ignored: config.ignored, groups: groups(config, shown.keys),
+        labels: labels(rows), files: shown }
     end
 
     # { top => it coloured } of each distinct top of rows, a

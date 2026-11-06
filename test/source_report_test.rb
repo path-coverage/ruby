@@ -84,6 +84,8 @@ class SourceReportTest < TidTest
     decision = report.decision(source, decisions, 'k.rb:2:2', paths,
                                '&&')
     expected = {
+      '$schema': 'https://path-coverage.github.io/schemas/v1/' \
+                 'path_coverage.source.schema.json',
       schema: 1, ignored: [],
       groups: { 'Katas' => ['k.rb'], 'Other' => [] },
       labels: {

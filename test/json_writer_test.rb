@@ -8,7 +8,8 @@ class JsonWriterTest < TidTest
   | the result is written as raw JSON under "decisions",
   | the base every other reporter reads, with the names of
   | the kinds of decision measured under "kinds", so runs that
-  | measured different kinds are never merged
+  | measured different kinds are never merged, and its
+  | schema's URL under "$schema"
   ) do |t|
     decisions = { 'k.rb:2:2' => condition('&&', 16...23, 27...35) }
     counts = { ['k.rb:2:2', 0] => { truthy: 1, falsy: 1 } }
@@ -16,6 +17,8 @@ class JsonWriterTest < TidTest
     path = "#{t.dir}/path_coverage.json"
     PathCoverage::JsonWriter.write(operands, path)
     expected = {
+      '$schema' => 'https://path-coverage.github.io/schemas/v1/' \
+                   'path_coverage.schema.json',
       'decisions' => {
         'k.rb:2:2' => [
           { 'truthy' => 1, 'falsy' => 1 },

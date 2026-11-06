@@ -5,6 +5,10 @@ module PathCoverage
   # The base reporter: the result as raw JSON, which every
   # other reporter can read back.
   module JsonWriter
+    # The URL of the schema the JSON report follows.
+    SCHEMA = 'https://path-coverage.github.io/schemas/v1/' \
+             'path_coverage.schema.json'.freeze
+
     # Writes operands, as Result gives them, paths, as
     # PathsReport gives them, and totals, as JsonReports.totals
     # gives them, to path as {"decisions": {decision: [counts, ...]},
@@ -26,10 +30,12 @@ module PathCoverage
     # parts' fingerprint:, as Configuration#fingerprint gives
     # it, the names of the kinds measured, and parts' reached:,
     # as Recorder#reached gives it, even empty, as a run that
-    # reached no statement says so; none when not given.
+    # reached no statement says so; none when not given; headed
+    # by its schema's URL.
     def self.json(operands, paths = {}, **parts)
       fingerprint = parts.fetch(:fingerprint, {})
-      report = { 'decisions' => operands, **fingerprint }
+      report = { '$schema' => SCHEMA, 'decisions' => operands,
+                 **fingerprint }
       report['paths'] = paths unless paths.empty?
       report.merge!(lists(parts))
       report['reached'] = parts[:reached] if parts.key?(:reached)

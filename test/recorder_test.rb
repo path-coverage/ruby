@@ -83,7 +83,7 @@ class RecorderTest < TidTest
   end
 
   test '8TuB52', %w(
-  | an evaluation left while one of the same site it called
+  | an evaluation left while one of the same decision it called
   | is still entered, eg after that one raised, counts no
   | path, since its later outcomes went to the other; so no
   | path is ever claimed as seen that was not, and the stack

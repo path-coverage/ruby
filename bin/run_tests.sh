@@ -4,6 +4,7 @@ set -Eeu
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly IMAGE=path_coverage-test
 readonly REPORTER=ghcr.io/path-coverage/html-reporter
+readonly SCHEMAS=ghcr.io/path-coverage/schemas
 
 show_help()
 {
@@ -15,8 +16,9 @@ with path_coverage measuring its own lib/ and test/ (a renamed
 copy of lib/, test/self_coverage.rb, does the measuring), then
 checks SimpleCov's report against the bounds in
 test/coverage_metrics_params.json, exiting non-zero if a test
-fails or a bound is breached. reports/index.html is SimpleCov's
-report and reports/paths/index.html path_coverage's.
+fails, a JSON report is invalid against its schema, or a bound is
+breached. reports/index.html is SimpleCov's report and
+reports/paths/index.html path_coverage's.
 
 With TID arguments, runs only the tests whose tid contains one of
 them, and skips the coverage check: a partial run covers only
@@ -82,8 +84,12 @@ run_in_image()
 
 run_in_image ruby -Ilib -Itest -e "${LOADER}" -- "$@"
 
-# path_coverage's own HTML report, drawn from the two JSON reports
-# the run wrote into reports/paths.
+# The two JSON reports the run wrote into reports/paths, checked
+# against their schemas, then path_coverage's own HTML report,
+# drawn from them.
+docker run --rm \
+  --volume "${ROOT_DIR}/reports/paths:/paths:ro" \
+  "${SCHEMAS}" /paths > /dev/null
 docker run --rm \
   --user "$(id -u):$(id -g)" \
   --volume "${ROOT_DIR}/reports/paths:/paths" \
