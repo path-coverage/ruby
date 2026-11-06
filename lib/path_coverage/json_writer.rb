@@ -6,10 +6,10 @@ module PathCoverage
   # other reporter can read back.
   module JsonWriter
     # Writes operands, as Result gives them, paths, as
-    # PathsReport gives them, and totals, as Kernel.totals gives
-    # them, to path as {"sites": {site: [counts, ...]}, "paths":
-    # {site: {leaves:, taken:}}, "totals": {"decisions": [taken,
-    # possible]}}.
+    # PathsReport gives them, and totals, as JsonReports.totals
+    # gives them, to path as {"sites": {site: [counts, ...]},
+    # "paths": {site: {leaves:, taken:}}, "totals": {"alone":
+    # [taken, possible]}}.
     # parts are json's.
     def self.write(operands, path, paths = {}, **parts)
       File.write(path, json(operands, paths, **parts))

@@ -67,7 +67,7 @@ module PathCoverage
     # them; paths as Result#paths gives them.
     def self.top_level(source, path, paths, sites = nil)
       names = top_rows(source, path, sites).map(&:site)
-      Totals.decisions(paths.slice(*names))
+      Totals.alone(paths.slice(*names))
     end
 
     # Example: RATE = x ? 2 : 1 gives a ?: row at 1:9.

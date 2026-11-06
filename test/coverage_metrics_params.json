@@ -10,7 +10,7 @@
         "missed": {"min": 0, "max": 0}
       },
       "paths": {
-        "methods": {
+        "combined": {
           "missed": {"min": 0, "max": 0}
         }
       }
@@ -25,7 +25,7 @@
         "missed": {"min": 0, "max": 0}
       },
       "paths": {
-        "methods": {
+        "combined": {
           "missed": {"min": 0, "max": 0}
         }
       }

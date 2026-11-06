@@ -16,7 +16,7 @@ module CoverageMetricsCheck
   # The names SimpleCov's metrics and path_coverage's totals
   # print under, in the order they print.
   SIMPLECOV = { 'lines' => 'Line', 'branches' => 'Branch' }.freeze
-  PATHS = %w(decisions methods).freeze
+  PATHS = %w(alone combined).freeze
 
   # Each group of report as a heading, its figures indented under
   # it: SimpleCov's lines and branches covered of all, then the
@@ -48,7 +48,7 @@ module CoverageMetricsCheck
       next unless totals.key?(measure)
 
       taken, possible = totals[measure]
-      "  Path coverage within #{measure}: #{figure(taken, possible)}"
+      "  Paths #{measure}: #{figure(taken, possible)}"
     end
   end
 
@@ -64,7 +64,7 @@ module CoverageMetricsCheck
   # report with each group's path totals in paths, { group => {
   # measure => [taken, possible] } }, joined to its metrics under
   # 'paths', in the shape its other metrics have, eg
-  # { 'methods' => { 'total' => 3, 'missed' => 0 } }, so bounds
+  # { 'combined' => { 'total' => 3, 'missed' => 0 } }, so bounds
   # can gate them as they gate lines and branches.
   def self.with_paths(report, paths)
     report.to_h do |name, metrics|

@@ -34,7 +34,7 @@ class CoverageMetricsCheckTest < TidTest
   | path_coverage's totals of the same groups
   | Each group is a heading, its four figures indented under it:
   | lines and branches covered of all, as SimpleCov prints them,
-  | then paths within decisions and within methods.
+  | then paths alone and combined.
   | Each percent is to two places; none possible shows -.
   ) do
     report = {
@@ -48,20 +48,20 @@ class CoverageMetricsCheckTest < TidTest
       }
     }
     paths = {
-      'code' => { 'decisions' => [475, 561], 'methods' => [41, 49] },
-      'test' => { 'decisions' => [63, 86], 'methods' => [0, 0] }
+      'code' => { 'alone' => [475, 561], 'combined' => [41, 49] },
+      'test' => { 'alone' => [63, 86], 'combined' => [0, 0] }
     }
     expected = [
       'code:',
       '  Line coverage: 1221 / 1221 (100.00%)',
       '  Branch coverage: 309 / 309 (100.00%)',
-      '  Path coverage within decisions: 475 / 561 (84.67%)',
-      '  Path coverage within methods: 41 / 49 (83.67%)',
+      '  Paths alone: 475 / 561 (84.67%)',
+      '  Paths combined: 41 / 49 (83.67%)',
       'test:',
       '  Line coverage: 2218 / 2220 (99.91%)',
       '  Branch coverage: 40 / 41 (97.56%)',
-      '  Path coverage within decisions: 63 / 86 (73.26%)',
-      '  Path coverage within methods: 0 / 0 (-)'
+      '  Paths alone: 63 / 86 (73.26%)',
+      '  Paths combined: 0 / 0 (-)'
     ]
     actual = CoverageMetricsCheck.groups(report, paths)
     assert_equal expected, actual
@@ -69,22 +69,23 @@ class CoverageMetricsCheckTest < TidTest
 
   test 'p0Kj80', %w(
   | Example: SimpleCov's report of group test, and path_coverage's
-  | test totals of decisions [65, 84] and methods [3, 3]
+  | test totals of alone [65, 84] and combined [3, 3]
   | Each total joins the group's metrics under paths, in the
   | shape SimpleCov's metrics have: its total, and how many were
   | missed.
-  | So a bound such as test.paths.methods.missed 0..0 can gate it.
+  | So a bound such as test.paths.combined.missed 0..0 can gate
+  | it.
   ) do
     lines = { 'total' => 2250, 'missed' => 0 }
     report = { 'test' => { 'lines' => lines } }
-    totals = { 'decisions' => [65, 84], 'methods' => [3, 3] }
+    totals = { 'alone' => [65, 84], 'combined' => [3, 3] }
     paths = { 'test' => totals }
     expected = {
       'test' => {
         'lines' => lines,
         'paths' => {
-          'decisions' => { 'total' => 84, 'missed' => 19 },
-          'methods' => { 'total' => 3, 'missed' => 0 }
+          'alone' => { 'total' => 84, 'missed' => 19 },
+          'combined' => { 'total' => 3, 'missed' => 0 }
         }
       }
     }
@@ -93,17 +94,17 @@ class CoverageMetricsCheckTest < TidTest
   end
 
   test 'p0Kj81', %w(
-  | Example: a bound test.paths.methods.missed 0..0, and a test
+  | Example: a bound test.paths.combined.missed 0..0, and a test
   | method path never taken
   | The breach names it, as any other bound's does.
   ) do
     lines = { 'total' => 9, 'missed' => 0 }
     report = { 'test' => { 'lines' => lines } }
-    paths = { 'test' => { 'methods' => [2, 3] } }
+    paths = { 'test' => { 'combined' => [2, 3] } }
     none = { 'missed' => { 'min' => 0, 'max' => 0 } }
-    bounds = { 'test' => { 'paths' => { 'methods' => none } } }
+    bounds = { 'test' => { 'paths' => { 'combined' => none } } }
     merged = CoverageMetricsCheck.with_paths(report, paths)
-    expected = ['test.paths.methods.missed: 1 is outside 0..0']
+    expected = ['test.paths.combined.missed: 1 is outside 0..0']
     actual = CoverageMetricsCheck.breaches(merged, bounds)
     assert_equal expected, actual
   end

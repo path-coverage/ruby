@@ -9,7 +9,7 @@ class ConsoleSummaryTest < TidTest
   | Each group is a heading, its own totals indented under it.
   | There is no total over every group.
   | With no cards given, as methods are not measured, there is no
-  | methods line.
+  | combined line.
   ) do
     site_paths = {
       'lib/kata.rb:3:4' => [
@@ -25,9 +25,9 @@ class ConsoleSummaryTest < TidTest
     groups = { 'code' => ['lib/**/*.rb'], 'test' => ['test/**/*.rb'] }
     expected = [
       'code:',
-      '  Path coverage within decisions: 2 / 3 (66.67%)',
+      '  Paths alone: 2 / 3 (66.67%)',
       'test:',
-      '  Path coverage within decisions: 1 / 2 (50.00%)'
+      '  Paths alone: 1 / 2 (50.00%)'
     ]
     summary = PathCoverage::ConsoleSummary
     actual = summary.lines(site_paths, nil, groups)
@@ -37,7 +37,7 @@ class ConsoleSummaryTest < TidTest
   test 'Cs4m20', %w(
   | Example: fee in lib/fee.rb, its card 4 of its 6 paths
   | taken, and groups code and test
-  | Each group has a methods line too: code has fee's 4 / 6.
+  | Each group has a combined line too: code has fee's 4 / 6.
   | test, with no def, has 0 / 0, shown as -.
   ) do
     cards = { 'lib/fee.rb:1:0' => [4, 6] }
@@ -46,11 +46,11 @@ class ConsoleSummaryTest < TidTest
     lines = summary.lines({}, cards, groups)
     expected = [
       'code:',
-      '  Path coverage within decisions: 0 / 0 (-)',
-      '  Path coverage within methods: 4 / 6 (66.67%)',
+      '  Paths alone: 0 / 0 (-)',
+      '  Paths combined: 4 / 6 (66.67%)',
       'test:',
-      '  Path coverage within decisions: 0 / 0 (-)',
-      '  Path coverage within methods: 0 / 0 (-)'
+      '  Paths alone: 0 / 0 (-)',
+      '  Paths combined: 0 / 0 (-)'
     ]
     assert_equal expected, lines
   end
@@ -67,8 +67,8 @@ class ConsoleSummaryTest < TidTest
     summary = PathCoverage::ConsoleSummary
     actual = summary.group_totals(site_paths, nil, groups)
     expected = {
-      'code' => { 'decisions' => [2, 2] },
-      'test' => { 'decisions' => [0, 0] }
+      'code' => { 'alone' => [2, 2] },
+      'test' => { 'alone' => [0, 0] }
     }
     assert_equal expected, actual
   end

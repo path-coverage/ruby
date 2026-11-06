@@ -35,7 +35,8 @@ alone, as `&&` then skips its right side.
 
 Line and branch coverage can be 100% while a path was never
 taken. path_coverage counts how often each path was taken:
-within each site, and within each method, through its sites.
+alone, each site's paths on their own, and combined, through
+each method's sites.
 
 As the run exits it writes its report:
 - `path_coverage.json`, for AIs and other tools.
@@ -43,8 +44,8 @@ As the run exits it writes its report:
 
 The HTML report, for people, is drawn from those two by
 [html-reporter](https://github.com/path-coverage/html-reporter):
-`index.html`, a sortable row per covered file with its paths taken
-within each method, and a page per file with its cards.
+`index.html`, a sortable row per covered file with its paths
+combined taken, and a page per file with its cards.
 
 ```sh
 docker run --rm -v "$PWD/coverage:/paths" ghcr.io/path-coverage/html-reporter /paths
@@ -230,9 +231,9 @@ As the process exits:
   `sites`, each site's paths under `paths`, each method's card under
   `cards`, how each card's rows nest under `tree`, the statements
   reached under `reached`, and the paths taken
-  of all possible under `totals`, as [taken, possible]: `decisions`,
-  `methods`, and, with groups, each group's
-  own under `groups`, eg `"groups": {"code": {"decisions": [481, 567]}}`.
+  of all possible under `totals`, as [taken, possible]: `alone`,
+  `combined`, and, with groups, each group's
+  own under `groups`, eg `"groups": {"code": {"alone": [481, 567]}}`.
   It also names the kinds of site measured under `kinds`, any `ignored`
   operators and `treats`, and any paths taken that a treatment rules
   out under `outside`.
@@ -440,8 +441,8 @@ answer true or false.
   coverage:
 
 ```text
-Path coverage within decisions: 527 / 631 (83.52%)
-Path coverage within methods: 44 / 52 (84.62%)
+Paths alone: 527 / 631 (83.52%)
+Paths combined: 44 / 52 (84.62%)
 ```
 
   With groups, each group is a heading, its own totals indented under it,
@@ -449,11 +450,11 @@ Path coverage within methods: 44 / 52 (84.62%)
 
 ```text
 code:
-  Path coverage within decisions: 481 / 567 (84.83%)
-  Path coverage within methods: 41 / 49 (83.67%)
+  Paths alone: 481 / 567 (84.83%)
+  Paths combined: 41 / 49 (83.67%)
 test:
-  Path coverage within decisions: 65 / 84 (77.38%)
-  Path coverage within methods: 3 / 3 (100.00%)
+  Paths alone: 65 / 84 (77.38%)
+  Paths combined: 3 / 3 (100.00%)
 ```
 
 ## How it works
@@ -573,7 +574,7 @@ source/user.rb:4:9 path taken that a treatment rules out: `user.name` nil
   branches in both the code and the tests, and that every path within the
   tests' methods was taken, within the bounds in
   `test/coverage_metrics_params.json` (a path bound is eg
-  `test.paths.methods.missed`, and a missing path report denies it)
+  `test.paths.combined.missed`, and a missing path report denies it)
   (`make test tids='6D1K'` runs only matching tests, and skips the check)
 - `make test_check`: shunit2 tests showing that a breached bound fails the
   check with a non-zero exit
@@ -590,13 +591,13 @@ is, each with a code and a test tab, then the check's verdict:
 code:
   Line coverage: 1270 / 1270 (100.00%)
   Branch coverage: 321 / 321 (100.00%)
-  Path coverage within decisions: 481 / 567 (84.83%)
-  Path coverage within methods: 41 / 49 (83.67%)
+  Paths alone: 481 / 567 (84.83%)
+  Paths combined: 41 / 49 (83.67%)
 test:
   Line coverage: 2250 / 2250 (100.00%)
   Branch coverage: 43 / 43 (100.00%)
-  Path coverage within decisions: 65 / 84 (77.38%)
-  Path coverage within methods: 3 / 3 (100.00%)
+  Paths alone: 65 / 84 (77.38%)
+  Paths combined: 3 / 3 (100.00%)
 SimpleCov report: .../reports/index.html
 PathCov report: .../reports/paths/index.html
 coverage: ALLOWED

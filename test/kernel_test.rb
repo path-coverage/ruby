@@ -109,8 +109,8 @@ class KernelTest < TidTest
   | recorded, and each path never taken printed as a gap.
   | The JSON report has every path's count, and each leaf's
   | span.
-  | Its totals give decisions as [taken, possible]: [2, 5],
-  | and methods the same, fee's card having the ?: and || rows.
+  | Its totals give paths alone as [taken, possible]: [2, 5],
+  | and combined the same, fee's card having the ?: and || rows.
   ) do |t|
     t.write(<<~RUBY, 'fee.rb')
       module Fee
@@ -147,7 +147,7 @@ class KernelTest < TidTest
       }
     }
     assert_equal expected, json['paths']
-    totals = { 'decisions' => [2, 5], 'methods' => [2, 5] }
+    totals = { 'alone' => [2, 5], 'combined' => [2, 5] }
     assert_equal totals, json['totals']
   end
 
@@ -215,7 +215,7 @@ class KernelTest < TidTest
     assert_equal ['models/crew.rb'], models
     json = t.json
     groups = {
-      'Models' => { 'decisions' => [0, 3], 'methods' => [0, 3] }
+      'Models' => { 'alone' => [0, 3], 'combined' => [0, 3] }
     }
     assert_equal groups, json['totals']['groups']
   end
@@ -224,8 +224,8 @@ class KernelTest < TidTest
   | Example: group 'Models', 'models/*.rb', and lib/zip.rb the
   | only covered file
   | No covered file is in the Models group.
-  | The JSON report's Models totals are [0, 0], within
-  | decisions and within methods.
+  | The JSON report's Models totals are [0, 0], alone and
+  | combined.
   ) do |t|
     t.write("def zip?(a, b) = a || b\n", 'lib/zip.rb')
     exit_report = nil
@@ -241,7 +241,7 @@ class KernelTest < TidTest
 
     json = t.json
     groups = {
-      'Models' => { 'decisions' => [0, 0], 'methods' => [0, 0] }
+      'Models' => { 'alone' => [0, 0], 'combined' => [0, 0] }
     }
     assert_equal groups, json['totals']['groups']
   end
@@ -764,13 +764,12 @@ class KernelTest < TidTest
 
   test '6rTS41', %w(
   | Example: fee with if member ... end and if big ... end
-  | measure :decisions, :methods is chosen.
   | fee is called once, with member true and big false.
   | The exit report prints each if's path never taken, eg
   | `member` false.
   | The JSON report's totals are [taken, possible]:
-  | decisions [2, 4], one path of each if's two.
-  | methods [2, 4] too, fee's card having just its two ifs as
+  | alone [2, 4], one path of each if's two.
+  | combined [2, 4] too, fee's card having just its two ifs as
   | rows, its writes and value none.
   ) do |t|
     t.write(<<~RUBY, 'fee.rb')
@@ -794,7 +793,7 @@ class KernelTest < TidTest
       'fee.rb:7:4 path never taken: `big` true'
     ].join("\n")
     assert_output("#{expected}\n") { t.report }
-    totals = { 'decisions' => [2, 4], 'methods' => [2, 4] }
+    totals = { 'alone' => [2, 4], 'combined' => [2, 4] }
     assert_equal totals, t.json['totals']
   end
 
@@ -889,8 +888,8 @@ class KernelTest < TidTest
   | true then false
   | At exit it prints a line per total, as SimpleCov prints its
   | line and branch coverage.
-  | Within decisions: 2 / 4, one of each if's two paths.
-  | Within methods: 2 / 4 too, fee's card having just its two
+  | Paths alone: 2 / 4, one of each if's two paths.
+  | Paths combined: 2 / 4 too, fee's card having just its two
   | ifs as rows.
   ) do |t|
     t.write(<<~RUBY, 'fee.rb')
@@ -910,9 +909,9 @@ class KernelTest < TidTest
     t.start { report :summary }
     t.load('fee.rb')::Fee.fee(true, false)
     printed = capture_io { t.report }.first
-    decisions = "Path coverage within decisions: 2 / 4 (50.00%)\n"
-    methods = "Path coverage within methods: 2 / 4 (50.00%)\n"
-    assert_equal decisions + methods, printed
+    alone = "Paths alone: 2 / 4 (50.00%)\n"
+    combined = "Paths combined: 2 / 4 (50.00%)\n"
+    assert_equal alone + combined, printed
   end
 
   test '6rTS4e', %w(
@@ -1233,7 +1232,7 @@ class KernelTest < TidTest
     t.start { report }
     t.load('rate.rb')::Fee.fee(true)
     t.report
-    assert_equal [2, 4], t.json['totals']['methods']
+    assert_equal [2, 4], t.json['totals']['combined']
   end
 
   test '6rTS6f', %w(

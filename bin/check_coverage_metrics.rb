@@ -56,7 +56,7 @@ if path_report && File.exist?(path_report)
 end
 puts CoverageMetricsCheck.groups(metrics, paths)
 # The path totals join the metrics, so bounds gate them too, eg
-# test.paths.methods.missed; a bound on a path total with no path
+# test.paths.combined.missed; a bound on a path total with no path
 # report is a breach, missing from the report.
 merged = CoverageMetricsCheck.with_paths(metrics, paths)
 breaches = CoverageMetricsCheck.breaches(merged, bounds)

@@ -4,7 +4,7 @@ require_relative 'totals'
 module PathCoverage
   # The :summary reporter's lines: each total as SimpleCov prints
   # its line and branch coverage, eg
-  # "Path coverage within decisions: 519 / 623 (83.31%)". With
+  # "Paths alone: 519 / 623 (83.31%)". With
   # groups configured each group is a heading, its own totals
   # indented under it, and there is no total over every group.
   module ConsoleSummary
@@ -21,13 +21,13 @@ module PathCoverage
       end
     end
 
-    # { 'decisions' => [taken, possible] } of site_paths, with
-    # 'methods' => [taken, possible] of cards when given.
+    # { 'alone' => [taken, possible] } of site_paths, with
+    # 'combined' => [taken, possible] of cards when given.
     def self.totals(site_paths, cards)
-      totals = { 'decisions' => Totals.decisions(site_paths) }
+      totals = { 'alone' => Totals.alone(site_paths) }
       return totals if cards.nil?
 
-      totals.merge('methods' => Totals.methods(cards))
+      totals.merge('combined' => Totals.combined(cards))
     end
 
     # { group name => totals } of each group's own sites and
@@ -55,11 +55,10 @@ module PathCoverage
       ["Path coverage ignores: #{ignored.join(', ')}"]
     end
 
-    # A line per total, eg "Path coverage within methods: 1 / 4
-    # (25.00%)".
+    # A line per total, eg "Paths combined: 1 / 4 (25.00%)".
     def self.totals_lines(totals)
       totals.map do |name, pair|
-        "Path coverage within #{name}: #{figure(pair)}"
+        "Paths #{name}: #{figure(pair)}"
       end
     end
 

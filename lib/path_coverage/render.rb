@@ -53,9 +53,8 @@ module PathCoverage
     end
 
     # Prints the summary lines: the paths taken of all possible
-    # within decisions, and within methods, each def's card of
-    # files as site_paths and reached have it; then any operators
-    # ignored.
+    # alone, and combined, each def's card of files as site_paths
+    # and reached have it; then any operators ignored.
     def self.summary(files, config, site_paths, reached)
       cards = WithinMethods.cards(files, config, site_paths, reached)
       puts ConsoleSummary.lines(site_paths, cards, config.groups) +
