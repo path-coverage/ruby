@@ -89,31 +89,14 @@ class HtmlSyntaxTest < TidTest
   | and || as two pipes.
   ) do
     texts = ['&&', '||', '&.', '?:', 'if', 'id.size == 6']
-    fragments = texts.map do |text|
-      PathCoverage::HtmlSyntax.fragment(text)
+    tokens = texts.map do |text|
+      PathCoverage::HtmlSyntax.code(text)[:tokens]
     end
     expected = [
-      '<span class="o">&amp;&amp;</span>',
-      '<span class="o">||</span>',
-      '<span class="o">&amp;.</span>',
-      '<span class="o">?:</span>',
-      '<span class="k">if</span>',
-      'id.size == <span class="n">6</span>'
+      [[0, 2, 'o']], [[0, 2, 'o']], [[0, 2, 'o']], [[0, 2, 'o']],
+      [[0, 2, 'k']], [[11, 12, 'n']]
     ]
-    assert_equal expected, fragments
-  end
-
-  test 'Sx7h13', %w(
-  | Example: the line if a < "b" with its ranges
-  | Each range's text is in a span of its class.
-  | All text is escaped, inside spans and out.
-  ) do
-    html = PathCoverage::HtmlSyntax.html(
-      'if a < "b"', [[0, 2, 'k'], [7, 10, 's']]
-    )
-    expected = '<span class="k">if</span> a &lt; ' \
-               '<span class="s">&quot;b&quot;</span>'
-    assert_equal expected, html
+    assert_equal expected, tokens
   end
 
   test 'Sx7h18', %w(

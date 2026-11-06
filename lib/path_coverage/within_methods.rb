@@ -1,7 +1,6 @@
 require 'prism'
 require_relative 'card_tree'
 require_relative 'card_ways'
-require_relative 'html_statements'
 require_relative 'method_statements'
 require_relative 'source_lines'
 
@@ -169,7 +168,7 @@ module PathCoverage
     # it, its top, its paths, count, how many were taken, and
     # its site, nil for a statement that is no site.
     def self.row(statement, count)
-      { 'at' => HtmlStatements.label(statement),
+      { 'at' => MethodStatements.at(statement),
         'top' => statement.top, 'paths' => statement.paths,
         'taken' => count, 'site' => statement.site }
     end

@@ -1,4 +1,3 @@
-require 'cgi/escape'
 require 'prism'
 
 module PathCoverage
@@ -122,46 +121,49 @@ module PathCoverage
     # coloured as an operator by name.
     DECIDING = %w[&& || &. ?: &&= ||=].freeze
 
+    # Example: x && y as { text: 'x && y', tokens: [[2, 4, 'o']] }.
     # text, a fragment of code on one line, eg a site tree's
-    # operator or operand, escaped and coloured as the code it is
-    # part of; one of DECIDING as the operator it names.
-    def self.fragment(text)
-      if DECIDING.include?(text)
-        return %(<span class="o">#{CGI.escapeHTML(text)}</span>)
-      end
+    # operator or operand, as page data holds it: its text and the
+    # [from, to, class] of each range coloured as the code it is
+    # part of; one of DECIDING wholly the operator it names.
+    def self.code(text)
+      return { text:, tokens: [[0, text.length, 'o']] } if
+        DECIDING.include?(text)
 
-      html(text, of(text).fetch(1, []))
+      { text:, tokens: of(text).fetch(1, []) }
     end
 
-    # Example: if/else as <span class="k">if</span>/<span
-    # class="k">else</span>.
-    # A row's or a fold's label, coloured as fragment colours it;
-    # but a label naming a choice and its else, eg if/else, each of
-    # its words, as code would read /else as a regexp's start.
-    def self.label(text)
-      return fragment(text) unless text.match?(%r{\A\w+/else\z})
+    # Example: if/else, each of if and else a keyword.
+    # The code of a row's or a fold's label, coloured as code
+    # colours it; but a label naming a choice and its else, eg
+    # if/else, each of its words, as code would read /else as a
+    # regexp's start.
+    def self.label_code(text)
+      return code(text) unless text.match?(%r{\A\w+/else\z})
 
-      text.split('/').map { fragment(_1) }.join('/')
+      words = text.split('/').map { code(_1) }
+      words.reduce { |one, other| joined_code(one, '/', other) }
     end
 
-    # A ternary's arm's label, eg ? total > 100, as HTML: its ? or
-    # : coloured as an operator, the code after it as code.
-    def self.ternary_arm(label)
+    # Example: ? total > 100, its ? coloured as an operator.
+    # The code of a ternary's arm's label: its ? or : coloured as
+    # an operator, the code after it as code.
+    def self.ternary_arm_code(label)
       mark, code = label.split(' ', 2)
-      %(<span class="o">#{mark}</span> #{fragment(code.to_s)})
+      marked = { text: mark, tokens: [[0, mark.length, 'o']] }
+      joined_code(marked, ' ', code(code.to_s))
     end
 
-    # text, escaped, each of tokens' ranges, [[from, to, class],
-    # ...], in a span of its class.
-    def self.html(text, tokens)
-      at = 0
-      parts = tokens.map do |from, to, css|
-        plain = CGI.escapeHTML(text[at...from])
-        at = to
-        token = CGI.escapeHTML(text[from...to])
-        %(#{plain}<span class="#{css}">#{token}</span>)
+    # Example: if, / and else give if/else, its else's ranges moved
+    # on by 3.
+    # The code of one, then between, uncoloured, then other.
+    def self.joined_code(one, between, other)
+      shift = one[:text].length + between.length
+      moved = other[:tokens].map do |from, to, css|
+        [from + shift, to + shift, css]
       end
-      parts.join + CGI.escapeHTML(text[at..])
+      { text: one[:text] + between + other[:text],
+        tokens: one[:tokens] + moved }
     end
   end
 end

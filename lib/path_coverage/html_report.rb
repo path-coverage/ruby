@@ -1,8 +1,8 @@
 require 'fileutils'
 require_relative 'html_cards'
-require_relative 'html_file'
-require_relative 'html_index'
+require_relative 'html_data'
 require_relative 'html_syntax'
+require_relative 'html_template'
 require_relative 'site_tree'
 require_relative 'source_lines'
 require_relative 'summary'
@@ -11,7 +11,8 @@ require_relative 'within_methods'
 module PathCoverage
   # The :html reporter: index.html, and files/<path>.html for
   # each covered file, written to the configuration's
-  # output_dir.
+  # output_dir. Each page is its data, as HtmlData gives it, in
+  # the shared renderer's page, as HtmlTemplate writes it.
   module HtmlReport
     # Writes every page. recorded is [site_paths, reached]:
     # site_paths, like operands, as Result gives them, holding
@@ -53,7 +54,8 @@ module PathCoverage
       groups = config.groups
       tabs = groups.empty? ? [] : Summary.groups(rows, groups)
       ignored = config.ignored
-      HtmlIndex.page(rows, Summary.total(rows), tabs, ignored:)
+      tables = [['All files', rows, Summary.total(rows)], *tabs]
+      HtmlTemplate.page(HtmlData.index(tables, ignored))
     end
 
     # Writes one file's page to out, from its sites' operand
@@ -65,7 +67,8 @@ module PathCoverage
       plain = SourceLines.of(source, sites, operands)
       lines = coloured(source, plain)
       tops = HtmlCards.tops(path, parsed, [operands, site_paths])
-      page = HtmlFile.page(path, lines, cards + tops)
+      data = HtmlData.file(path, lines, cards + tops)
+      page = HtmlTemplate.page(data)
       FileUtils.mkdir_p(File.dirname(out))
       File.write(out, page)
     end

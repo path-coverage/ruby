@@ -103,6 +103,14 @@ module PathCoverage
       end
     end
 
+    # Example: 19:04, a statement on line 19 at column 4.
+    # statement's line:column, the column two digits so they
+    # line up.
+    def self.at(statement)
+      format('%<line>d:%<column>02d',
+             line: statement.line, column: statement.column)
+    end
+
     # Example: rows of 1, 2 and 2 paths, [1, 2, 2], have size 5.
     # The paths a method's tests are to take: paths, its rows'
     # paths, added up, each row's taken on its own.

@@ -1,34 +1,25 @@
-require 'cgi/escape'
 require_relative 'condition'
 require_relative 'html_branch'
 require_relative 'html_cells'
-require_relative 'html_labels'
 require_relative 'html_syntax'
 require_relative 'kinds'
 
 module PathCoverage
   # The tree of a site, from SiteTree.of, as its row's fold in a
-  # card shows it: a grid whose columns are the site's paths.
+  # card shows it: a grid whose columns are the site's paths, as
+  # page data holds its rows, each a kind, a branch, a label,
+  # where its code is and a cell per path.
   module HtmlTree
-    # A site's row, naming its operator and each path's count, and
-    # where its else keyword is, if it has one, then the rows of
-    # its operands.
-    def self.site_rows(site)
-      counts = HtmlCells.counts(site[:counts])
-      attrs = at(site) + else_attr(site[:else_at])
-      [row(attrs, operator(site), counts), *operand_rows(site, '')]
-    end
-
-    # The data-else attribute of a site whose else keyword is at
-    # else_at, [line, column, line, column]; '' for none.
-    def self.else_attr(else_at)
-      else_at ? %( data-else="#{else_at.join(',')}") : ''
-    end
-
-    # SPIKE: the data-at attribute of a node located in its
-    # source, '' for one that is not.
-    def self.at(node)
-      node[:at] ? %( data-at="#{node[:at].join(',')}") : ''
+    # The rows of site's fold, as page data holds them: site's own
+    # row, naming its operator and each path's count, and where its
+    # else keyword is, if it has one; then the rows of its
+    # operands.
+    def self.rows(site)
+      text = site.fetch(:label) { site[:operator] }
+      label = HtmlSyntax.label_code(text)
+      own = { kind: 'site', branch: '', label:, at: site[:at],
+              else: site[:else_at], counts: site[:counts] }
+      [own, *operand_rows(site, '')]
     end
 
     # The rows of a condition's operands, each branching from
@@ -65,11 +56,9 @@ module PathCoverage
     # it: return or raise, coloured as code, marking each path
     # that leaves there, placed at its code.
     def self.leaves_row(node, branch)
-      word = HtmlSyntax.fragment(node[:leaves])
-      lead = HtmlBranch.cell(branch) +
-             %(<span class="arm" data-label="">#{word}</span>)
-      cells = HtmlCells.of(node[:cells], HtmlCells::LEAVES)
-      row(%( data-leaves=""#{at(node)}), lead, cells)
+      cells = HtmlCells.values(node[:cells], HtmlCells::LEAVES)
+      label = HtmlSyntax.code(node[:leaves])
+      { kind: 'leaves', branch:, label:, at: node[:at], cells: }
     end
 
     # A ternary's arm's row, ? for then and : for else: an arm
@@ -78,20 +67,18 @@ module PathCoverage
     # the paths taking it.
     def self.arm_rows(arm, branch, under)
       body = arm[:body]
-      values = arm_cells(arm, body)
-      label = HtmlLabels.arm(arm)
-      lead = HtmlBranch.cell(branch) +
-             %(<span class="arm" data-label="">#{label}</span>)
-      row = row(%( data-arm=""#{at(arm)}), lead, values)
+      label = HtmlSyntax.ternary_arm_code(Kinds::Choice.arm_label(arm))
+      row = { kind: 'arm', branch:, label:, at: arm[:at],
+              cells: arm_cells(arm, body) }
       body ? [row, *operand_rows(body, under)] : [row]
     end
 
     # The cells of arm's row: its body's values, when its body is
     # a condition; else a tick on each path that took it.
     def self.arm_cells(arm, body)
-      return HtmlCells.of(body[:cells]) if body
+      return HtmlCells.values(body[:cells]) if body
 
-      HtmlCells.of(arm[:cells], HtmlCells::TAKEN)
+      HtmlCells.values(arm[:cells], HtmlCells::TAKEN)
     end
 
     # The operands of condition a card's fold shows: a ?:'s arms,
@@ -130,27 +117,14 @@ module PathCoverage
       end
     end
 
-    # A nested condition's row: its branch, its operator, and
-    # its value on each path.
+    # A nested condition's row: its branch, its operator, or its
+    # label when it has one, eg select { for a site inside a leaf,
+    # and its value on each path.
     def self.subtree_row(condition, branch)
-      lead = HtmlBranch.cell(branch) + operator(condition)
-      attrs = %( data-subtree=""#{at(condition)})
-      row(attrs, lead, HtmlCells.of(condition[:cells]))
-    end
-
-    # A row of the grid, with attrs, lead's cells naming it,
-    # then values, its cells for each path.
-    def self.row(attrs, lead, values)
-      %(<div class="row"#{attrs}>#{lead}#{values}</div>)
-    end
-
-    # The cell naming a condition's operator, or its label when
-    # it has one, eg select { for a site inside a leaf, coloured
-    # as the code it is part of.
-    def self.operator(condition)
-      label = condition.fetch(:label) { condition[:operator] }
-      name = HtmlSyntax.label(label)
-      %(<span class="operator" data-operator="">#{name}</span>)
+      text = condition.fetch(:label) { condition[:operator] }
+      cells = HtmlCells.values(condition[:cells])
+      { kind: 'subtree', branch:, label: HtmlSyntax.label_code(text),
+        at: condition[:at], cells: }
     end
 
     # One operand's row: its branch, text, coloured as the code it
@@ -159,11 +133,8 @@ module PathCoverage
     # each path.
     def self.operand_row(operand, branch)
       one_line = operand[:text].to_s.gsub(/\s*\n\s*/, ' ')
-      text = HtmlSyntax.fragment(one_line)
-      lead = HtmlBranch.cell(branch) +
-             %(<span class="text" data-text="">#{text}</span>)
-      attrs = %( data-operand=""#{at(operand)})
-      row(attrs, lead, HtmlCells.of(operand[:cells]))
+      { kind: 'operand', branch:, label: HtmlSyntax.code(one_line),
+        at: operand[:at], cells: HtmlCells.values(operand[:cells]) }
     end
   end
 end

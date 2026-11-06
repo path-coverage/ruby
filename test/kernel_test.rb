@@ -192,8 +192,8 @@ class KernelTest < TidTest
   test '6rTS4f', %w(
   | Example: report :html, and fee with two ifs called once,
   | with true then false
-  | index.html's Total row shows its total within each method:
-  | 2 / 4 50%, fee's card: one of each if's two paths, its
+  | index.html's Total row has its total within each method:
+  | 2 of 4, 50%, fee's card: one of each if's two paths, its
   | writes and value no rows.
   ) do |t|
     t.write(<<~RUBY, 'fee.rb')
@@ -214,10 +214,9 @@ class KernelTest < TidTest
     t.load('fee.rb')::Fee.fee(true, false)
     t.report
 
-    index = REXML::Document.new(File.read("#{t.dir}/index.html"))
-    total = index.elements.to_a('//tfoot/tr/td')
-    expected = ['Total', '2', '2', '/ 4', '50%']
-    assert_equal(expected, total.map { text_of(_1) })
+    total = page_data("#{t.dir}/index.html")['tables'][0]['total']
+    expected = { 'sites' => 2, 'methods' => [2, 4], 'percent' => 50 }
+    assert_equal expected, total
   end
 
   test '6rTS4h', %w(
@@ -242,12 +241,11 @@ class KernelTest < TidTest
     end
     exit_report.call
 
-    index = REXML::Document.new(File.read("#{t.dir}/index.html"))
-    tabs = index.elements.to_a("//*[@role='tab']").map { text_of(_1) }
-    assert_equal ['All files', 'Models', 'Ungrouped'], tabs
-    xpath = "//table[@id='files-1']/tbody/tr/td[1]"
-    models = index.elements.to_a(xpath)
-    assert_equal(['models/crew.rb'], models.map { text_of(_1) })
+    tables = page_data("#{t.dir}/index.html")['tables']
+    names = tables.map { _1['name'] }
+    assert_equal ['All files', 'Models', 'Ungrouped'], names
+    models = tables[1]['rows'].map { _1['path'] }
+    assert_equal ['models/crew.rb'], models
     json = t.json
     groups = {
       'Models' => { 'decisions' => [0, 3], 'methods' => [0, 3] }
@@ -259,9 +257,8 @@ class KernelTest < TidTest
   | Example: report :html with group 'Models', 'models/*.rb',
   | and lib/zip.rb the only covered file
   | No covered file is in the Models group.
-  | So the Models tab's Total row shows 0 sites and - paths.
-  | The - is titled no method with two or more decisions,
-  | saying why.
+  | So the Models tab's Total row has 0 sites, 0 of 0 paths, and
+  | no percent, as none is possible.
   | The JSON report's Models totals are [0, 0], within
   | decisions and within methods.
   ) do |t|
@@ -277,12 +274,9 @@ class KernelTest < TidTest
     end
     exit_report.call
 
-    index = REXML::Document.new(File.read("#{t.dir}/index.html"))
-    xpath = "//table[@id='files-1']/tfoot/tr/td"
-    total = index.elements.to_a(xpath).map { text_of(_1) }
-    assert_equal ['Total', '0', '0', '/ 0', '-'], total
-    none = index.elements["#{xpath}[5]"].attributes['title']
-    assert_equal 'no method with two or more decisions', none
+    total = page_data("#{t.dir}/index.html")['tables'][1]['total']
+    expected = { 'sites' => 0, 'methods' => [0, 0], 'percent' => nil }
+    assert_equal expected, total
     json = t.json
     groups = {
       'Models' => { 'decisions' => [0, 0], 'methods' => [0, 0] }
@@ -321,7 +315,7 @@ class KernelTest < TidTest
   | dir
   | The JSON report holds the statements reached too.
   | So the render's index has the same Total row as the run's.
-  | Within each method: 2 / 4 50%, one of each if's two paths.
+  | Within each method: 2 of 4, 50%, one of each if's two paths.
   ) do |t|
     t.write(<<~RUBY, 'fee.rb')
       module Fee
@@ -360,10 +354,9 @@ class KernelTest < TidTest
     end
     PathCoverage::Render.from_json(config)
 
-    index = REXML::Document.new(File.read("#{later}/index.html"))
-    total = index.elements.to_a('//tfoot/tr/td')
-    expected = ['Total', '2', '2', '/ 4', '50%']
-    assert_equal(expected, total.map { text_of(_1) })
+    total = page_data("#{later}/index.html")['tables'][0]['total']
+    expected = { 'sites' => 2, 'methods' => [2, 4], 'percent' => 50 }
+    assert_equal expected, total
   end
 
   test '6rTS4r', %w(
@@ -372,7 +365,7 @@ class KernelTest < TidTest
   | fee(false, false) too, then a render of both reports
   | The render merges the paths and reaches of every report.
   | So member was taken both ways, big false only.
-  | Within each method: 3 / 4 75%, not the first report's 2.
+  | Within each method: 3 of 4, 75%, not the first report's 2.
   ) do |t|
     t.write(<<~RUBY, 'fee_runs.rb')
       module Fee
@@ -416,10 +409,8 @@ class KernelTest < TidTest
     jsons = reports.map { |out| "#{out}/path_coverage.json" }
     PathCoverage::Render.from_json(config, jsons)
 
-    index = REXML::Document.new(File.read("#{later}/index.html"))
-    total = index.elements.to_a('//tfoot/tr/td')
-    methods = total.map { text_of(_1) }.last(3).join(' ')
-    assert_equal '3 / 4 75%', methods
+    total = page_data("#{later}/index.html")['tables'][0]['total']
+    assert_equal [[3, 4], 75], total.values_at('methods', 'percent')
   end
 
   test '6rTS4t', %w(
@@ -654,16 +645,13 @@ class KernelTest < TidTest
     json = t.json
     taken = json['paths']['safe_admin.rb:6:4']['taken']
     assert_equal([1, 1, 1, 1], taken.map { _1['count'] })
-    page = File.read("#{t.dir}/files/safe_admin.rb.html")
-    tree = fold_at(page, 'safe_admin.rb:6')
-    rows = tree.elements.to_a('.//*[@data-operand]')
-    texts = rows.map { text_of(_1.elements['*[@data-text]']) }
+    page = "#{t.dir}/files/safe_admin.rb.html"
+    rows = of_kind(fold_at(page, 'safe_admin.rb:6'), 'operand')
+    texts = rows.map { shown(_1).first }
     assert_equal ['ok', 'user', 'admin?'], texts
-    cells = rows[1].elements.to_a('*[@data-cell]').map { cell_of(_1) }
-    assert_equal ['present', 'present', 'absent', ''], cells
-    titles = rows[1].elements.to_a('*[@data-cell]').map do |cell|
-      cell.attributes['data-hover']
-    end
+    assert_equal ['user', 'present', 'present', 'absent', ''],
+                 shown(rows[1])
+    titles = rows[1]['cells'].map { |_, _, hover| hover }
     assert_equal ['not nil', 'not nil', 'nil', nil], titles
   end
 
@@ -773,15 +761,14 @@ class KernelTest < TidTest
     assert_equal [true, false, false], answers
     assert_output('', '') { t.report }
 
-    page = File.read("#{t.dir}/files/both_html.rb.html")
-    tree = fold_at(page, 'both_html.rb:3')
-    operators = tree.elements.to_a('.//*[@data-operator]')
-    expected = ['&&', 'select {']
-    assert_equal(expected, operators.map { text_of(_1) })
-    texts = tree.elements.to_a('.//*[@data-operand]/*[@data-text]')
+    page = "#{t.dir}/files/both_html.rb.html"
+    rows = fold_at(page, 'both_html.rb:3')
+    operators = rows - of_kind(rows, 'operand')
+    names = operators.map { shown(_1).first }
+    assert_equal ['&&', 'select {'], names
+    texts = of_kind(rows, 'operand').map { shown(_1).first }
     all = 'ids.all? { |id| id > 0 }'
-    expected = ['ids', 'id.odd?', '}.any?', all]
-    assert_equal(expected, texts.map { text_of(_1) })
+    assert_equal ['ids', 'id.odd?', '}.any?', all], texts
   end
 
   test '6rTS5c', %w(
@@ -822,7 +809,7 @@ class KernelTest < TidTest
   | It writes a page per covered file too, eg crew.rb.html.
   | Each site on the page counts the paths it took.
   | It prints no gaps, since :gaps was not chosen.
-  | index.html's Total row shows 1 / 3 33% within each method:
+  | index.html's Total row has 1 of 3, 33%, within each method:
   | one of crew?'s && row's three paths taken; ok?'s one
   | statement is no row.
   ) do |t|
@@ -837,15 +824,11 @@ class KernelTest < TidTest
 
     assert_output('', '') { t.report }
 
-    index = REXML::Document.new(File.read("#{t.dir}/index.html"))
-    total = index.elements.to_a('//tfoot/tr/td')
-    expected = ['Total', '1', '1', '/ 3', '33%']
-    assert_equal(expected, total.map { text_of(_1) })
-    html = File.read("#{t.dir}/files/crew.rb.html")
-    page = REXML::Document.new(html)
-    tree = "//div[@class='fold']//*[@data-count]"
-    counts = page.elements.to_a(tree)
-    assert_equal(%w(0 0 *), counts.map { |count| text_of(count) })
+    total = page_data("#{t.dir}/index.html")['tables'][0]['total']
+    expected = { 'sites' => 1, 'methods' => [1, 3], 'percent' => 33 }
+    assert_equal expected, total
+    rows = fold_at("#{t.dir}/files/crew.rb.html", 'crew.rb:3')
+    assert_equal [0, 0, 1], rows.first['counts']
   end
 
   test '6rTS49', %w(
@@ -1344,10 +1327,8 @@ class KernelTest < TidTest
     assert_equal([nil, 'kim'], users.map { owner.of(_1) })
     t.report
 
-    page = File.read("#{t.dir}/files/owner.rb.html")
-    tree = fold_at(page, 'owner.rb:2')
-    rows = tree.elements.to_a('.//*[@data-operand]')
-    texts = rows.map { text_of(_1.elements['*[@data-text]']) }
+    rows = fold_at("#{t.dir}/files/owner.rb.html", 'owner.rb:2')
+    texts = of_kind(rows, 'operand').map { shown(_1).first }
     assert_equal %w(user account), texts
   end
 
@@ -1404,9 +1385,8 @@ class KernelTest < TidTest
     t.start { report :html }
     t.load('ship6b.rb')::Ship.ship(3)
     t.report
-    page = File.read("#{t.dir}/files/ship6b.rb.html")
-    expected = [%w(ship 1), %w(line:col taken), %w(4:13 1)]
-    assert_equal expected, card_taken(page, 2)
+    page = "#{t.dir}/files/ship6b.rb.html"
+    assert_equal [%w(ship 1), %w(4:13 1)], card_taken(page, 2)
     assert_equal({ 'ship6b.rb:2:2' => 1 }, t.json['reached'])
   end
 
@@ -1414,7 +1394,7 @@ class KernelTest < TidTest
   | Example: label, a ternary whose then arm is an && chain,
   | and mark, an if whose then arm holds only a comment
   | Each arm's row in the ternary's tree is located in the
-  | source, data-at; the if's tree has no arm rows.
+  | source, its at; the if's tree has no arm rows.
   | The && in label's then arm is located too, its operands
   | with it.
   ) do |t|
@@ -1438,23 +1418,21 @@ class KernelTest < TidTest
     label.label(true, true)
     label.mark(false)
     t.report
-    page = File.read("#{t.dir}/files/label6c.rb.html")
+    page = "#{t.dir}/files/label6c.rb.html"
     located = lambda do |line, kind|
-      fold = fold_at(page, "label6c.rb:#{line}")
-      fold.elements.to_a(".//*[@#{kind}]").map do |row|
-        !row.attributes['data-at'].nil?
-      end
+      rows = of_kind(fold_at(page, "label6c.rb:#{line}"), kind)
+      rows.map { !_1['at'].nil? }
     end
-    assert_equal [true, true], located.call(3, 'data-arm')
-    assert_equal [true] * 3, located.call(3, 'data-operand')
-    assert_equal [], located.call(7, 'data-arm')
+    assert_equal [true, true], located.call(3, 'arm')
+    assert_equal [true] * 3, located.call(3, 'operand')
+    assert_equal [], located.call(7, 'arm')
   end
 
   test '6rTS6d', %w(
   | Example: ship, an if then a value, measured within methods,
   | called once with a paid order
   | Its card folds the if's tree under the if's row: its
-  | operator, a mark for each of its 2 paths, the one never
+  | operator, a count for each of its 2 paths, the one never
   | taken first, and its operands.
   ) do |t|
     t.write(<<~RUBY, 'ship6d.rb')
@@ -1470,13 +1448,9 @@ class KernelTest < TidTest
     t.start { report :html }
     t.load('ship6d.rb')::Ship.ship({ paid: true })
     t.report
-    html = File.read("#{t.dir}/files/ship6d.rb.html")
-    page = REXML::Document.new(html)
-    fold = "//div[@class='fold'][@data-site='ship6d.rb:3:4']"
-    counts = page.elements.to_a("#{fold}//*[@data-count]")
-    assert_equal(%w(0 *), counts.map { text_of(_1) })
-    operands = page.elements.to_a("#{fold}//*[@data-operand]")
-    texts = operands.map { text_of(_1.elements['*[@data-text]']) }
+    rows = fold_at("#{t.dir}/files/ship6d.rb.html", 'ship6d.rb:3')
+    assert_equal [0, 1], rows.first['counts']
+    texts = of_kind(rows, 'operand').map { shown(_1).first }
     assert_equal ['order[:paid]'], texts
   end
 
@@ -1511,11 +1485,11 @@ class KernelTest < TidTest
     t.start { report :html }
     t.load('rate.rb')
     t.report
-    page = File.read("#{t.dir}/files/rate.rb.html")
-    top = '<div class="pathgrid statements top-level" id="paths-1"'
-    assert_includes page, top
-    expected = [%w(file 1), %w(line:col taken), %w(1:30 1)]
-    assert_equal expected, card_taken(page, 1)
+    page = "#{t.dir}/files/rate.rb.html"
+    cards = page_data(page)['cards']
+    placed = cards.map { _1.values_at('first', 'top') }
+    assert_equal [[1, true]], placed
+    assert_equal [%w(file 1), %w(1:30 1)], card_taken(page, 1)
   end
 
   test '6rTS6g', %w(
@@ -1532,9 +1506,8 @@ class KernelTest < TidTest
     t.start { report :html }
     t.load('rate.rb')
     t.report
-    page = File.read("#{t.dir}/files/rate.rb.html")
-    expected = [%w(Rate 1), %w(line:col taken), %w(2:32 1)]
-    assert_equal expected, card_taken(page, 2)
+    page = "#{t.dir}/files/rate.rb.html"
+    assert_equal [%w(Rate 1), %w(2:32 1)], card_taken(page, 2)
   end
 
   test '6rTS6h', %w(
@@ -1550,9 +1523,8 @@ class KernelTest < TidTest
     t.start { report :html }
     t.load('rate.rb')
     t.report
-    page = File.read("#{t.dir}/files/rate.rb.html")
-    expected = [%w(Rate 1), %w(line:col taken), %w(2:32 1)]
-    assert_equal expected, card_taken(page, 2)
+    page = "#{t.dir}/files/rate.rb.html"
+    assert_equal [%w(Rate 1), %w(2:32 1)], card_taken(page, 2)
   end
 
   test '6rTS6j', %w(
@@ -1711,10 +1683,10 @@ class KernelTest < TidTest
       report :html
     end
     PathCoverage::Render.from_json(config, [sent])
-    page = File.read("#{later}/files/#{t.file}.html")
-    title = card_taken(page, 2).first
-    counted = page.include?('class="call-count')
-    assert_equal [%w(fee 1), false], [title, counted]
+    page = "#{later}/files/#{t.file}.html"
+    card = card_at(page, 2)
+    title = card['title'].values_at('name', 'calls', 'taken')
+    assert_equal ['fee', nil, 1], title
   end
 
   test '6rTS6s', %w(
@@ -1751,14 +1723,12 @@ class KernelTest < TidTest
     pick.pick(true)
     pick.size(5)
     t.report
-    page = File.read("#{t.dir}/files/#{t.file}.html")
+    page = "#{t.dir}/files/#{t.file}.html"
     elses = [3, 11].map do |line|
-      fold = fold_at(page, "#{t.file}:#{line}")
-      first = fold.elements['.//*[@class="row"]']
-      label = text_of(first.elements['*[@data-operator]'])
-      [label, first.attributes['data-else']]
+      first = fold_at(page, "#{t.file}:#{line}").first
+      [shown(first).first, first['else']]
     end
-    assert_equal [['if/else', '5,4,5,8'], ['if', nil]], elses
+    assert_equal [['if/else', [5, 4, 5, 8]], ['if', nil]], elses
   end
 
   test '6rTS6m', %w(
@@ -1792,23 +1762,51 @@ class KernelTest < TidTest
 
   private
 
-  # Example: owner.rb:2 gives the fold of the site on line 2.
-  # The fold, in its card, of the site at file:line in page, the
-  # page's text; nil for none.
-  def fold_at(page, line)
-    site = "starts-with(@data-site, '#{line}:')"
-    REXML::Document.new(page).elements["//div[@class='fold'][#{site}]"]
+  # Example: index.html gives its data, eg its tables.
+  # The data of the report's page in the file page, as it holds
+  # it inline, for the renderer to draw.
+  def page_data(page)
+    inline = File.read(page)[/^window\.pathCoverage = (.*);$/, 1]
+    JSON.parse(inline.gsub('<\/', '</'))
   end
 
-  # [label, last cell's text] of each row of the statement card
-  # of the def at line first in page, a title's label its name,
-  # its call-count left out.
+  # Example: owner.rb:2 gives the rows of the site on line 2.
+  # The rows of the fold, in its card, of the first site at
+  # file:line in the file page.
+  def fold_at(page, line)
+    rows = page_data(page)['cards'].flat_map { _1['rows'] }
+    by_line = rows.group_by { _1['site'].to_s[/\A(.*):\d+\z/, 1] }
+    by_line.fetch(line).first.fetch('fold')
+  end
+
+  # The card at line first in the file page.
+  def card_at(page, first)
+    cards = page_data(page)['cards']
+    cards.group_by { _1['first'] }.fetch(first).first
+  end
+
+  # Example: ship's card gives [%w(ship 1), %w(4:13 1)].
+  # [label, taken] of the title, then of each row, of the card at
+  # line first in the file page.
   def card_taken(page, first)
-    card = page[/id="paths-#{first}".*$/]
-    count = %r{<span class="call-count[^>]*>[^<]*</span>}
-    card.scan(%r{<div class="prow[^>]*>(.*?)</div>}).map do |(row)|
-      texts = row.sub(count, '').scan(%r{<span[^>]*>([^<]*)</span>})
-      [texts.flatten.first, texts.flatten.last]
+    card = card_at(page, first)
+    rows = card['rows'].map { |row| [row['at'], row['taken'].to_s] }
+    title = card['title']
+    [[title['name'], title['taken'].to_s], *rows]
+  end
+
+  # The rows of rows of kind, eg operand; none when none are.
+  def of_kind(rows, kind)
+    rows.group_by { _1['kind'] }.fetch(kind, [])
+  end
+
+  # Example: a user's row gives ['user', 'present', 'absent'].
+  # What a fold row shows: its label's text, then each cell's
+  # mark, eg present, or else its text.
+  def shown(row)
+    cells = row.fetch('cells', []).map do |text, mark|
+      [mark, text].compact.first
     end
+    [row['label']['text'], *cells]
   end
 end

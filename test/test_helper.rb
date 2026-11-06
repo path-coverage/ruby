@@ -167,19 +167,6 @@ class TidTest < Minitest::Test
     PathCoverage::Arm.new(kind:, extent:, body:)
   end
 
-  # All the text inside a parsed REXML element, its children's
-  # included, unescaped.
-  def text_of(element)
-    REXML::XPath.match(element, './/text()').map(&:value).join
-  end
-
-  # Example: a taken arm's cell gives taken, a T cell T.
-  # What a tree's cell shows: the mark it draws, eg taken,
-  # present or absent, else its text.
-  def cell_of(cell)
-    [cell.attributes['data-mark'], text_of(cell)].compact.first
-  end
-
   # Hook for subclasses; runs before each test body.
   def tid_setup; end
 
