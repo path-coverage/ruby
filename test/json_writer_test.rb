@@ -5,18 +5,18 @@ require 'json'
 
 class JsonWriterTest < TidTest
   test 'wdt910', %w(
-  | the result is written as raw JSON under "sites",
+  | the result is written as raw JSON under "decisions",
   | the base every other reporter reads, with the names of
-  | the kinds of site measured under "kinds", so runs that
+  | the kinds of decision measured under "kinds", so runs that
   | measured different kinds are never merged
   ) do |t|
-    sites = { 'k.rb:2:2' => condition('&&', 16...23, 27...35) }
+    decisions = { 'k.rb:2:2' => condition('&&', 16...23, 27...35) }
     counts = { ['k.rb:2:2', 0] => { truthy: 1, falsy: 1 } }
-    operands = PathCoverage::Result.new(sites, counts).operands
+    operands = PathCoverage::Result.new(decisions, counts).operands
     path = "#{t.dir}/path_coverage.json"
     PathCoverage::JsonWriter.write(operands, path)
     expected = {
-      'sites' => {
+      'decisions' => {
         'k.rb:2:2' => [
           { 'truthy' => 1, 'falsy' => 1 },
           { 'truthy' => 0, 'falsy' => 0 }
@@ -33,9 +33,9 @@ class JsonWriterTest < TidTest
   | The operators ignored are written under "ignored", so its
   | report is never merged with one that measured &&= writes.
   ) do |t|
-    sites = { 'k.rb:2:2' => condition('&&', 16...23, 27...35) }
+    decisions = { 'k.rb:2:2' => condition('&&', 16...23, 27...35) }
     counts = { ['k.rb:2:2', 0] => { truthy: 1, falsy: 1 } }
-    operands = PathCoverage::Result.new(sites, counts).operands
+    operands = PathCoverage::Result.new(decisions, counts).operands
     path = "#{t.dir}/path_coverage.json"
     fingerprint = { 'ignored' => ['&&='] }
     PathCoverage::JsonWriter.write(operands, path, fingerprint:)
@@ -50,8 +50,8 @@ class JsonWriterTest < TidTest
   | One that reached nothing still writes it, empty, so a
   | render knows its statements were never reached.
   ) do |t|
-    sites = { 'k.rb:2:2' => condition('&&', 16...23, 27...35) }
-    operands = PathCoverage::Result.new(sites, {}).operands
+    decisions = { 'k.rb:2:2' => condition('&&', 16...23, 27...35) }
+    operands = PathCoverage::Result.new(decisions, {}).operands
     written = [{ 'k.rb:3:4' => 2 }, {}].map.with_index do |reached, i|
       path = "#{t.dir}/#{i}.json"
       PathCoverage::JsonWriter.write(operands, path, reached:)

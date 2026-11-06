@@ -5,11 +5,11 @@ class TotalsTest < TidTest
   test 'Tq7m10', %w(
   | Example: ok?(id) && new?(id) taken by 2 paths of its 3,
   | and ok?(id) ? :ok : :no taken by both of its 2
-  | The alone total is [taken, possible] over every site.
+  | The alone total is [taken, possible] over every decision.
   | So it is [4, 5].
   | It counts the same paths the gap lines list as never taken.
   ) do
-    site_paths = {
+    decision_paths = {
       'source/kata.rb:3:23' => [
         { path: [true, true], count: 2 },
         { path: [true, false], count: 0 },
@@ -20,7 +20,7 @@ class TotalsTest < TidTest
         { path: [false], count: 1 }
       ]
     }
-    assert_equal [4, 5], PathCoverage::Totals.alone(site_paths)
+    assert_equal [4, 5], PathCoverage::Totals.alone(decision_paths)
   end
 
   test 'Tq7m20', %w(

@@ -1,7 +1,7 @@
 require_relative 'configuration'
 
 module PathCoverage
-  # Which file a site is in, and whether a file is in a group.
+  # Which file a decision is in, and whether a file is in a group.
   module Summary
     # True when path matches any of globs.
     def self.matches?(path, globs)
@@ -10,9 +10,9 @@ module PathCoverage
       end
     end
 
-    # The file a site is in: its name minus :line:column.
-    def self.path_of(site)
-      site.sub(/:\d+:\d+\z/, '')
+    # The file a decision is in: its name minus :line:column.
+    def self.path_of(decision)
+      decision.sub(/:\d+:\d+\z/, '')
     end
   end
 end

@@ -22,21 +22,21 @@ module PathCoverage
 
       # { target range => nil }: its target is never read, so
       # never wrapped.
-      def self.calls(_site, inner, _leaves)
+      def self.calls(_decision, inner, _leaves)
         { inner.operands.first => nil }
       end
 
-      # A write, its target the site's at-th leaf: its right side
+      # A write, its target the decision's at-th leaf: its right side
       # in a written_at call, which notes the target's outcome when
       # it runs, and the whole of it in a settle call, which notes
       # the other when it does not. A right side among commands,
       # eg a command call, is parenthesised. Eg x ||= v becomes,
-      # in effect, settle(site, at, true, x ||= written_at(site,
-      # at, false, v)).
-      def self.inserts(site, inner, at, commands)
+      # in effect, settle(decision, at, true,
+      # x ||= written_at(decision, at, false, v)).
+      def self.inserts(decision, inner, at, commands)
         _target, arm = inner.operands
         ran = THEN_ON[inner.operator]
-        name = site.inspect
+        name = decision.inspect
         written = "PathCoverage.written_at(#{name}, #{at}, #{ran}, "
         settle = "PathCoverage.settle(#{name}, #{at}, #{!ran}, "
         command = commands.include?(arm.extent)

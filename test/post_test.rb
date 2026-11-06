@@ -30,7 +30,7 @@ class PostTest < TidTest
       PathCoverage::Render.run(operands, {}, config)
     end
     expected = {
-      'sites' => {
+      'decisions' => {
         'source/kata.rb:3:23' => [
           { 'truthy' => 2, 'falsy' => 1 },
           { 'truthy' => 1, 'falsy' => 0, 'only' => 'truthy' }
@@ -42,28 +42,28 @@ class PostTest < TidTest
   end
 
   test 'Pq3s11', %w(
-  | the site paths are POSTed in the JSON report too, each
+  | the decision paths are POSTed in the JSON report too, each
   | leaf's span with them, so a collector's render shows
-  | every path each site took
+  | every path each decision took
   ) do |t|
     server = TCPServer.new('127.0.0.1', 0)
     port = server.addr[1]
     received = Thread.new { request_body(server.accept) }
     source = "def fee(u) = u ? 5 : 7\n"
-    sites = PathCoverage::Manifest.sites(source, 'fee.rb')
-    files = { '/app/fee.rb' => { source:, sites: } }
-    site = 'fee.rb:1:15'
-    assert_equal [site], sites.keys
-    operands = { site => [{ truthy: 1, falsy: 1 }] }
+    decisions = PathCoverage::Manifest.decisions(source, 'fee.rb')
+    files = { '/app/fee.rb' => { source:, decisions: } }
+    decision = 'fee.rb:1:15'
+    assert_equal [decision], decisions.keys
+    operands = { decision => [{ truthy: 1, falsy: 1 }] }
     taken = [{ path: [true], count: 1 }, { path: [false], count: 1 }]
-    site_paths = { site => taken }
+    decision_paths = { decision => taken }
     config = post_config(t.dir, "http://127.0.0.1:#{port}/runs")
     render = PathCoverage::Render
     assert_output('', '') do
-      render.run(operands, files, config, site_paths:)
+      render.run(operands, files, config, decision_paths:)
     end
     expected = {
-      site => {
+      decision => {
         'leaves' => [%w(1:13 1:14)],
         'taken' => [
           { 'path' => [true], 'count' => 1 },
@@ -118,8 +118,8 @@ class PostTest < TidTest
     assert_output("source/kata.rb:3:23 never reached\n", '') do
       PathCoverage::Render.run(operands, {}, config)
     end
-    sites = JSON.parse(received.join(5).value)['sites']
-    assert_equal ['source/kata.rb:3:23'], sites.keys
+    decisions = JSON.parse(received.join(5).value)['decisions']
+    assert_equal ['source/kata.rb:3:23'], decisions.keys
   end
 
   test 'Pq3s20', %w(
@@ -172,8 +172,8 @@ class PostTest < TidTest
     with_env('http_proxy', "http://127.0.0.1:#{dead_port}") do
       PathCoverage::Render.run(operands, {}, config)
     end
-    sites = JSON.parse(received.join(3).value)['sites']
-    assert_equal ['source/kata.rb:3:23'], sites.keys
+    decisions = JSON.parse(received.join(3).value)['decisions']
+    assert_equal ['source/kata.rb:3:23'], decisions.keys
   end
 
   # Seconds on the monotonic clock, for timing a call.

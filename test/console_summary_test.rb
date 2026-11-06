@@ -3,7 +3,7 @@ require 'path_coverage/console_summary'
 
 class ConsoleSummaryTest < TidTest
   test 'Cs4m10', %w(
-  | Example: lib/kata.rb's site taking 2 of its 3 paths, and
+  | Example: lib/kata.rb's decision taking 2 of its 3 paths, and
   | test/kata_test.rb's taking 1 of its 2, with groups code and
   | test
   | Each group is a heading, its own totals indented under it.
@@ -11,7 +11,7 @@ class ConsoleSummaryTest < TidTest
   | With no cards given, as methods are not measured, there is no
   | combined line.
   ) do
-    site_paths = {
+    decision_paths = {
       'lib/kata.rb:3:4' => [
         { path: [true, true], count: 2 },
         { path: [true, false], count: 1 },
@@ -30,7 +30,7 @@ class ConsoleSummaryTest < TidTest
       '  Paths alone: 1 / 2 (50.00%)'
     ]
     summary = PathCoverage::ConsoleSummary
-    actual = summary.lines(site_paths, nil, groups)
+    actual = summary.lines(decision_paths, nil, groups)
     assert_equal expected, actual
   end
 
@@ -56,16 +56,16 @@ class ConsoleSummaryTest < TidTest
   end
 
   test 'Cs4m30', %w(
-  | Example: two sites, both in lib/, with groups code and test
-  | code totals both sites' paths; test totals none.
+  | Example: two decisions, both in lib/, with groups code and test
+  | code totals both decisions' paths; test totals none.
   ) do
     two = { path: [true], count: 1 }
-    site_paths = {
+    decision_paths = {
       'lib/a.rb:1:0' => [two], 'lib/b.rb:1:0' => [two]
     }
     groups = { 'code' => ['lib/**/*.rb'], 'test' => ['test/**/*.rb'] }
     summary = PathCoverage::ConsoleSummary
-    actual = summary.group_totals(site_paths, nil, groups)
+    actual = summary.group_totals(decision_paths, nil, groups)
     expected = {
       'code' => { 'alone' => [2, 2] },
       'test' => { 'alone' => [0, 0] }

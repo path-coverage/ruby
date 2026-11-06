@@ -1,17 +1,17 @@
 require_relative 'test_helper'
 require 'path_coverage/manifest'
-require 'path_coverage/site_paths'
+require 'path_coverage/decision_paths'
 
-class SitePathsTest < TidTest
+class DecisionPathsTest < TidTest
   test 'Sp3x10', %w(
   | the possible paths through an && are every way its
   | leaves can be evaluated, true before false, a leaf an
   | && never reaches being nil
   ) do
     # ok?(id) && new?(id)
-    site = condition('&&', 16...23, 27...35)
+    decision = condition('&&', 16...23, 27...35)
     expected = [[true, true], [true, false], [false, nil]]
-    assert_equal expected, PathCoverage::SitePaths.possible(site)
+    assert_equal expected, PathCoverage::DecisionPaths.possible(decision)
   end
 
   test 'Sp3x20', %w(
@@ -19,9 +19,9 @@ class SitePathsTest < TidTest
   | that was true is nil
   ) do
     # ok?(id) || new?(id)
-    site = condition('||', 16...23, 27...35)
+    decision = condition('||', 16...23, 27...35)
     expected = [[true, nil], [false, true], [false, false]]
-    assert_equal expected, PathCoverage::SitePaths.possible(site)
+    assert_equal expected, PathCoverage::DecisionPaths.possible(decision)
   end
 
   test 'Sp3x30', %w(
@@ -31,14 +31,14 @@ class SitePathsTest < TidTest
   ) do
     # ok?(id) ? new?(id) && id.size == 6 : :no
     both = condition('&&', 26...34, 38...50)
-    site = condition(
+    decision = condition(
       '?:', 16...23, arm(:then, 26...50, both), arm(:else, 53...56)
     )
     expected = [
       [true, true, true], [true, true, false],
       [true, false, nil], [false, nil, nil]
     ]
-    assert_equal expected, PathCoverage::SitePaths.possible(site)
+    assert_equal expected, PathCoverage::DecisionPaths.possible(decision)
   end
 
   test 'Sp3x40', %w(
@@ -47,12 +47,12 @@ class SitePathsTest < TidTest
   ) do
     # opts[:v] || false ? :loud : :quiet
     either = condition('||', 16...24, 28...33)
-    site = condition(
+    decision = condition(
       '?:', either, arm(:then, 36...41), arm(:else, 44...50),
       fixed: { 28...33 => :falsy }
     )
     expected = [[true, nil], [false, false]]
-    assert_equal expected, PathCoverage::SitePaths.possible(site)
+    assert_equal expected, PathCoverage::DecisionPaths.possible(decision)
   end
 
   test 'Sp3x50', %w(
@@ -61,12 +61,12 @@ class SitePathsTest < TidTest
   ) do
     # ok?(id) && new?(id) || id.size == 6
     both = condition('&&', 16...23, 27...35)
-    site = condition('||', both, 39...51)
+    decision = condition('||', both, 39...51)
     expected = [
       [true, true, nil], [true, false, true], [true, false, false],
       [false, nil, true], [false, nil, false]
     ]
-    assert_equal expected, PathCoverage::SitePaths.possible(site)
+    assert_equal expected, PathCoverage::DecisionPaths.possible(decision)
   end
 
   test 'Sp3x60', %w(
@@ -76,9 +76,9 @@ class SitePathsTest < TidTest
   | It has no else arm, but still has a false path.
   ) do
     both = condition('&&', 20...30, 34...44)
-    site = condition('if', both, arm(:then, 49...50))
+    decision = condition('if', both, arm(:then, 49...50))
     expected = [[true, true], [true, false], [false, nil]]
-    assert_equal expected, PathCoverage::SitePaths.possible(site)
+    assert_equal expected, PathCoverage::DecisionPaths.possible(decision)
   end
 
   test 'Sp3x70', %w(
@@ -86,9 +86,9 @@ class SitePathsTest < TidTest
   | The unless's paths are its predicate's paths.
   | That is the same as for an if.
   ) do
-    site = condition('unless', 24...34, arm(:then, 39...40))
+    decision = condition('unless', 24...34, arm(:then, 39...40))
     expected = [[true], [false]]
-    assert_equal expected, PathCoverage::SitePaths.possible(site)
+    assert_equal expected, PathCoverage::DecisionPaths.possible(decision)
   end
 
   test 'Sp3x80', %w(
@@ -100,7 +100,7 @@ class SitePathsTest < TidTest
   ) do
     small = condition('when', 28...29, 31...32)
     text = condition('when', 51...57)
-    site = condition(
+    decision = condition(
       'case', arm(:when, 37...43, small), arm(:when, 62...67, text),
       arm(:else, 79...85)
     )
@@ -108,7 +108,7 @@ class SitePathsTest < TidTest
       [true, nil, nil], [false, true, nil],
       [false, false, true], [false, false, false]
     ]
-    assert_equal expected, PathCoverage::SitePaths.possible(site)
+    assert_equal expected, PathCoverage::DecisionPaths.possible(decision)
   end
 
   test 'Sp3x90', %w(
@@ -120,12 +120,12 @@ class SitePathsTest < TidTest
   | Second, the block's last answer: true or false.
   | With 0 items the block was never called, so it is nil.
   ) do
-    site = condition('any?', 13...16, 29...35)
+    decision = condition('any?', 13...16, 29...35)
     expected = [
       ['0 items', nil], ['1 item', true], ['1 item', false],
       ['2+ items', true], ['2+ items', false]
     ]
-    assert_equal expected, PathCoverage::SitePaths.possible(site)
+    assert_equal expected, PathCoverage::DecisionPaths.possible(decision)
   end
 
   test 'Sp3x91', %w(
@@ -137,14 +137,14 @@ class SitePathsTest < TidTest
   | Both needs 2+ items.
   | With 0 items the block was never called, so it is nil.
   ) do
-    site = condition('select', 13...16, 31...37)
+    decision = condition('select', 13...16, 31...37)
     expected = [
       ['0 items', nil],
       ['1 item', 'all true'], ['1 item', 'all false'],
       ['2+ items', 'all true'], ['2+ items', 'all false'],
       ['2+ items', 'both']
     ]
-    assert_equal expected, PathCoverage::SitePaths.possible(site)
+    assert_equal expected, PathCoverage::DecisionPaths.possible(decision)
   end
 
   test 'Sp3x92', %w(
@@ -155,10 +155,10 @@ class SitePathsTest < TidTest
   ) do
     source = "def k(u) = u.name&.size\n"
     manifest = PathCoverage::Manifest
-    treated = manifest.sites(source, 'k.rb', [], ['name']).values
-    plain = manifest.sites(source, 'k.rb').values
-    actual = (treated + plain).map do |site|
-      PathCoverage::SitePaths.possible(site)
+    treated = manifest.decisions(source, 'k.rb', [], ['name']).values
+    plain = manifest.decisions(source, 'k.rb').values
+    actual = (treated + plain).map do |decision|
+      PathCoverage::DecisionPaths.possible(decision)
     end
     assert_equal [[['not nil']], [['not nil'], ['nil']]], actual
   end
@@ -172,8 +172,8 @@ class SitePathsTest < TidTest
   | possible, eg 0 items with any? true.
   ) do
     source = "def k(ids, c) = ids.select { |i| i.odd? }.any? && c\n"
-    sites = PathCoverage::Manifest.sites(source, 'k.rb', [], [],
-                                         ['any?'])
+    manifest = PathCoverage::Manifest
+    decisions = manifest.decisions(source, 'k.rb', [], [], ['any?'])
     expected = [
       ['0 items', nil, false, nil],
       ['1 item', 'all true', true, true],
@@ -185,7 +185,7 @@ class SitePathsTest < TidTest
       ['2+ items', 'both', true, true],
       ['2+ items', 'both', true, false]
     ]
-    actual = PathCoverage::SitePaths.possible(sites.values.first)
+    actual = PathCoverage::DecisionPaths.possible(decisions.values.first)
     assert_equal expected, actual
   end
 
@@ -197,11 +197,11 @@ class SitePathsTest < TidTest
   ) do
     source = 'def k(cached, fetched, c) = ' \
              "(cached || fetched).any? && c\n"
-    sites = PathCoverage::Manifest.sites(source, 'k.rb', [], [],
-                                         ['any?'])
-    treated = PathCoverage::SitePaths.possible(sites.values.first)
-    plain = PathCoverage::Manifest.sites(source, 'k.rb').values.first
-    assert_equal PathCoverage::SitePaths.possible(plain), treated
+    manifest = PathCoverage::Manifest
+    decisions = manifest.decisions(source, 'k.rb', [], [], ['any?'])
+    treated = PathCoverage::DecisionPaths.possible(decisions.values.first)
+    plain = manifest.decisions(source, 'k.rb').values.first
+    assert_equal PathCoverage::DecisionPaths.possible(plain), treated
     assert_equal 9, treated.size
   end
 
@@ -217,12 +217,12 @@ class SitePathsTest < TidTest
       'def k(ids, c) = [ids.select { |i| i.odd? }, ' \
       "ids.select { |i| i.even? }].any? && c\n"
     ]
+    manifest = PathCoverage::Manifest
     same = sources.map do |source|
-      sites = PathCoverage::Manifest.sites(source, 'k.rb', [], [],
-                                           ['any?'])
-      plain = PathCoverage::Manifest.sites(source, 'k.rb')
-      [sites, plain].map do |all|
-        PathCoverage::SitePaths.possible(all.values.last)
+      decisions = manifest.decisions(source, 'k.rb', [], [], ['any?'])
+      plain = manifest.decisions(source, 'k.rb')
+      [decisions, plain].map do |all|
+        PathCoverage::DecisionPaths.possible(all.values.last)
       end.uniq.size
     end
     assert_equal [1, 1], same
@@ -230,29 +230,29 @@ class SitePathsTest < TidTest
 
   test 'Sp3x99', %w(
   | Example: ids.any? { |i| i.odd? } && c
-  | The any? is a site of its own, the &&'s first leaf its
+  | The any? is a decision of its own, the &&'s first leaf its
   | value, true or false, so c is evaluated only where that
   | leaf is true. Which of the any?'s paths give true is its
   | card tree's gives.
   ) do
     source = "def k(ids, c) = ids.any? { |i| i.odd? } && c\n"
-    sites = PathCoverage::Manifest.sites(source, 'k.rb')
-    assert_equal %w(k.rb:1:16 k.rb:1:20), sites.keys
-    actual = PathCoverage::SitePaths.possible(sites['k.rb:1:16'])
+    decisions = PathCoverage::Manifest.decisions(source, 'k.rb')
+    assert_equal %w(k.rb:1:16 k.rb:1:20), decisions.keys
+    actual = PathCoverage::DecisionPaths.possible(decisions['k.rb:1:16'])
     assert_equal [[true, true], [true, false], [false, nil]], actual
   end
 
   test 'Sp3x9a', %w(
   | Example: ids.select { |i| i.odd? }.any? { |i| i > 1 } && c
-  | The leaf is wholly the any?, a site of its own, as is the
-  | select, its receiver: so three sites, the &&'s first leaf
+  | The leaf is wholly the any?, a decision of its own, as is the
+  | select, its receiver: so three decisions, the &&'s first leaf
   | the any?'s value, and c evaluated only where it is true.
   ) do
     source = 'def k(ids, c) = ' \
              "ids.select { |i| i.odd? }.any? { |i| i > 1 } && c\n"
-    sites = PathCoverage::Manifest.sites(source, 'k.rb')
-    assert_equal %w(k.rb:1:16 k.rb:1:42 k.rb:1:20), sites.keys
-    actual = PathCoverage::SitePaths.possible(sites['k.rb:1:16'])
+    decisions = PathCoverage::Manifest.decisions(source, 'k.rb')
+    assert_equal %w(k.rb:1:16 k.rb:1:42 k.rb:1:20), decisions.keys
+    actual = PathCoverage::DecisionPaths.possible(decisions['k.rb:1:16'])
     assert_equal [[true, true], [true, false], [false, nil]], actual
   end
 
@@ -290,7 +290,7 @@ class SitePathsTest < TidTest
   | itself be nil, so it can still be true or false.
   ) do
     source = "def k(xs) = xs.find { |x| x > 1 } || 0\n"
-    sites = PathCoverage::Manifest.sites(source, 'k.rb')
+    decisions = PathCoverage::Manifest.decisions(source, 'k.rb')
     expected = [
       ['0 items', nil, false, true],
       ['1 item', true, true, nil],
@@ -300,7 +300,7 @@ class SitePathsTest < TidTest
       ['2+ items', true, false, true],
       ['2+ items', false, false, true]
     ]
-    actual = PathCoverage::SitePaths.possible(sites.values.first)
+    actual = PathCoverage::DecisionPaths.possible(decisions.values.first)
     assert_equal expected, actual
   end
 
@@ -308,14 +308,14 @@ class SitePathsTest < TidTest
   | Example: xs.select { |x| x > 1 } || []
   | select always returns an array, which is truthy, however
   | many items it was called with and whatever they answered.
-  | It is a site of its own, and its every path gives the ||'s
+  | It is a decision of its own, and its every path gives the ||'s
   | leaf true: so that leaf is never false, and the [] never
   | runs.
   ) do
     source = "def k(xs) = xs.select { |x| x > 1 } || []\n"
-    sites = PathCoverage::Manifest.sites(source, 'k.rb')
-    assert_equal %w(k.rb:1:12 k.rb:1:15), sites.keys
-    actual = PathCoverage::SitePaths.possible(sites['k.rb:1:12'])
+    decisions = PathCoverage::Manifest.decisions(source, 'k.rb')
+    assert_equal %w(k.rb:1:12 k.rb:1:15), decisions.keys
+    actual = PathCoverage::DecisionPaths.possible(decisions['k.rb:1:12'])
     assert_equal [[true, nil]], actual
   end
 
@@ -328,11 +328,12 @@ class SitePathsTest < TidTest
     result = ids.public_send(name) do |i|
       i.odd?.tap { |answer| answers << answer }
     end
-    site = condition(name, 0...3, 10...16)
+    decision = condition(name, 0...3, 10...16)
     outcomes = {
       0...3 => items(answers), 10...16 => answer(name, answers)
     }
-    [PathCoverage::Kinds::Block.items?(site, outcomes), result.any?]
+    [PathCoverage::Kinds::Block.items?(decision, outcomes),
+     result.any?]
   end
 
   # The receiver's leaf outcome of a block method whose block

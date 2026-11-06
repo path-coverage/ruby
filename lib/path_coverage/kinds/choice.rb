@@ -12,11 +12,12 @@ module PathCoverage
       def ways(node, fixed)
         predicate, then_arm, else_arm = node.operands
         then_on = THEN_ON[node.operator]
-        SitePaths.walk(predicate, fixed).flat_map do |outcomes, value|
+        DecisionPaths.walk(predicate,
+                           fixed).flat_map do |outcomes, value|
           body = (value == then_on ? then_arm : else_arm)&.body
           next [[outcomes, nil]] if body.nil?
 
-          SitePaths.walk(body, fixed).map do |more, _|
+          DecisionPaths.walk(body, fixed).map do |more, _|
             [outcomes.merge(more), nil]
           end
         end
@@ -42,7 +43,7 @@ module PathCoverage
 
       OPERATORS = CHOICES
 
-      # What its site's leave call wraps: an if's or an unless's
+      # What its decision's leave call wraps: an if's or an unless's
       # predicate, a leaf's byte range or a nested Condition, as
       # its path is decided there and its arms are statements that
       # may return or raise; a ternary as a whole.

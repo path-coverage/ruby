@@ -115,14 +115,14 @@ module PathCoverage
       end
     end
 
-    # The names of the operators that decide a path, as a site
+    # The names of the operators that decide a path, as a decision
     # tree's labels write them. Alone, some lex as other tokens,
     # eg ?: as a character and || as two pipes, so each is
     # coloured as an operator by name.
     DECIDING = %w[&& || &. ?: &&= ||=].freeze
 
     # Example: x && y as { text: 'x && y', tokens: [[2, 4, 'o']] }.
-    # text, a fragment of code on one line, eg a site tree's
+    # text, a fragment of code on one line, eg a decision tree's
     # operator or operand, as page data holds it: its text and the
     # [from, to, class] of each range coloured as the code it is
     # part of; one of DECIDING wholly the operator it names.

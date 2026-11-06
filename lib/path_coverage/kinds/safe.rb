@@ -3,7 +3,7 @@ require_relative 'base'
 module PathCoverage
   module Kinds
     # A &. chain, eg user&.account&.owner, each receiver nil or
-    # not, a nil one skipping the rest of the chain. As a site of
+    # not, a nil one skipping the rest of the chain. As a decision of
     # its own its operands are its receivers; nested in another,
     # they are its receivers then its value, its last leaf. Each
     # receiver is wrapped in a present call, which passes it on
@@ -19,7 +19,7 @@ module PathCoverage
         chain(node.operands[0...-1], node.operands.last, fixed)
       end
 
-      # The ways a &. chain site can be evaluated, every operand
+      # The ways a &. chain decision can be evaluated, every operand
       # a receiver.
       def self.root_ways(node, fixed)
         chain(node.operands, nil, fixed)
@@ -32,7 +32,7 @@ module PathCoverage
       def self.chain(receivers, last, fixed)
         first, *rest = receivers
         on = if !rest.empty? then chain(rest, last, fixed)
-             elsif last then SitePaths.walk(last, fixed)
+             elsif last then DecisionPaths.walk(last, fixed)
              else [[{}, true]]
              end
         present = on.map do |outcomes, value|
@@ -52,20 +52,29 @@ module PathCoverage
         end
       end
 
-      # The inserts for a &. chain site: each receiver in a present
-      # call, and the whole chain in a leave call that enters it
-      # first. Eg user&.account becomes, in effect,
-      # leave(enter(site, 1), present(site, 0, 0, user)&.account).
-      def self.site_inserts(site, condition)
+      # The inserts for a &. chain decision: each receiver in a
+      # present call, and the whole chain in a leave call that
+      # enters it first. Eg user&.account becomes, in effect,
+      # leave(enter(decision, 1),
+      #       present(decision, 0, 0, user)&.account).
+      def self.decision_inserts(decision, condition)
         leaves = condition.leaves
-        enter = "PathCoverage.enter(#{site.inspect}, #{leaves.size})"
+        name = decision.inspect
+        enter = "PathCoverage.enter(#{name}, #{leaves.size})"
         call = "PathCoverage.leave(#{enter}, "
-        command = condition.commands.include?(condition.extent)
-        presents = leaves.each_with_index.flat_map do |range, index|
-          Rewriter.wrap(present(site, index, 0), range, false, :leaf)
-        end
         extent = condition.extent
-        presents + Rewriter.wrap(call, extent, command, :site)
+        command = condition.commands.include?(extent)
+        presents(decision, leaves) +
+          Rewriter.wrap(call, extent, command, :decision)
+      end
+
+      # The inserts wrapping each of leaves, a &. chain decision's,
+      # in its present call.
+      def self.presents(decision, leaves)
+        leaves.each_with_index.flat_map do |range, index|
+          opening = present(decision, index, 0)
+          Rewriter.wrap(opening, range, false, :leaf)
+        end
       end
 
       # Its leaves need present and chained calls.
@@ -74,30 +83,32 @@ module PathCoverage
       end
 
       # { leaf range => the opening of its call } for the leaves of
-      # chain nested in a site whose leaves are leaves: a
+      # chain nested in a decision whose leaves are leaves: a
       # receiver's present call, and the chain's value's chained
       # call, each told where its chain's leaves start.
-      def self.calls(site, chain, leaves)
+      def self.calls(decision, chain, leaves)
         first = leaves.index(chain.operands.first)
         *receivers, value = chain.operands
         calls = receivers.to_h do |range|
-          [range, present(site, leaves.index(range), first)]
+          [range, present(decision, leaves.index(range), first)]
         end
         at = leaves.index(value)
-        calls.merge(value => chained(site, at, first))
+        calls.merge(value => chained(decision, at, first))
       end
 
       # The opening of the chained call around the index-th leaf
-      # of site, a chain's value, its chain's leaves starting at
+      # of decision, a chain's value, its chain's leaves starting at
       # first.
-      def self.chained(site, index, first)
-        "PathCoverage.chained(#{site.inspect}, #{index}, #{first}, "
+      def self.chained(decision, index, first)
+        "PathCoverage.chained(#{decision.inspect}, #{index}, " \
+          "#{first}, "
       end
 
       # The opening of the present call around the index-th leaf
-      # of site, its chain's leaves starting at first.
-      def self.present(site, index, first)
-        "PathCoverage.present(#{site.inspect}, #{index}, #{first}, "
+      # of decision, its chain's leaves starting at first.
+      def self.present(decision, index, first)
+        "PathCoverage.present(#{decision.inspect}, #{index}, " \
+          "#{first}, "
       end
 
       # Its leaves' nodes, each after the first showing only what

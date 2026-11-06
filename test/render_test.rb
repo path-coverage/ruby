@@ -12,8 +12,8 @@ class RenderTest < TidTest
   ) do |t|
     source = "def kata?(id) = ok?(id) && id.size == 6\n"
     t.write(source, 'kata.rb')
-    sites = PathCoverage::Manifest.sites(source, 'kata.rb')
-    site = sites.keys.first
+    decisions = PathCoverage::Manifest.decisions(source, 'kata.rb')
+    decision = decisions.keys.first
     leaves = [%w(1:16 1:23), %w(1:27 1:39)]
     runs = [
       [[{ truthy: 1, falsy: 0 }, { truthy: 0, falsy: 1 }], [0, 1, 0]],
@@ -23,9 +23,9 @@ class RenderTest < TidTest
       taken = [[true, true], [true, false], [false, nil]]
               .zip(counts).map { |path, count| { path:, count: } }
       file = "#{t.dir}/run#{n}.json"
-      report = { site => { leaves:, taken: } }
+      report = { decision => { leaves:, taken: } }
       writer = PathCoverage::JsonWriter
-      writer.write({ site => operands }, file, report)
+      writer.write({ decision => operands }, file, report)
       file
     end
     config = PathCoverage::Configuration.new do
@@ -34,7 +34,7 @@ class RenderTest < TidTest
       coverage_dir t.dir
       report :gaps
     end
-    gap = "#{site} path never taken: " \
+    gap = "#{decision} path never taken: " \
           '`ok?(id)` true, `id.size == 6` true'
     assert_output("#{gap}\n", '') do
       PathCoverage::Render.from_json(config, paths)
@@ -51,16 +51,17 @@ class RenderTest < TidTest
   ) do |t|
     source = "def kata?(id) = ok?(id) && id.size == 6\n"
     t.write(source, 'kata.rb')
-    site = PathCoverage::Manifest.sites(source, 'kata.rb').keys.first
+    decision = PathCoverage::Manifest.decisions(source,
+                                                'kata.rb').keys.first
     leaves = [%w(1:16 1:23), %w(1:27 1:39)]
     operands = [{ truthy: 1, falsy: 1 }, { truthy: 0, falsy: 1 }]
     runs = [[0, 1, 0], [0, 0, 1]].each_with_index.map do |counts, n|
       taken = [[true, true], [true, false], [false, nil]]
               .zip(counts).map { |path, count| { path:, count: } }
       file = "#{t.dir}/run#{n}.json"
-      report = { site => { leaves:, taken: } }
+      report = { decision => { leaves:, taken: } }
       writer = PathCoverage::JsonWriter
-      writer.write({ site => operands }, file, report)
+      writer.write({ decision => operands }, file, report)
       file
     end
     out = "#{t.dir}/merged"
@@ -73,33 +74,33 @@ class RenderTest < TidTest
     PathCoverage::Render.from_json(config, runs)
 
     merged = JSON.parse(File.read("#{out}/path_coverage.json"))
-    counts = merged['paths'][site]['taken'].map { _1['count'] }
+    counts = merged['paths'][decision]['taken'].map { _1['count'] }
     assert_equal [0, 1, 1], counts
     written = File.read("#{out}/path_coverage.source.json")
     kata = JSON.parse(written)['files']['kata.rb']
-    assert_equal [site], kata['sites'].keys
+    assert_equal [decision], kata['decisions'].keys
   end
 
   test 'Rn5d20', %w(
   | a JSON report with no paths, eg from an older version,
   | cannot say which paths were taken, so rendering from it
-  | reports every path of each site it reached as never
+  | reports every path of each decision it reached as never
   | taken, rather than claiming any was
   ) do |t|
     source = "def kata?(id) = ok?(id) && id.size == 6\n"
     t.write(source, 'kata.rb')
-    sites = PathCoverage::Manifest.sites(source, 'kata.rb')
-    site = sites.keys.first
+    decisions = PathCoverage::Manifest.decisions(source, 'kata.rb')
+    decision = decisions.keys.first
     operands = [{ truthy: 1, falsy: 1 }, { truthy: 1, falsy: 0 }]
     file = "#{t.dir}/run.json"
-    PathCoverage::JsonWriter.write({ site => operands }, file)
+    PathCoverage::JsonWriter.write({ decision => operands }, file)
     config = PathCoverage::Configuration.new do
       root t.dir
       cover '*.rb'
       coverage_dir t.dir
       report :gaps
     end
-    never = "#{site} path never taken: `ok?(id)`"
+    never = "#{decision} path never taken: `ok?(id)`"
     expected = [
       "#{never} true, `id.size == 6` true",
       "#{never} true, `id.size == 6` false",
@@ -112,17 +113,17 @@ class RenderTest < TidTest
 
   test 'Rn5d30', %w(
   | a JSON report from a run that measured other kinds, eg
-  | one with writes switched off, lists its sites' paths
+  | one with writes switched off, lists its decisions' paths
   | differently, so rendering from it is refused rather than
   | crediting one path's count to another
   ) do |t|
     source = "def kata?(id) = ok?(id) && id.size == 6\n"
     t.write(source, 'kata.rb')
-    sites = PathCoverage::Manifest.sites(source, 'kata.rb')
-    site = sites.keys.first
+    decisions = PathCoverage::Manifest.decisions(source, 'kata.rb')
+    decision = decisions.keys.first
     operands = [{ truthy: 1, falsy: 1 }, { truthy: 1, falsy: 0 }]
     file = "#{t.dir}/run.json"
-    PathCoverage::JsonWriter.write({ site => operands }, file)
+    PathCoverage::JsonWriter.write({ decision => operands }, file)
     json = JSON.parse(File.read(file))
     json['kinds'] -= ['write']
     File.write(file, JSON.generate(json))
@@ -141,7 +142,7 @@ class RenderTest < TidTest
   test 'Rn5d31', %w(
   | Example: a JSON report from a run with ignore '&&', rendered
   | with nothing ignored
-  | The render would list the && site's paths, which the run
+  | The render would list the && decision's paths, which the run
   | never measured, so rendering from it is refused.
   ) do |t|
     source = "def kata?(id) = ok?(id) && id.size == 6\n"
@@ -164,7 +165,7 @@ class RenderTest < TidTest
   test 'Rn5d32', %w(
   | Example: report :summary with ignore '&&=', '||='
   | The summary names the operators ignored after its totals,
-  | so a total that leaves out their sites never passes for
+  | so a total that leaves out their decisions never passes for
   | one that measured them.
   ) do |t|
     config = PathCoverage::Configuration.new do

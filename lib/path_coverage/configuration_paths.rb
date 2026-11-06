@@ -2,20 +2,20 @@ require_relative 'kinds'
 
 module PathCoverage
   # The settings of a PathCoverage.start block that change which
-  # paths a site has: ignore, eg ignore '&&=', and treat, eg
+  # paths a decision has: ignore, eg ignore '&&=', and treat, eg
   # treat 'name', as: :present. It relies on its includer's
   # @ignored, @treats and check.
   module ConfigurationPaths
     TREATMENTS = %w[present nonempty].freeze
 
-    # The operators whose sites are not measured, chosen with
+    # The operators whose decisions are not measured, chosen with
     # ignore, eg ['&&=']; none when nothing was chosen.
     attr_reader :ignored
 
-    # Chooses operators whose sites are not measured, eg
-    # ignore '&&=' measures no &&= write; a site inside one, eg
+    # Chooses operators whose decisions are not measured, eg
+    # ignore '&&=' measures no &&= write; a decision inside one, eg
     # on its right side, still is. Refuses an operator there
-    # is no kind of site for.
+    # is no kind of decision for.
     def ignore(*operators)
       check('operator', operators, Kinds::BY_OPERATOR.keys)
       @ignored = operators
@@ -43,11 +43,11 @@ module PathCoverage
       end
     end
 
-    # The settings that change which paths a site has, eg
+    # The settings that change which paths a decision has, eg
     # { 'ignored' => ['&&='],
     #   'treats' => [['name', 'present', nil]] },
     # each only when set: runs whose fingerprints differ list
-    # their sites' paths differently.
+    # their decisions' paths differently.
     def fingerprint
       print = {}
       print['ignored'] = @ignored unless @ignored.empty?

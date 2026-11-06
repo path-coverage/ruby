@@ -7,33 +7,34 @@ require_relative 'manifest_choices'
 require_relative 'manifest_folding'
 require_relative 'manifest_ignoring'
 require_relative 'manifest_writes'
-require_relative 'site'
+require_relative 'decision'
 
 module PathCoverage
-  # Finds every condition site in source without running it: each
+  # Finds every condition decision in source without running it: each
   # outermost &&, ||, and or or, each ternary, if, unless and case
   # with a subject, with the conditions nested in it.
   module Manifest
-    # { site => Condition } for each site in source, none of
+    # { decision => Condition } for each decision in source, none of
     # them named by an operator in ignored; a call to a method
     # named in present, as a &.'s receiver, is never nil, and a
     # call to one named in nonempty, eg any?, is true exactly
     # when its receiver has items.
-    def self.sites(source, path, ignored = [], present = [],
-                   nonempty = [])
+    def self.decisions(source, path, ignored = [], present = [],
+                       nonempty = [])
       collector = ConditionSites.new(path, ignored,
                                      [present, nonempty])
       Prism.parse(source).value.accept(collector)
-      collector.sites
+      collector.decisions
     end
 
-    # The source and sites of the covered file at full_path.
+    # The source and decisions of the covered file at full_path.
     def self.parse(full_path, config)
       source = File.read(full_path)
       path = config.relative(full_path)
       treated = %w[present nonempty].map { config.treated(_1, path) }
       ignored = config.ignored
-      { source:, sites: sites(source, path, ignored, *treated) }
+      { source:,
+        decisions: decisions(source, path, ignored, *treated) }
     end
 
     # True for a call to a named method with arguments and no
@@ -82,7 +83,7 @@ module PathCoverage
         TRUTHY_GLOBALS.include?(node.name)
     end
 
-    # Collects each site and its Condition.
+    # Collects each decision and its Condition.
     class ConditionSites < Prism::Visitor
       include ManifestBlocks
       include ManifestCase
@@ -92,7 +93,7 @@ module PathCoverage
       include ManifestIgnoring
       include ManifestWrites
 
-      # Starts with no sites found, to find none named by an
+      # Starts with no decisions found, to find none named by an
       # operator in ignored, and to take a call to a method named
       # in present as never nil, and to one in nonempty as true
       # exactly when its receiver has items.
@@ -101,72 +102,72 @@ module PathCoverage
         @ignored = ignored
         @present = present
         @nonempty = nonempty
-        @sites = {}
+        @decisions = {}
         @notes = nil
         @inner = nil
         super()
       end
 
-      # The sites found so far.
-      attr_reader :sites
+      # The decisions found so far.
+      attr_reader :decisions
 
       OPERATOR_TYPES = %i[and_node or_node].freeze
 
-      # Notes an && or and site.
+      # Notes an && or and decision.
       def visit_and_node(node)
-        add_site(node)
+        add_decision(node)
       end
 
-      # Notes an || or or site.
+      # Notes an || or or decision.
       def visit_or_node(node)
-        add_site(node)
+        add_decision(node)
       end
 
-      # Notes a ternary or an if site, a modifier if included,
+      # Notes a ternary or an if decision, a modifier if included,
       # its arms included.
       def visit_if_node(node)
-        add_site(node)
+        add_decision(node)
       end
 
-      # Notes an unless site, a modifier unless included, its
+      # Notes an unless decision, a modifier unless included, its
       # arms included.
       def visit_unless_node(node)
-        add_site(node)
+        add_decision(node)
       end
 
-      # Notes a case site, when its paths can be seen; any other
-      # case is no site, though a condition inside it may be.
+      # Notes a case decision, when its paths can be seen; any other
+      # case is no decision, though a condition inside it may be.
       def visit_case_node(node)
-        return super unless case_site?(node)
+        return super unless case_decision?(node)
 
-        add_site(node)
+        add_decision(node)
       end
 
-      # Notes a &. chain as a site, or a block method's call, when
+      # Notes a &. chain as a decision, or a block method's call, when
       # its block's every call can be seen; any other call is no
-      # site, though a condition inside it may be.
+      # decision, though a condition inside it may be.
       def visit_call_node(node)
-        return add_site(node) if safe_chain?(node)
-        return super unless block_site?(node)
+        return add_decision(node) if safe_chain?(node)
+        return super unless block_decision?(node)
 
-        add_site(node)
+        add_decision(node)
       end
 
-      # Notes node as a site, named where it starts: an if or an
+      # Notes node as a decision, named where it starts: an if or an
       # unless at its keyword. It claims its place first, so a
-      # site found inside one of its leaves or arms follows it.
-      # While a leaf is being visited, any site is collected as
+      # decision found inside one of its leaves or arms follows it.
+      # While a leaf is being visited, any decision is collected as
       # part of that leaf instead, as it is part of one expression.
-      def add_site(node)
+      def add_decision(node)
         return visit_child_nodes(node) if ignored?(node)
         return @inner << nested_condition_of(node) if @inner
 
-        site = Site.at(@path, site_loc(node))
-        @sites[site] = nil
+        decision = Decision.at(@path, decision_loc(node))
+        @decisions[decision] = nil
         outer = @notes
         @notes = { commands: [], fixed: {} }
         condition = scoped { condition_of(node) }
-        @sites[site] = condition.with(**@notes)
+        @decisions[decision] = condition.with(**@notes)
         @notes = outer
       end
 
@@ -217,11 +218,11 @@ module PathCoverage
         OPERATOR_TYPES.include?(node.type)
       end
 
-      # The byte range of a leaf operand, noted among its site's
-      # commands and fixed leaves where it is one; or, when sites
+      # The byte range of a leaf operand, noted among its decision's
+      # commands and fixed leaves where it is one; or, when decisions
       # that fold are found inside it, the leaf with them nested.
       def leaf(operand)
-        inner = leaf_sites(operand)
+        inner = leaf_decisions(operand)
         loc = operand.location
         range = loc.start_offset...loc.end_offset
         @notes[:commands] << range if Manifest.command?(operand)

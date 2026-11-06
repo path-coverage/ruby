@@ -51,7 +51,7 @@ const PAGES = ['shop.rb', 'fee.rb', 'group.rb', 'kata.rb'];
     const shots = [['load', null]];
     shots.push(['def', '.lineno.mdef']);
     shots.push(['loose', 'button.lnum.loose']);
-    shots.push(['fold', '.pathgrid:not([hidden]) .prow.site']);
+    shots.push(['fold', '.pathgrid:not([hidden]) .prow.decision']);
     for (const [state, selector] of shots) {
       if (selector) {
         const found = await page.$(selector);

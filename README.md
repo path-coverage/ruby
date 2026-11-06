@@ -7,12 +7,12 @@
 Path coverage for Ruby, to run alongside SimpleCov's line and branch
 coverage.
 
-Status: sites cover `&&`, `||`, `and`, `or`, the ternary `?:`,
+Status: decisions cover `&&`, `||`, `and`, `or`, the ternary `?:`,
 `if`/`elsif`/`else` and `unless` (modifiers included), `case`/`when`
 with a subject, and the block methods `any?` `all?` `none?` `find`
 `detect` `find_index` `take_while` `select` `filter` `reject`
 `partition` `count` `filter_map`, the writes `||=` and `&&=`, and `&.`
-safe-navigation chains. Method paths cover every site at a method's
+safe-navigation chains. Method paths cover every decision at a method's
 top level.
 More decisions hidden inside calls come next (see Roadmap).
 
@@ -22,7 +22,7 @@ same report locally.
 
 ## Overview
 
-A *site* is one decision in your code: an `&&`, `||`, `if`,
+A *decision* is one decision in your code: an `&&`, `||`, `if`,
 `case`, `&.` chain, `||=`, or a block method such as `any?`.
 Each way it can go is a *path*. For example
 
@@ -35,8 +35,8 @@ alone, as `&&` then skips its right side.
 
 Line and branch coverage can be 100% while a path was never
 taken. path_coverage counts how often each path was taken:
-alone, each site's paths on their own, and combined, through
-each method's sites.
+alone, each decision's paths on their own, and combined, through
+each method's decisions.
 
 As the run exits it writes its report:
 - `path_coverage.json`, for AIs and other tools.
@@ -56,11 +56,11 @@ docker run --rm -v "$PWD/coverage:/paths" ghcr.io/path-coverage/html-reporter /p
 Clicking a `def` line on a file's HTML page opens that method's
 *card* to its left. One card is always open.
 
-A card has a row for each site in the method, by `line:col`,
+A card has a row for each decision in the method, by `line:col`,
 with its counts of paths not taken and taken.
 
 Clicking a row's `▼` opens it:
-- on the left is the site's code, as a tree.
+- on the left is the decision's code, as a tree.
 - on the right is one column for each possible path through it.
   - the column's head is `≀0` for a path never taken, and `≀*`
     for one taken (hover for its count). Look for zeros!
@@ -73,7 +73,7 @@ A long piece of code scrolls within its row.
 
 ### Boolean: `T` `F`
 
-Many parts of a site, such as `name.size > 2`, are true or false.
+Many parts of a decision, such as `name.size > 2`, are true or false.
 
 ![A file's page: line 2, name.size > 2 && name.ascii_only?, its card open to its left](docs/example-outcome.png)
 
@@ -85,7 +85,7 @@ In this example, there was no test which exercised the path where `name.size > 2
 
 ### Unreachable: blank
 
-Some parts of a site are not always evaluated.
+Some parts of a decision are not always evaluated.
 
 ![A file's page: line 2, @x = dee || dum, its card open to its left](docs/example-unreachable.png)
 
@@ -166,7 +166,7 @@ SimpleCov.start do
   # ...
 end
 PathCoverage.start do
-  root APP_DIR                 # cover globs and site names are relative to it
+  root APP_DIR                 # cover globs and decision names are relative to it
   cover 'source/**/*.rb'       # each matching file is instrumented as it loads
   cover 'test/**/*.rb'         # more than one cover glob may be given
   skip 'source/vendor/**/*.rb' # except these, though a cover glob matches them
@@ -175,7 +175,7 @@ PathCoverage.start do
                                # also :post
   group 'code', 'source/**/*.rb' # each group a tab of its own on index.html
   group 'test', 'test/**/*.rb'
-  ignore '&&='                 # operators whose sites are not measured
+  ignore '&&='                 # operators whose decisions are not measured
   treat 'name', as: :present   # a call to name is never nil
   treat 'any?', as: :nonempty  # any? is true when its receiver has items
 end
@@ -226,15 +226,15 @@ PathCoverage::Render.from_json(config, runs)
 
 As the process exits:
 
-- `path_coverage.json` is always written to `coverage_dir`: every site
+- `path_coverage.json` is always written to `coverage_dir`: every decision
   of every covered file, with each operand's true and false counts under
-  `sites`, each site's paths under `paths`, each method's card under
+  `decisions`, each decision's paths under `paths`, each method's card under
   `cards`, how each card's rows nest under `tree`, the statements
   reached under `reached`, and the paths taken
   of all possible under `totals`, as [taken, possible]: `alone`,
   `combined`, and, with groups, each group's
   own under `groups`, eg `"groups": {"code": {"alone": [481, 567]}}`.
-  It also names the kinds of site measured under `kinds`, any `ignored`
+  It also names the kinds of decision measured under `kinds`, any `ignored`
   operators and `treats`, and any paths taken that a treatment rules
   out under `outside`.
   It is the base the other reporters read, so they can also be run
@@ -244,13 +244,13 @@ As the process exits:
   Given several runs' reports, `Render.from_json(config, paths)` adds
   their counts together first, so the report shows only the gaps that
   every run left. A report whose kinds, `ignored` or `treats` differ
-  from `config`'s is refused, as its sites list their paths
+  from `config`'s is refused, as its decisions list their paths
   differently.
 - `path_coverage.source.json` is always written beside it: each
-  covered file's lines and their coloured tokens, and where each site
+  covered file's lines and their coloured tokens, and where each decision
   is and its fold's rows, so html-reporter can draw the pages without
   parsing Ruby.
-- `:gaps` prints one line per site path never taken, in manifest
+- `:gaps` prints one line per decision path never taken, in manifest
   order, naming the outcome of each leaf on it:
 
 ```text
@@ -260,17 +260,17 @@ source/kata.rb:4:24 never reached
 
 ### Decisions
 
-A site is named by the `path:line:column` where it starts, the path
+A decision is named by the `path:line:column` where it starts, the path
 relative to `root`; but an `if` or `unless` at its keyword, a `?:` at
-its `?`, and a block method's call at its method, so no two sites
-share a name. A site in a covered file the run never loaded is still
+its `?`, and a block method's call at its method, so no two decisions
+share a name. A decision in a covered file the run never loaded is still
 reported, as `never reached`.
 
-A path is the outcome of each leaf one evaluation of the site reached, in
+A path is the outcome of each leaf one evaluation of the decision reached, in
 order; a leaf that short-circuiting skipped is not on it. Each leaf is
 quoted as a Markdown code span, on one line, its fence one backtick longer
 than any run of backticks inside it. The gap lines are for people; a tool
-should read the JSON, whose `paths` give each site's leaves as
+should read the JSON, whose `paths` give each decision's leaves as
 `line:column` spans, and each possible path with its count:
 
 ```json
@@ -286,39 +286,39 @@ should read the JSON, whose `paths` give each site's leaves as
 }
 ```
 
-A site is an outermost condition. Its leaves are numbered left to right
+A decision is an outermost condition. Its leaves are numbered left to right
 across the whole of it, nested conditions included. A condition inside a
-block is a site of its own.
+block is a decision of its own.
 
-A ternary is a site even when its predicate is a single leaf. An arm
+A ternary is a decision even when its predicate is a single leaf. An arm
 holding a condition of `&&`, `||`, `and`, `or` or `?:` is part of the
-ternary's site, its leaves numbered after the predicate's, so the site's
+ternary's decision, its leaves numbered after the predicate's, so the decision's
 paths run through whichever arm the predicate picks. Any other arm, like a
-block, is not part of it, though a condition inside it is a site of its
+block, is not part of it, though a condition inside it is a decision of its
 own.
 
-An `if` or an `unless`, a modifier included, is a site too, even when
+An `if` or an `unless`, a modifier included, is a decision too, even when
 its predicate is a single leaf: its predicate nests in it, an `&&` there
-being no site of its own, and its `then` and `else` arms are plain, as
+being no decision of its own, and its `then` and `else` arms are plain, as
 they are statements; an `unless` takes its `then` arm when its predicate
 is false. It is named at its keyword, and its extent is its keyword to
-the end of its predicate, so a site inside an arm keeps its own button.
-An `elsif` is a site of its own.
+the end of its predicate, so a decision inside an arm keeps its own button.
+An `elsif` is a decision of its own.
 
-A `case` with a subject is a site whose leaves are its `when` patterns,
+A `case` with a subject is a decision whose leaves are its `when` patterns,
 tried in order until one matches. Each pattern is wrapped in a stand-in
 whose `===` calls the pattern's `===` once, exactly as the `case` would,
 and notes whether it matched. A `case` with no subject, or with a splat
-among its patterns, is no site.
+among its patterns, is no decision.
 
 A call to `any?` `all?` `none?` `find` `detect` `find_index`
 `take_while` `select` `filter` `reject` `partition` `count` or
-`filter_map`, with no arguments and a block of one expression, is a site
+`filter_map`, with no arguments and a block of one expression, is a decision
 named at its method. Its item count is noted from the block's own calls,
 so the receiver is never asked its size, which could consume a sequence
 that can be read only once.
 
-A `||=` or `&&=` write is a site, whatever its target: a variable of any
+A `||=` or `&&=` write is a decision, whatever its target: a variable of any
 kind, a constant, an attribute (`self.size ||= n`) or an index
 (`store[key] ||= key.upcase`). Its one leaf is its target, and its right
 side is an arm, run when the target is false for `||=`, true for `&&=`,
@@ -327,14 +327,14 @@ since reading `store[key]` could call a method twice: its outcome follows
 from whether the right side ran. So `@clock ||= Clock.now` called only
 once, as a fresh object, leaves the path with `@clock` true a gap.
 
-A `&.` chain is a site, named where it starts. Its leaves are the
+A `&.` chain is a decision, named where it starts. Its leaves are the
 receivers of its `&.` calls. `false` counts as not nil, as `&.` calls on
 it.
 
 A chain inside a condition, eg `ok?(id) && user&.admin?` or
-`if user&.admin?`, folds into its site, as one expression: its value is
+`if user&.admin?`, folds into its decision, as one expression: its value is
 one more leaf, true or false, reached when every receiver is not nil. A
-write through `&.`, eg `box&.size ||= 3`, is no site, as a nil `box`
+write through `&.`, eg `box&.size ||= 3`, is no decision, as a nil `box`
 skips it whole and its target is never looked at.
 
 A chain of one operator is flat; a change of operator, by precedence or by
@@ -368,9 +368,9 @@ cannot be closed is the lesser error than hiding one that can.
 ### Methods
 
 Each method has a card, named by the `path:line:column` of its `def`,
-with a row for each statement that shapes its paths: each site, and
+with a row for each statement that shapes its paths: each decision, and
 each `return` or `raise`, which ends a path. Any other statement, eg
-`x = 1`, runs exactly when what holds it does, so is no row. A site's
+`x = 1`, runs exactly when what holds it does, so is no row. A decision's
 row counts its paths; a `return` or `raise` row is one path, taken
 when it is reached. A method's total adds up its rows. Its title says
 how many times it was called, so a method never called is a gap,
@@ -385,16 +385,16 @@ one call can go through it) and its `calls`:
   "label.rb:1:0": {
     "name": "label", "first": 1, "last": 7, "ways": 2, "calls": 1,
     "rows": [
-      { "at": "2:02", "top": "if", "paths": 2, "taken": 1, "site": "label.rb:2:2" },
-      { "at": "3:04", "top": "return", "paths": 1, "taken": 1, "site": null },
-      { "at": "5:04", "top": "return", "paths": 1, "taken": 0, "site": null }
+      { "at": "2:02", "top": "if", "paths": 2, "taken": 1, "decision": "label.rb:2:2" },
+      { "at": "3:04", "top": "return", "paths": 1, "taken": 1, "decision": null },
+      { "at": "5:04", "top": "return", "paths": 1, "taken": 0, "decision": null }
     ]
   }
 }
 ```
 
 Its `tree` says how those rows nest, by file, then card, then row.
-A row inside a site names that site as its `parent`, the arm it is
+A row inside a decision names that decision as its `parent`, the arm it is
 `in`, and `on`, the indices of the parent's paths that run it, in the
 order `paths` lists them. A row at the method's top has none of these.
 
@@ -460,9 +460,9 @@ test:
 ## How it works
 
 At load time each covered file is read and parsed once, with Prism. The
-parse gives the manifest: each site's condition tree and the byte range of
+parse gives the manifest: each decision's condition tree and the byte range of
 each of its leaves. The rewriter then inserts a record call around each
-leaf, and a leave call around the whole site, whose first argument enters
+leaf, and a leave call around the whole decision, whose first argument enters
 it, without parsing again, and the result is compiled in place of the
 file:
 
@@ -472,9 +472,9 @@ ok?(id) && new?(id)
 PathCoverage.leave(PathCoverage.enter("k.rb:2:2", 2), PathCoverage.record("k.rb:2:2", 0, ok?(id)) && PathCoverage.record("k.rb:2:2", 1, new?(id)))
 ```
 
-An `if` site's leave call wraps its predicate alone, as its path is
+An `if` decision's leave call wraps its predicate alone, as its path is
 decided there, so an arm that returns or raises still counts it.
-Each statement that is no site gets a reach call before it, counting
+Each statement that is no decision gets a reach call before it, counting
 its run, for its card's row.
 
 A command call such as `ok? id` (after `and`) is not valid as a bare
@@ -486,7 +486,7 @@ totals. So a command call, or an `and` or `or`, written over several lines
 can add to SimpleCov's relevant lines; nothing else does.
 
 `record` counts whether its value was truthy or falsy, and notes it on the
-site's current path; `enter` starts that path, and `leave` counts it.
+decision's current path; `enter` starts that path, and `leave` counts it.
 Each returns its value unchanged, so short-circuiting and the value of
 the expression are preserved. Paths are kept per fiber, so threads never
 mix their outcomes; an evaluation cut short by a raise counts no path,
@@ -500,7 +500,7 @@ the run never loaded are read and parsed then.
 ## Ignoring and treating
 
 `ignore '&&=', '||='` stops `&&=` and `||=` writes being measured.
-A site inside such a write is still measured, eg the `a && b` in
+A decision inside such a write is still measured, eg the `a && b` in
 `@m ||= a && b`. Ignoring `&&` does not ignore `and`, nor does ignoring
 `||` ignore `or`. The summary and `index.html` list what is ignored.
 
@@ -538,12 +538,12 @@ source/user.rb:4:9 path taken that a treatment rules out: `user.name` nil
   nil or false is reported. Later, treatments could come from the
   project's RBS signatures (`sig/*.rbs`) too.
 - exceptions the code itself names: a `begin` or `def` with `rescue`
-  clauses as a site, like a `case`, whose paths are no raise and each
+  clauses as a decision, like a `case`, whose paths are no raise and each
   clause that rescued, eg `rescue IOError` never taken. Branch coverage
   ignores `rescue`, and tests reach these paths with real input. A raise
   that nothing names, from any call, stays out, as every leaf would gain
   a third outcome that only fault injection could take.
-- an evaluation that raised part way through a site, eg
+- an evaluation that raised part way through a decision, eg
   `ok?(id) && fetch(id)` where `fetch` raises, reported as a path that
   raised rather than dropped as unfinished.
 - complexity maximums, reported and gated, since the possible paths

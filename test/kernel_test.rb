@@ -13,19 +13,19 @@ class KernelTest < TidTest
   | returns the operand's value and counts it
   | in the one shared recorder
   ) do
-    site = 'kernel_test.rb:6rTS10:0' # used by no other test
+    decision = 'kernel_test.rb:6rTS10:0' # used by no other test
     kata = { 'id' => 'Kp9sA2' }
-    assert_same kata, PathCoverage.record(site, 0, kata)
+    assert_same kata, PathCoverage.record(decision, 0, kata)
 
     expected = { truthy: 1, falsy: 0 }
-    actual = PathCoverage.recorder.counts[[site, 0]]
+    actual = PathCoverage.recorder.counts[[decision, 0]]
     assert_equal expected, actual
   end
 
   test '6rTS20', %w(
   | once started with a root and a cover glob,
   | a file matching the glob has its && operands recorded
-  | when they run, at sites named relative to the root
+  | when they run, at decisions named relative to the root
   ) do |t|
     t.write(<<~RUBY, 'kata.rb')
       module Kata
@@ -35,10 +35,10 @@ class KernelTest < TidTest
     RUBY
     t.start # this test checks the recording only
     t.load('kata.rb')::Kata.kata?('N1')
-    site = 'kata.rb:3:23'
+    decision = 'kata.rb:3:23'
     expected = {
-      [site, 0] => { truthy: 1, falsy: 0 },
-      [site, 1] => { truthy: 1, falsy: 0 }
+      [decision, 0] => { truthy: 1, falsy: 0 },
+      [decision, 1] => { truthy: 1, falsy: 0 }
     }
     assert_equal expected, PathCoverage.recorder.counts
   end
@@ -84,7 +84,7 @@ class KernelTest < TidTest
         { 'truthy' => 1, 'falsy' => 0 }
       ]
     }
-    assert_equal expected, json['sites']
+    assert_equal expected, json['decisions']
   end
 
   test '6rTS42', %w(
@@ -104,8 +104,8 @@ class KernelTest < TidTest
 
   test '6rTS43', %w(
   | Example: user[:member] || user[:vip] ? 5 : 7, called once
-  | The ?: is a site of one leaf, its predicate, and the || a
-  | site of its own; each evaluation's path through each is
+  | The ?: is a decision of one leaf, its predicate, and the || a
+  | decision of its own; each evaluation's path through each is
   | recorded, and each path never taken printed as a gap.
   | The JSON report has every path's count, and each leaf's
   | span.
@@ -153,7 +153,7 @@ class KernelTest < TidTest
 
   test '6rTS45', %w(
   | a file loaded during the run is not read again for the
-  | exit report: the sites parsed as it loaded are reused,
+  | exit report: the decisions parsed as it loaded are reused,
   | so each covered file is read and parsed at most once
   ) do |t|
     t.write(<<~RUBY, 'team.rb')
@@ -176,7 +176,7 @@ class KernelTest < TidTest
 
   test '6rTS47', %w(
   | a covered file the run never loads is parsed for the
-  | exit report, so each of its && sites is reported
+  | exit report, so each of its && decisions is reported
   | as never reached
   ) do |t|
     t.write(<<~RUBY, 'squad.rb')
@@ -252,7 +252,7 @@ class KernelTest < TidTest
   | The ternary's predicate is its decision, not its value.
   | So the four calls take all four paths: [F,F], [T,T],
   | [F,T] and [T,F].
-  | And each site took every path too.
+  | And each decision took every path too.
   | So there are no gaps to print.
   ) do |t|
     t.write(<<~RUBY, 'items.rb')
@@ -274,7 +274,7 @@ class KernelTest < TidTest
   test '6rTS4t', %w(
   | Example: store[key] ||= key.upcase and name &&= name.strip,
   | each called once skipping its right side and once not
-  | Each is a site, its one leaf its target.
+  | Each is a decision, its one leaf its target.
   | The target is never read again: its outcome follows from
   | whether the right side ran.
   | ||= runs it when the target is false, &&= when true.
@@ -302,8 +302,9 @@ class KernelTest < TidTest
     assert_output('', '') { t.report }
 
     json = t.json
-    taken = %w(cache_writes.rb:3:4 cache_writes.rb:6:4).to_h do |site|
-      [site, json['paths'][site]['taken']]
+    taken = %w(cache_writes.rb:3:4
+               cache_writes.rb:6:4).to_h do |decision|
+      [decision, json['paths'][decision]['taken']]
     end
     both = [{ 'path' => [true], 'count' => 1 },
             { 'path' => [false], 'count' => 1 }]
@@ -334,7 +335,7 @@ class KernelTest < TidTest
   test '6rTS4v', %w(
   | Example: ||= on a constant, an instance variable with a command
   | call on its right, an attribute, a class variable and a global
-  | Each is a site, and the rewritten code still loads and runs.
+  | Each is a decision, and the rewritten code still loads and runs.
   | clock and grow, called twice, take both paths of each.
   | LIMIT ||= 6 runs once, as the module loads, so its target
   | true is the one gap.
@@ -366,11 +367,12 @@ class KernelTest < TidTest
     assert_output(gap, '') { t.report }
 
     json = t.json
-    sites = %w(2:2 8:4 11:4 12:4 13:4).map { "memo_writes.rb:#{_1}" }
-    counts = sites.to_h do |site|
-      [site, json['paths'][site]['taken'].map { _1['count'] }]
+    ats = %w(2:2 8:4 11:4 12:4 13:4)
+    decisions = ats.map { "memo_writes.rb:#{_1}" }
+    counts = decisions.to_h do |decision|
+      [decision, json['paths'][decision]['taken'].map { _1['count'] }]
     end
-    expected = sites.to_h { |site| [site, [1, 1]] }
+    expected = decisions.to_h { |decision| [decision, [1, 1]] }
     expected['memo_writes.rb:2:2'] = [0, 1]
     assert_equal expected, counts
   end
@@ -407,7 +409,7 @@ class KernelTest < TidTest
   test '6rTS4x', %w(
   | Example: user&.account&.owner, called with no user, a user
   | with no account, and a user whose account has an owner
-  | The chain is one site, named where it starts.
+  | The chain is one decision, named where it starts.
   | Its leaves are its receivers, user and user&.account.
   | Each is nil or not nil, as &. calls on anything not nil,
   | false included.
@@ -471,11 +473,11 @@ class KernelTest < TidTest
   test '6rTS4z', %w(
   | Example: ok && user&.admin?, called with ok false, then ok
   | true and no user, a user not an admin, and an admin
-  | The chain folds into the && site, as one expression.
+  | The chain folds into the && decision, as one expression.
   | Its leaves follow ok's: user, nil or not nil, then the
   | chain's value, true or false, when every receiver was not
   | nil.
-  | So the four calls take the site's four paths.
+  | So the four calls take the decision's four paths.
   | The card shows the chain's rows under its &. as user then
   | admin?, so the &. is not shown twice.
   | user's cells are a disc for not nil and an empty set for nil.
@@ -515,7 +517,7 @@ class KernelTest < TidTest
   test '6rTS5a', %w(
   | Example: if user&.admin?, called with no user, a user not an
   | admin, and an admin
-  | The chain folds into the if site as its predicate.
+  | The chain folds into the if decision as its predicate.
   | So the three calls take its three paths: user nil, and
   | user not nil with admin? true or false.
   ) do |t|
@@ -551,7 +553,7 @@ class KernelTest < TidTest
   | size and a box of size 5
   | With no box, the whole write is skipped: its right side
   | does not run, yet the target was not found set either.
-  | So the write is no site, rather than one reporting its
+  | So the write is no decision, rather than one reporting its
   | target set when it was never looked at.
   ) do |t|
     t.write(<<~RUBY, 'safe_write.rb')
@@ -577,7 +579,7 @@ class KernelTest < TidTest
   test '6rTS5d', %w(
   | Example: ids.any? { |id| id.odd? }, standing alone, called with
   | no ids, one odd, one even, an even then an odd, and two even
-  | It is a site of its own, being no part of a larger expression.
+  | It is a decision of its own, being no part of a larger expression.
   | The five calls take its five paths, so there are no gaps.
   ) do |t|
     t.write(<<~RUBY, 'found_odd.rb')
@@ -599,10 +601,10 @@ class KernelTest < TidTest
   | Example: ids.select { |id| id.odd? }.any? &&
   | ids.all? { |id| id > 0 }
   | The select sits inside the leaf ids.select { ... }.any?, and
-  | folds into the && site: its fold shows the select's rows,
+  | folds into the && decision: its fold shows the select's rows,
   | headed select {, then the leaf's own row, }.any?, so they
   | read as the code does.
-  | The all? is the &&'s operand itself, so it is a site of its
+  | The all? is the &&'s operand itself, so it is a decision of its
   | own, the &&'s fold showing it as one leaf.
   ) do |t|
     t.write(<<~RUBY, 'both_html.rb')
@@ -685,7 +687,7 @@ class KernelTest < TidTest
 
   test '6rTS44', %w(
   | the exit report writes the source report beside the JSON
-  | report: each covered file's lines and its sites
+  | report: each covered file's lines and its decisions
   ) do |t|
     t.write(<<~RUBY, 'pair.rb')
       module Pair
@@ -707,7 +709,7 @@ class KernelTest < TidTest
     report = JSON.parse(written)
     file = report['files'].fetch('pair.rb')
     assert_equal 4, file['lines'].size
-    assert_equal ['pair.rb:3:23'], file['sites'].keys
+    assert_equal ['pair.rb:3:23'], file['decisions'].keys
     assert_equal '&&', report['labels']['&&']['text']
   end
 
@@ -829,12 +831,12 @@ class KernelTest < TidTest
 
   test '6rTS4d', %w(
   | Example: if ids.any? { |id| id.start_with?('L') && id.size > 1 }
-  | There are three sites: the if, its predicate wholly the any?,
-  | the any?, a site of its own, and the && in the block, a new
+  | There are three decisions: the if, its predicate wholly the any?,
+  | the any?, a decision of its own, and the && in the block, a new
   | scope.
   | led? is called with [], ['Lx'], and ['ab', 'cd'].
   | It still returns :not, :led, :not.
-  | The exit report prints the paths each site never took.
+  | The exit report prints the paths each decision never took.
   | Eg the any? never had `ids` 1 item with the block false; the
   | if took both its arms.
   ) do |t|
@@ -1102,7 +1104,7 @@ class KernelTest < TidTest
   | def of 0, measured within methods, ship called twice and
   | zero once
   | Each def is counted each time it is called, by its own
-  | site's name; its write and value, no rows, are not counted.
+  | decision's name; its write and value, no rows, are not counted.
   | Each method returns what the same code, uninstrumented,
   | returns.
   ) do |t|
@@ -1248,7 +1250,7 @@ class KernelTest < TidTest
     t.load('rate.rb')
     t.report
     cards = t.json['cards']
-    placed = cards.map { |site, card| [site, card['calls']] }
+    placed = cards.map { |decision, card| [decision, card['calls']] }
     assert_equal [['rate.rb:1:0', nil]], placed
     assert_equal [%w(file 1), %w(1:30 1)], card_taken(t, 1)
   end
@@ -1289,11 +1291,11 @@ class KernelTest < TidTest
   test '6rTS6j', %w(
   | Example: module Fee holding fee, a def of a ?:, called once
   | with big true
-  | The JSON report lists fee's card, under its def's site, as
+  | The JSON report lists fee's card, under its def's decision, as
   | its page draws it: its name, first and last lines, the ways
   | through it, how many times it was called, and a row per
   | statement, with its paths, how many were taken, and its
-  | site, so a reader finds a card's gap without the page.
+  | decision, so a reader finds a card's gap without the page.
   ) do |t|
     t.write(<<~RUBY)
       module Fee
@@ -1309,7 +1311,7 @@ class KernelTest < TidTest
         'calls' => 1,
         'rows' => [
           { 'at' => '2:26', 'top' => '?:', 'paths' => 2, 'taken' => 1,
-            'site' => "#{t.file}:2:26" }
+            'decision' => "#{t.file}:2:26" }
         ]
       }
     }
@@ -1319,7 +1321,7 @@ class KernelTest < TidTest
   test '6rTS6k', %w(
   | Example: module Rate holding a ?: outside any method, with
   | no RATE set
-  | The JSON report lists its top card too, under the site of
+  | The JSON report lists its top card too, under the decision of
   | its first line's start, titled Rate, its scope, as its page
   | draws it, so a reader finds a gap outside every def too.
   | It is no method's, so has no calls.
@@ -1338,7 +1340,7 @@ class KernelTest < TidTest
         'calls' => nil,
         'rows' => [
           { 'at' => '2:32', 'top' => '?:', 'paths' => 2, 'taken' => 1,
-            'site' => 'rate.rb:2:32' }
+            'decision' => 'rate.rb:2:32' }
         ]
       }
     }
@@ -1392,7 +1394,7 @@ class KernelTest < TidTest
   test '6rTS6q', %w(
   | Example: module Pick holding pick, a ?: of a whose then arm
   | is a ?: of b, called with a and b true, then with a false
-  | Each ?: is a site, and a row, of its own: the outer took both
+  | Each ?: is a decision, and a row, of its own: the outer took both
   | its paths, the inner, run only in the outer's then arm, its
   | then alone; the tree places the inner in that arm.
   ) do |t|
@@ -1424,7 +1426,7 @@ class KernelTest < TidTest
   | hovering over that else in the code can open the if's fold,
   | as hovering over its if does. An if whose else arm is an
   | elsif is headed if, and has no else keyword, so names none:
-  | its elsif is a site, with a fold, of its own.
+  | its elsif is a decision, with a fold, of its own.
   ) do |t|
     t.write(<<~RUBY)
       module Pick
@@ -1459,7 +1461,7 @@ class KernelTest < TidTest
 
   test '6rTS6m', %w(
   | Example: two starts in one process, eg two tests, each over
-  | its own rate.rb, a ?: whose site has the same name in both,
+  | its own rate.rb, a ?: whose decision has the same name in both,
   | each evaluated once, with no RATE set
   | Each start records afresh, so the second run's report counts
   | its own one evaluation, not the first run's too.
@@ -1488,15 +1490,15 @@ class KernelTest < TidTest
 
   private
 
-  # Example: owner.rb:2 gives the rows of the site on line 2.
-  # The rows of the fold of the first site at file:line, as the
+  # Example: owner.rb:2 gives the rows of the decision on line 2.
+  # The rows of the fold of the first decision at file:line, as the
   # source report fixture's run wrote has them.
   def fold_at(fixture, line)
     written = File.read("#{fixture.dir}/path_coverage.source.json")
     file = line[/\A(.*):\d+\z/, 1]
-    sites = JSON.parse(written)['files'].fetch(file)['sites']
-    site = sites.keys.grep(/\A#{Regexp.escape(line)}:/).first
-    sites.fetch(site).fetch('fold')
+    decisions = JSON.parse(written)['files'].fetch(file)['decisions']
+    decision = decisions.keys.grep(/\A#{Regexp.escape(line)}:/).first
+    decisions.fetch(decision).fetch('fold')
   end
 
   # Example: ship's card gives [%w(ship 1), %w(4:13 1)].

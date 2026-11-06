@@ -13,7 +13,7 @@ require_relative 'within_methods'
 module PathCoverage
   @recorder = Recorder.new
   @config = nil
-  # { full path => {source:, sites:} } of each covered file
+  # { full path => {source:, decisions:} } of each covered file
   # parsed as it loaded, so the exit report need not read it
   # again.
   @parsed = {}
@@ -91,22 +91,23 @@ module PathCoverage
     parsed = @parsed[path] = Manifest.parse(path, config)
     source = parsed[:source]
     reaches = WithinMethods.reaches(path, parsed, config)
-    rewritten = Rewriter.rewrite(source, parsed[:sites], reaches)
+    rewritten = Rewriter.rewrite(source, parsed[:decisions], reaches)
     RubyVM::InstructionSequence.compile(rewritten, path, path)
   end
 
   # Writes the JSON reports, then runs the chosen reporters, for
   # every covered file whether or not the run loaded it, from
-  # the counts and site paths this run recorded.
+  # the counts and decision paths this run recorded.
   def self.report(config)
     files = parsed_files(config)
-    sites = merged_sites(files)
-    result = Result.new(sites, @recorder.counts, @recorder.site_paths)
+    decisions = merged_decisions(files)
+    result = Result.new(decisions, @recorder.counts,
+                        @recorder.decision_paths)
     Render.run(result.operands, files, config,
                **result.taken, reached: @recorder.reached)
   end
 
-  # { full path => {source:, sites:} } for every covered file:
+  # { full path => {source:, decisions:} } for every covered file:
   # as parsed when it loaded, or parsed now for a file the run
   # never loaded.
   def self.parsed_files(config)
@@ -115,8 +116,10 @@ module PathCoverage
     end
   end
 
-  # The sites of every covered file, in one manifest.
-  def self.merged_sites(files)
-    files.values.map { |parsed| parsed[:sites] }.reduce({}, :merge)
+  # The decisions of every covered file, in one manifest.
+  def self.merged_decisions(files)
+    files.values.map do |parsed|
+      parsed[:decisions]
+    end.reduce({}, :merge)
   end
 end

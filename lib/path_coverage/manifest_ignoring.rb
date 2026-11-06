@@ -1,12 +1,12 @@
 module PathCoverage
-  # The part of the manifest's visitor that leaves out the sites
+  # The part of the manifest's visitor that leaves out the decisions
   # of ignored operators, eg ignore '&&='. An ignored node is no
-  # site, though a site inside it may be; nested in a site, it
-  # is a leaf. It relies on its includer's @ignored, ternary?
-  # and safe_chain?.
+  # decision, though a decision inside it may be; nested in a
+  # decision, it is a leaf. It relies on its includer's
+  # @ignored, ternary? and safe_chain?.
   module ManifestIgnoring
     # The operator of each node type that always names one kind
-    # of site.
+    # of decision.
     NAMED = { unless_node: 'unless', case_node: 'case' }.freeze
 
     # True for a node whose operator is ignored.
@@ -14,7 +14,7 @@ module PathCoverage
       @ignored.include?(operator_of(node))
     end
 
-    # The operator naming node's kind of site, eg ?: for a
+    # The operator naming node's kind of decision, eg ?: for a
     # ternary or any? for a block method's call; nil for a
     # node with none.
     def operator_of(node)

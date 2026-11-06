@@ -59,7 +59,7 @@ class MethodStatementsTest < TidTest
 
   test 'St3e04', %w(
   | Example: ship, an if statement then a value
-  | The if is a site, so its row is named by its operator,
+  | The if is a decision, so its row is named by its operator,
   | if, as decision mode names it.
   | The call in its then, and the value, are no rows.
   ) do
@@ -115,7 +115,7 @@ class MethodStatementsTest < TidTest
 
   test 'St3e07', %w(
   | Example: price, returning 0 if free, else its cost
-  | A modifier if is a site named at its if keyword, after
+  | A modifier if is a decision named at its if keyword, after
   | the statement it guards, so its row is there too. The cost
   | call after it is no row.
   ) do
@@ -134,8 +134,8 @@ class MethodStatementsTest < TidTest
   test 'St3e08', %w(
   | Example: ship, writing an and chain, an if calling
   | send_off, then a value
-  | A site's row has as many paths as decision mode gives
-  | the site: an and of two operands 3, an if 2.
+  | A decision's row has as many paths as decision mode gives
+  | the decision: an and of two operands 3, an if 2.
   | The call in the if's then, and the value, are no rows.
   ) do
     source = <<~RUBY
@@ -182,8 +182,8 @@ class MethodStatementsTest < TidTest
   test 'St3e10', %w(
   | Example: ship, an if calling pack, then a value, its if's
   | then taken twice and its else never
-  | A site's row names its site, so its taken is how many
-  | of the site's paths were taken, 1 of 2 here. The call and
+  | A decision's row names its decision, so its taken is how many
+  | of the decision's paths were taken, 1 of 2 here. The call and
   | the value are no rows.
   ) do
     source = <<~RUBY
@@ -200,7 +200,7 @@ class MethodStatementsTest < TidTest
         { path: [true], count: 2 }, { path: [false], count: 0 }
       ]
     }
-    assert_equal ['k.rb:2:2'], rows.map(&:site)
+    assert_equal ['k.rb:2:2'], rows.map(&:decision)
     taken = PathCoverage::MethodStatements.taken(rows, paths)
     assert_equal [1], taken
   end
@@ -249,9 +249,9 @@ class MethodStatementsTest < TidTest
   | Example: record, writing an index, an attribute, an
   | instance variable, an op-write, then a &. attribute
   | No plain write is a row, though Ruby makes an index or
-  | attribute write a call, eg of []=, as it is no site.
-  | A &. write is a site, its call skipped when its receiver
-  | is nil, so its row is the site's: &., with 2 paths.
+  | attribute write a call, eg of []=, as it is no decision.
+  | A &. write is a decision, its call skipped when its receiver
+  | is nil, so its row is the decision's: &., with 2 paths.
   ) do
     source = <<~RUBY
       def record(event, index, owner)
@@ -270,7 +270,7 @@ class MethodStatementsTest < TidTest
 
   test 'St3e14', %w(
   | Example: a class with initialize and ship
-  | Each def's name, by its site, for its card's title.
+  | Each def's name, by its decision, for its card's title.
   ) do
     source = <<~RUBY
       class Shop
@@ -286,10 +286,10 @@ class MethodStatementsTest < TidTest
 
   test 'St3e15', %w(
   | Example: ship, an if whose then returns, then a call
-  | Each row that is no site, here the return, is reached where
+  | Each row that is no decision, here the return, is reached where
   | its statement starts, named by that place, so a call there
-  | can count its runs. The if is a site, its paths already
-  | counted. The def is reached too, under its own site, where
+  | can count its runs. The if is a decision, its paths already
+  | counted. The def is reached too, under its own decision, where
   | it is entered.
   ) do
     source = <<~RUBY
@@ -323,7 +323,7 @@ class MethodStatementsTest < TidTest
   test 'St3e36', %w(
   | Example: ship, a def of one write; none, a def with an empty
   | body; one, an endless def
-  | Each def is reached too, named by its own site, so its card
+  | Each def is reached too, named by its own decision, so its card
   | can say how many times it was called: before its first
   | statement; before its end, for an empty body; and, for an
   | endless def, by its body's byte range, as its row is.
@@ -366,7 +366,7 @@ class MethodStatementsTest < TidTest
   | Example: ship, an if whose then returns, then a call, its
   | then taken twice, so the return reached twice
   | Each row is named by where it is.
-  | A row that is no site, the return, has 1 path, taken when
+  | A row that is no decision, the return, has 1 path, taken when
   | its statement was reached: 1 here, 0 had it not been.
   ) do
     source = <<~RUBY
@@ -439,7 +439,7 @@ class MethodStatementsTest < TidTest
   test 'St3e20', %w(
   | Example: a class with initialize, on one line, and ship,
   | over three
-  | Each def's last line, by its site, where its card ends.
+  | Each def's last line, by its decision, where its card ends.
   ) do
     source = <<~RUBY
       class Shop
@@ -506,12 +506,12 @@ class MethodStatementsTest < TidTest
   | Example: fee, an if, its then a write, an elsif whose arm
   | is a write holding a modifier if, an else whose arm is a
   | write holding a ?:, then a value
-  | The sites in each arm's statements are rows too, flat,
+  | The decisions in each arm's statements are rows too, flat,
   | after their if's row, in the order they are written; an
-  | elsif is a site of its own, so a row of its own, its top
+  | elsif is a decision of its own, so a row of its own, its top
   | elsif, as written. The writes and the value are no rows.
   | A modifier if's arm, and a ?:'s, are part of their
-  | site's row, so are no rows of their own.
+  | decision's row, so are no rows of their own.
   ) do
     source = <<~RUBY
       def fee(member, big)
@@ -561,7 +561,7 @@ class MethodStatementsTest < TidTest
   | modifier unless logging
   | An unless's arms' statements are rows too, after its
   | row, its then's before its else's, as an if's are.
-  | A modifier unless's arm is part of its site's row, so is
+  | A modifier unless's arm is part of its decision's row, so is
   | no row of its own.
   ) do
     source = <<~RUBY
@@ -616,12 +616,12 @@ class MethodStatementsTest < TidTest
   | Example: labels, mapping items through an if; picks,
   | selecting items that are ok? && big?; and late, counting
   | the items that are late?
-  | The sites in a block's statements are rows too, after the
+  | The decisions in a block's statements are rows too, after the
   | statement holding it, though they run once per item: the if
   | in labels, not its arms' values nor the map call.
-  | A block method's call is a site, its block's one
+  | A block method's call is a decision, its block's one
   | expression its leaf; that expression is a row too when it is
-  | a site, as the && in picks is, but not the call in late.
+  | a decision, as the && in picks is, but not the call in late.
   ) do
     source = <<~RUBY
       def labels(items)
@@ -711,16 +711,16 @@ class MethodStatementsTest < TidTest
   test 'St3e30', %w(
   | Example: every Ruby file of the gem's lib and test, and of
   | its demo's source
-  | Every site decision mode finds in a file is on some card,
+  | Every decision decision mode finds in a file is on some card,
   | a row of a def that holds it, or is outside every def,
-  | where its own line opens its tree: no site is on no card.
+  | where its own line opens its tree: no decision is on no card.
   ) do
     root = File.expand_path('..', __dir__)
     globs = %w(lib/**/*.rb test/*.rb demo/source/*.rb)
     files = globs.flat_map { Dir.glob(_1, base: root) }.sort
     unseen = files.flat_map do |file|
-      sites = unseen_sites(File.read("#{root}/#{file}"))
-      sites.map { "#{file} #{_1}" }
+      decisions = unseen_decisions(File.read("#{root}/#{file}"))
+      decisions.map { "#{file} #{_1}" }
     end
     assert_equal [], unseen
   end
@@ -728,9 +728,10 @@ class MethodStatementsTest < TidTest
   test 'St3e31', %w(
   | Example: label, returning a ?:'s value if node, then a &.
   | call on a ?:'s value
-  | A site inside another site that is a site of its own, as
-  | a modifier if's arm and a &. receiver are, is a row too,
-  | the site and those inside it in the order they are named,
+  | A decision inside another decision that is a decision of
+  | its own, as a modifier if's arm and a &. receiver are, is a
+  | row too,
+  | the decision and those inside it in the order they are named,
   | left to right: the ?: before the modifier if it is in.
   ) do
     source = <<~RUBY
@@ -750,7 +751,7 @@ class MethodStatementsTest < TidTest
 
   test 'St3e35', %w(
   | Example: ship, a ?: whose predicate is a || b
-  | The || is a site of its own inside the ?:, named where it
+  | The || is a decision of its own inside the ?:, named where it
   | starts, before the ?:'s ?, so its row comes first.
   ) do
     source = <<~RUBY
@@ -766,8 +767,8 @@ class MethodStatementsTest < TidTest
 
   test 'St3e32', %w(
   | Example: memo, @m ||= a && b, in a run ignoring ||=
-  | A card's rows are of the sites the run has, as given: here
-  | the ||= is no site, so the write is looked through, and its
+  | A card's rows are of the decisions the run has, as given: here
+  | the ||= is no decision, so the write is looked through, and its
   | row is the && inside it.
   ) do
     source = <<~RUBY
@@ -775,8 +776,10 @@ class MethodStatementsTest < TidTest
         @m ||= a && b
       end
     RUBY
-    sites = PathCoverage::Manifest.sites(source, 'k.rb', ['||='])
-    rows = PathCoverage::MethodStatements.of(source, 'k.rb', sites)
+    decisions = PathCoverage::Manifest.decisions(source, 'k.rb',
+                                                 ['||='])
+    rows = PathCoverage::MethodStatements.of(source, 'k.rb',
+                                             decisions)
     tops = rows['k.rb:1:0'].map { [_1.line, _1.column, _1.top] }
     assert_equal [[2, 9, '&&']], tops
   end
@@ -784,7 +787,7 @@ class MethodStatementsTest < TidTest
   test 'St3e33', %w(
   | Example: rate, a ?: at the top level, its then taken, and
   | fee, a def of a ?:
-  | The sites on no card, those outside every def, total
+  | The decisions on no card, those outside every def, total
   | [taken, possible] of their own: rate's 1 of 2. fee's ?:
   | is on fee's card, so is not among them.
   ) do
@@ -805,7 +808,7 @@ class MethodStatementsTest < TidTest
   test 'St3e34', %w(
   | Example: fee, two ?:s on one top-level line, an elsif at
   | the top level, and big?, a def of an &&
-  | Each site on no card, outside every def, is a row of its
+  | Each decision on no card, outside every def, is a row of its
   | own, for its line's card: where it is named, its operator,
   | an elsif's elsif, and its paths, in the order written.
   | big?'s && is on big?'s card, so is not among them.
@@ -821,7 +824,7 @@ class MethodStatementsTest < TidTest
     RUBY
     rows = PathCoverage::MethodStatements.top_rows(source, 'k.rb')
     actual = rows.map do |row|
-      [row.line, row.column, row.top, row.paths, row.site]
+      [row.line, row.column, row.top, row.paths, row.decision]
     end
     expected = [
       [1, 18, '?:', 2, 'k.rb:1:18'], [1, 42, '?:', 2, 'k.rb:1:42'],
@@ -832,26 +835,28 @@ class MethodStatementsTest < TidTest
 
   private
 
-  # { def site => its statements' rows } for source, as if it
+  # { def decision => its statements' rows } for source, as if it
   # were k.rb.
   def statements(source)
     PathCoverage::MethodStatements.of(source, 'k.rb')
   end
 
-  # The sites decision mode finds in source that are on no
+  # The decisions decision mode finds in source that are on no
   # card: those on a line inside a def, from its def line to its
-  # last, but no row's site.
-  def unseen_sites(source)
-    rows = statements(source).values.flatten.filter_map(&:site)
+  # last, but no row's decision.
+  def unseen_decisions(source)
+    rows = statements(source).values.flatten.filter_map(&:decision)
     lasts = PathCoverage::MethodStatements.lasts(source, 'k.rb')
-    lines = lasts.flat_map { |site, last| [*line_of(site)..last] }
-    sites = PathCoverage::Manifest.sites(source, 'k.rb').keys
-    by_line = sites.group_by { line_of(_1) }
+    lines = lasts.flat_map do |decision, last|
+      [*line_of(decision)..last]
+    end
+    decisions = PathCoverage::Manifest.decisions(source, 'k.rb').keys
+    by_line = decisions.group_by { line_of(_1) }
     lines.uniq.flat_map { by_line.fetch(_1, []) } - rows
   end
 
-  # The line of site, eg 4 for "k.rb:4:2".
-  def line_of(site)
-    Integer(site.split(':')[-2])
+  # The line of decision, eg 4 for "k.rb:4:2".
+  def line_of(decision)
+    Integer(decision.split(':')[-2])
   end
 end

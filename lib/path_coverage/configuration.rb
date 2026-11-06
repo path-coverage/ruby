@@ -42,7 +42,7 @@ module PathCoverage
       @collector_url = url
     end
 
-    # Sets the dir that cover globs and site names are
+    # Sets the dir that cover globs and decision names are
     # relative to.
     def root(dir)
       @root = dir

@@ -1,28 +1,30 @@
 module PathCoverage
-  # The terminal worklist: one line per path a site never
-  # took, and nothing for a site that took them all. Every
+  # The terminal worklist: one line per path a decision never
+  # took, and nothing for a decision that took them all. Every
   # count stays in the operands and paths for reporters that
   # show them all.
   module Gaps
     # The gap lines of operands, paths and outside, as Result
-    # gives them, in manifest order; texts is { site => each
-    # leaf's source text }. A site's first leaf runs before any
-    # other, so a site whose first never ran was never reached.
+    # gives them, in manifest order; texts is { decision => each
+    # leaf's source text }. A decision's first leaf runs before any
+    # other, so a decision whose first never ran was never reached.
     def self.lines(operands, paths: {}, texts: {}, outside: {})
-      operands.flat_map do |site, counts|
-        next ["#{site} never reached"] if never_ran?(counts.first)
+      operands.flat_map do |decision, counts|
+        next ["#{decision} never reached"] if never_ran?(counts.first)
 
-        path_gaps(site, paths.fetch(site, []), texts[site]) +
-          ruled_out(site, outside.fetch(site, {}), texts[site])
+        path_gaps(decision, paths.fetch(decision, []),
+                  texts[decision]) +
+          ruled_out(decision, outside.fetch(decision, {}),
+                    texts[decision])
       end
     end
 
-    # One line per path site took that a treatment rules out,
+    # One line per path decision took that a treatment rules out,
     # as Result#outside gives them, texts being each leaf's
     # source text.
-    def self.ruled_out(site, taken, texts)
+    def self.ruled_out(decision, taken, texts)
       taken.keys.map do |path|
-        "#{site} path taken that a treatment rules out: " \
+        "#{decision} path taken that a treatment rules out: " \
           "#{steps(path, texts)}"
       end
     end
@@ -36,15 +38,15 @@ module PathCoverage
       end.join(', ')
     end
 
-    # One line per path site never took, as Result#paths gives
+    # One line per path decision never took, as Result#paths gives
     # them, naming the outcome of each leaf the path reaches,
     # texts being each leaf's source text.
-    def self.path_gaps(site, paths, texts)
+    def self.path_gaps(decision, paths, texts)
       paths.each_with_object([]) do |each, lines|
         next unless each[:count].zero?
 
         named = steps(each[:path], texts)
-        lines << "#{site} path never taken: #{named}"
+        lines << "#{decision} path never taken: #{named}"
       end
     end
 

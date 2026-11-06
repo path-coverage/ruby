@@ -23,13 +23,13 @@ class SourceReportTest < TidTest
 
   test 'Sj3r20', %w(
   | Example: ok?(id) && new?(id)
-  | a site, as the source report has it: the lines it spans
+  | a decision, as the source report has it: the lines it spans
   | and its fold's rows, headed by its row's top, with a column
   | per path in the order the JSON report lists them, and no
   | counts, which the JSON report has
   ) do
     source = "def kata?(id)\n  ok?(id) && new?(id)\nend\n"
-    sites = PathCoverage::Manifest.sites(source, 'k.rb')
+    decisions = PathCoverage::Manifest.decisions(source, 'k.rb')
     paths = [
       { path: [true, true], count: 1 },
       { path: [true, false], count: 0 },
@@ -38,7 +38,7 @@ class SourceReportTest < TidTest
     expected = {
       span: [2, 2],
       fold: [
-        { kind: 'site', branch: '',
+        { kind: 'decision', branch: '',
           label: { text: '&&', tokens: [[0, 2, 'o']] },
           at: [2, 2, 2, 21], else: nil },
         { kind: 'operand', branch: 'ths',
@@ -50,20 +50,21 @@ class SourceReportTest < TidTest
           cells: [['T', nil, nil], ['F', nil, nil], ['', nil, nil]] }
       ]
     }
-    site = PathCoverage::SourceReport.site(source, sites, 'k.rb:2:2',
-                                           paths, '&&')
-    assert_equal expected, site
+    report = PathCoverage::SourceReport
+    decision = report.decision(source, decisions, 'k.rb:2:2', paths,
+                               '&&')
+    assert_equal expected, decision
   end
 
   test 'Sj3r30', %w(
   | the source report of a run: the operators ignored, the
   | covered files of each group, each card row's top coloured,
-  | and each covered file's lines and sites, each site's fold
-  | headed by its card row's top
+  | and each covered file's lines and decisions, each
+  | decision's fold headed by its card row's top
   ) do
     source = "def kata?(id)\n  ok?(id) && new?(id)\nend\n"
-    sites = PathCoverage::Manifest.sites(source, 'k.rb')
-    files = { '/app/k.rb' => { source:, sites: } }
+    decisions = PathCoverage::Manifest.decisions(source, 'k.rb')
+    files = { '/app/k.rb' => { source:, decisions: } }
     config = PathCoverage::Configuration.new do
       root '/app'
       cover 'k.rb'
@@ -75,12 +76,13 @@ class SourceReportTest < TidTest
       { path: [true, false], count: 0 },
       { path: [false, nil], count: 2 }
     ]
-    site_paths = { 'k.rb:2:2' => paths }
-    row = { 'site' => 'k.rb:2:2', 'top' => '&&' }
-    leave = { 'site' => nil, 'top' => 'return' }
+    decision_paths = { 'k.rb:2:2' => paths }
+    row = { 'decision' => 'k.rb:2:2', 'top' => '&&' }
+    leave = { 'decision' => nil, 'top' => 'return' }
     cards = { 'k.rb:1:0' => { 'rows' => [row, leave] } }
     report = PathCoverage::SourceReport
-    site = report.site(source, sites, 'k.rb:2:2', paths, '&&')
+    decision = report.decision(source, decisions, 'k.rb:2:2', paths,
+                               '&&')
     expected = {
       schema: 1, ignored: [],
       groups: { 'Katas' => ['k.rb'], 'Other' => [] },
@@ -90,11 +92,13 @@ class SourceReportTest < TidTest
       },
       files: {
         'k.rb' => {
-          lines: report.lines(source), sites: { 'k.rb:2:2' => site }
+          lines: report.lines(source),
+          decisions: { 'k.rb:2:2' => decision }
         }
       }
     }
-    assert_equal expected, report.of(files, config, site_paths, cards)
+    assert_equal expected,
+                 report.of(files, config, decision_paths, cards)
   end
 
   test 'Sj3r40', %w(
@@ -104,8 +108,8 @@ class SourceReportTest < TidTest
     kata = "def kata?(id) = id.size == 6\n"
     kits = "def kits = 3\n"
     files = {
-      '/app/kata.rb' => { source: kata, sites: {} },
-      '/app/kits.rb' => { source: kits, sites: {} }
+      '/app/kata.rb' => { source: kata, decisions: {} },
+      '/app/kits.rb' => { source: kits, decisions: {} }
     }
     config = PathCoverage::Configuration.new do
       root '/app'
@@ -138,8 +142,8 @@ class SourceReportTest < TidTest
   ) do
     kata = "def kata = 6\n"
     files = {
-      '/app/models/kata.rb' => { source: kata, sites: {} },
-      '/app/lib/zip.rb' => { source: "def zip = 5\n", sites: {} }
+      '/app/models/kata.rb' => { source: kata, decisions: {} },
+      '/app/lib/zip.rb' => { source: "def zip = 5\n", decisions: {} }
     }
     config = PathCoverage::Configuration.new do
       root '/app'

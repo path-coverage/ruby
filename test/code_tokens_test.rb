@@ -82,7 +82,7 @@ class CodeTokensTest < TidTest
 
   test 'Sx7h17', %w(
   | Example: the fragments &&, ||, &., ?:, if and id.size == 6,
-  | as a site's tree shows them
+  | as a decision's tree shows them
   | Each is coloured as the code it is part of.
   | &&, ||, &. and ?: name the operators that decide a path, so
   | each is coloured as one, though alone ?: lexes as a character

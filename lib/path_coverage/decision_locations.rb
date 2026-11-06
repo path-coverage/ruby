@@ -1,10 +1,10 @@
 require_relative 'condition'
 
 module PathCoverage
-  # Where in its source each part of a site's tree is, as
+  # Where in its source each part of a decision's tree is, as
   # [line, column, line, column], so a page can light the code
   # a fold row stands for.
-  module SiteLocations
+  module DecisionLocations
     # simplecov:disable
     # SPIKE: tree with an at: of [line, column, line, column]
     # on it and on each of its operands: a leaf's from its byte

@@ -1,7 +1,7 @@
 require_relative 'condition'
 
 module PathCoverage
-  # The part of the manifest's visitor that builds the site of a
+  # The part of the manifest's visitor that builds the decision of a
   # call to a block method, one that calls its block an item at
   # a time, until it decides, eg any?, or for every item, eg
   # select: its leaves are its receiver, whose items the block
@@ -14,14 +14,14 @@ module PathCoverage
     # make it ignore its block, not by &., which skips it for
     # nil, and with a block of one expression that is a value,
     # so can be wrapped: not break, next or return.
-    def block_site?(node)
+    def block_decision?(node)
       return false unless BLOCK_PATHS.key?(node.name.to_s)
 
       plain_call?(node) && value?(block_expression(node.block))
     end
 
     # True for a call on a receiver, with no arguments. A call by
-    # &. never gets here, as it is a site of its own first.
+    # &. never gets here, as it is a decision of its own first.
     def plain_call?(node)
       !node.receiver.nil? && node.arguments.nil?
     end
@@ -60,7 +60,7 @@ module PathCoverage
       )
     end
 
-    # The byte range of block's one expression, any site in it
+    # The byte range of block's one expression, any decision in it
     # visited as one of its own, as the block runs once per item;
     # noted among the commands when it is no bare argument.
     def block_body(block)

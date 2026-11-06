@@ -30,12 +30,12 @@ built from the structure:
   goes on to each way through the next);
 - an `if`, `case` or ternary: add up its arms' ways, each times the
   predicate paths that lead to that arm;
-- a site with no arms (`&&`, `&.`, `any?`): its own paths, as the
+- a decision with no arms (`&&`, `&.`, `any?`): its own paths, as the
   card already counts them;
-- a statement that is no site: 1.
+- a statement that is no decision: 1.
 
 This is the known NPATH metric (Nejmeh, 1988), so we can cite it, and
-our sites give it better inputs than usual: `&.`, block methods and
+our decisions give it better inputs than usual: `&.`, block methods and
 `||=` count as the paths they really have. In the example: else 1,
 plus then 3 = 4.
 
@@ -55,6 +55,6 @@ which is the property that matters.
 
 ## Open question
 
-Loops and block bodies: count a block body once, as its site's paths
+Loops and block bodies: count a block body once, as its decision's paths
 already cover 0, 1 and many items. That keeps the number finite and
 honest without inventing loop iteration counts.

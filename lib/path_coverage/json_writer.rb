@@ -7,15 +7,15 @@ module PathCoverage
   module JsonWriter
     # Writes operands, as Result gives them, paths, as
     # PathsReport gives them, and totals, as JsonReports.totals
-    # gives them, to path as {"sites": {site: [counts, ...]},
-    # "paths": {site: {leaves:, taken:}}, "totals": {"alone":
+    # gives them, to path as {"decisions": {decision: [counts, ...]},
+    # "paths": {decision: {leaves:, taken:}}, "totals": {"alone":
     # [taken, possible]}}.
     # parts are json's.
     def self.write(operands, path, paths = {}, **parts)
       File.write(path, json(operands, paths, **parts))
     end
 
-    # The keys of parts listed as { site => [{path:, count:}] }:
+    # The keys of parts listed as { decision => [{path:, count:}] }:
     # each path taken that a treatment rules out, as
     # Result#outside gives them.
     LISTED = %i[outside].freeze
@@ -29,7 +29,7 @@ module PathCoverage
     # reached no statement says so; none when not given.
     def self.json(operands, paths = {}, **parts)
       fingerprint = parts.fetch(:fingerprint, {})
-      report = { 'sites' => operands, **fingerprint }
+      report = { 'decisions' => operands, **fingerprint }
       report['paths'] = paths unless paths.empty?
       report.merge!(lists(parts))
       report['reached'] = parts[:reached] if parts.key?(:reached)
@@ -59,7 +59,7 @@ module PathCoverage
       end.to_h
     end
 
-    # taken, { site => { path => count } }, as JSON lists it,
+    # taken, { decision => { path => count } }, as JSON lists it,
     # eg { 'k.rb:2:2' => [{ path: [true, false], count: 1 }] }.
     def self.listed(taken)
       taken.transform_values do |counts|

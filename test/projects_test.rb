@@ -20,9 +20,9 @@ class ProjectsTest < TidTest
 
   test '4WXv20', %w(
   | Example: the nested_conditions project's kata.rb
-  | It has || sites, chains, and nested and grouped conditions.
-  | It has an any? wholly an operand of an ||, so a site of its
-  | own, with a site inside its block, a new scope.
+  | It has || decisions, chains, and nested and grouped conditions.
+  | It has an any? wholly an operand of an ||, so a decision of its
+  | own, with a decision inside its block, a new scope.
   | It has an and whose operand is a command call.
   | All of them run unchanged when instrumented.
   | Their paths never taken are listed in source order.
@@ -81,9 +81,9 @@ class ProjectsTest < TidTest
   test '4WXv40', %w(
   | Example: total -= 10 if order.fetch(:total) > 100 && ...
   | The project measures methods too.
-  | It prints its site gaps.
-  | The modifier if's site is named at its keyword (5:16), and
-  | took both its paths; its predicate's && is a site of its
+  | It prints its decision gaps.
+  | The modifier if's decision is named at its keyword (5:16), and
+  | took both its paths; its predicate's && is a decision of its
   | own, named where it starts (5:19), with one gap.
   | fee still runs unchanged when instrumented.
   ) do |t|

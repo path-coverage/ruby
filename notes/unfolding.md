@@ -3,8 +3,8 @@
 ## The idea
 
 Today a condition nested inside another's expression is folded into
-one site: its leaves join the outer site's, and its paths multiply
-into the outer site's paths. The card shows one row, with one wide
+one decision: its leaves join the outer decision's, and its paths multiply
+into the outer decision's paths. The card shows one row, with one wide
 grid.
 
 Statements are not treated that way: `x = 1; y = 2` is two rows, and
@@ -12,11 +12,11 @@ an `if` inside an `if` is two rows, the inner one placed in the
 outer's arm by the JSON's `tree`.
 
 Unfolding treats expressions the same way. Every element that can
-change the path is a site, and a row, of its own. The tree says when
+change the path is a decision, and a row, of its own. The tree says when
 each one runs (`parent`, `in`, `on`). One new fact is needed, `gives`:
 what a child's outcome makes of the parent's leaf that holds it.
 
-The numbers below are from Manifest and SitePaths at 841c2a5.
+The numbers below are from Manifest and DecisionPaths at 841c2a5.
 
 ## Sample 1: an && holding a ?:
 
@@ -26,7 +26,7 @@ def f(a, b)
 end
 ```
 
-Folded today: one site, `2:2 &&`, leaves `a`, `b`, `b ? 1 : 2` (the
+Folded today: one decision, `2:2 &&`, leaves `a`, `b`, `b ? 1 : 2` (the
 ?:'s value, as the &&'s last operand):
 
 ```
@@ -40,7 +40,7 @@ Folded today: one site, `2:2 &&`, leaves `a`, `b`, `b ? 1 : 2` (the
 5 paths, 2 of them impossible. The folding does not know that 1 and
 2 are truthy, so it cannot rule them out.
 
-Unfolded: two sites.
+Unfolded: two decisions.
 
 ```
 2:2  &&  leaves a, (b ? 1 : 2)      paths [T,T] [T,F] [F]
@@ -56,7 +56,7 @@ possible.
 
 Without `gives` (an arm whose truthiness is not known, eg a call),
 each child path gives both, and the count is 2 + 2 + 1 = 5, as the
-folded site has now. So `gives` only ever removes impossible paths.
+folded decision has now. So `gives` only ever removes impossible paths.
 
 ## Sample 2: an && holding select { }.any?
 
@@ -66,7 +66,7 @@ def f(a, xs)
 end
 ```
 
-Folded today: one site, `2:2 &&`, leaves `a`, `xs` (select's item
+Folded today: one decision, `2:2 &&`, leaves `a`, `xs` (select's item
 count), `x.odd?` (its answers), and `xs.select { ... }.any?`: 13
 paths, `a` false once, then 6 select paths times any? true or false.
 Half of those 12 are impossible: any? is true exactly when select
@@ -85,7 +85,7 @@ Unfolded:
 
 Ways through: [T,T] with select's 3 paths that keep an item, [T,F]
 with its 3 that keep none, [F] alone: 7, every one possible, where
-the folded site lists 13.
+the folded decision lists 13.
 
 The fact `gives` needs is already known: the Block kind's value
 function says what select's result holds on each path (VALUED).
@@ -98,7 +98,7 @@ def f(a, b)
 end
 ```
 
-Folded today: one site, `2:2 ?:`, leaves `a`, `b`: [T,T] [T,F] [F,nil].
+Folded today: one decision, `2:2 ?:`, leaves `a`, `b`: [T,T] [T,F] [F,nil].
 3 paths, all possible: nothing is lost by folding here.
 
 Unfolded:
@@ -116,8 +116,8 @@ shows two rows of 2 paths, not one of 3.
 ## What it simplifies
 
 - A card row per element, each grid as narrow as its own leaves.
-- The site kinds stop composing: Contains, and the folding in
-  ManifestFolding, go; a site's paths are its own leaves' only.
+- The decision kinds stop composing: Contains, and the folding in
+  ManifestFolding, go; a decision's paths are its own leaves' only.
 - The tree carries all nesting, statements and expressions alike,
   so the complexity fold (notes/complexity.md) has one shape to fold.
 - The impossible combined paths of a fold (an open item) become
@@ -125,10 +125,10 @@ shows two rows of 2 paths, not one of 3.
 
 ## What it costs
 
-- The recorder records each site on its own, so the rewriter's
-  nested inserts change: each nested site gets its own enter and
+- The recorder records each decision on its own, so the rewriter's
+  nested inserts change: each nested decision gets its own enter and
   leave, inside its parent's leaf.
-- Per-site counts no longer hold joint outcomes. They come back,
+- Per-decision counts no longer hold joint outcomes. They come back,
   for the whole method, from recording each call's whole path (see
   Decided): one array write per evaluation, one hash increment per
   call or loop pass.
@@ -160,7 +160,7 @@ shows two rows of 2 paths, not one of 3.
   the tree. Impossible paths, those `gives` rules out, are not
   counted or shown.
 
-- The complexity tab does not try to draw how sites connect, or how
+- The complexity tab does not try to draw how decisions connect, or how
   that multiplies the count. The code pane already shows that
   structure. The tab is one column per way, each covered or not,
   with its count on hover:
@@ -186,7 +186,7 @@ shows two rows of 2 paths, not one of 3.
   So a gap reads as code: the dimmed lines and red leaves say what a
   test must do to take that way.
 
-- Per-site counts cannot say which whole paths were taken:
+- Per-decision counts cannot say which whole paths were taken:
 
   ```ruby
   def f(a, b)
@@ -197,12 +197,12 @@ shows two rows of 2 paths, not one of 3.
   ```
 
   ```
-  per-site counts:  a: T,F both taken   b: T,F both taken
+  per-decision counts:  a: T,F both taken   b: T,F both taken
   whole paths:      TT taken  FF taken  TF never  FT never
   ```
 
   So the recorder keeps, per method call, a small array with a slot
-  per site of the method. Each evaluation writes its site's path to
+  per decision of the method. Each evaluation writes its decision's path to
   its slot. When the call returns, the array is the call's whole
   path, and is counted.
 
@@ -213,7 +213,7 @@ shows two rows of 2 paths, not one of 3.
   number of possible paths, not by how often code runs.
 
   ```
-  def f(xs)                 method unit:  sites outside the loop
+  def f(xs)                 method unit:  decisions outside the loop
     xs.each do |x|          body unit:    one tuple per pass
       p(x ? 1 : 2)
     end
@@ -222,24 +222,24 @@ shows two rows of 2 paths, not one of 3.
 
 - Whole paths are counted, not just noted, as a hash of tuple to
   count, so the whole-path view's 0 and * cells keep their hover tip
-  of how many times, as the per-site cells have now:
+  of how many times, as the per-decision cells have now:
 
   ```
   body counts   = { [T] => 61_402, [F] => 38_598 }
   method counts = { [T, T] => 3, [F, F] => 1 }   # TF, FT: 0
   ```
 
-- A card keeps only rows that shape paths: sites, and return and
-  raise rows, which end a path. A row that is no site and has one
+- A card keeps only rows that shape paths: decisions, and return and
+  raise rows, which end a path. A row that is no decision and has one
   path, eg total -= 2, runs exactly where its parent's arm does,
   so it is dropped from the card and from the JSON, and its reach
   call with it.
 
-- So that a method with no sites, never called, cannot read as
+- So that a method with no decisions, never called, cannot read as
   covered, each card has a call-count: a counter at its def's
   entry, in the JSON card and the card's title, 0 shown as a gap.
 
-- A site whose arm returns or raises, eg return total if
+- A decision whose arm returns or raises, eg return total if
   order[:pickup], gets a row in its fold, return or raise, marked
   on each path that leaves the method (drawn here as <-), blank on
   the others:

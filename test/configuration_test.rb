@@ -157,7 +157,7 @@ class ConfigurationTest < TidTest
 
   test 'A9MJ80', %w(
   | Example: ignore '&&=', '||='
-  | ignored names each operator whose sites are not measured.
+  | ignored names each operator whose decisions are not measured.
   | With no ignore setting none are.
   ) do
     config = PathCoverage::Configuration.new do
@@ -172,7 +172,7 @@ class ConfigurationTest < TidTest
   test 'A9MJ81', %w(
   | an unknown operator to ignore is refused, naming it and
   | listing the operators there are, as ignoring nothing would
-  | leave its sites measured unnoticed
+  | leave its decisions measured unnoticed
   ) do
     error = assert_raises(PathCoverage::ConfigurationError) do
       PathCoverage::Configuration.new do

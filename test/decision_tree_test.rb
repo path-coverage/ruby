@@ -1,9 +1,9 @@
 require_relative 'test_helper'
 require 'path_coverage/manifest'
-require 'path_coverage/site_paths'
-require 'path_coverage/site_tree'
+require 'path_coverage/decision_paths'
+require 'path_coverage/decision_tree'
 
-class SiteTreeTest < TidTest
+class DecisionTreeTest < TidTest
   test 'EuNs10', %w(
   | Example: ok?(id) && id.start_with?('N')
   | The tree names its operator (&&).
@@ -13,7 +13,7 @@ class SiteTreeTest < TidTest
   | The text is cut from the manifest's byte range.
   | Each leaf has its outcome on each path.
   | A leaf a path never reached is nil.
-  | The site has its value on each path too.
+  | The decision has its value on each path too.
   ) do
     source = <<~RUBY
       module Kata
@@ -21,7 +21,7 @@ class SiteTreeTest < TidTest
         def self.kata?(id) = ok?(id) && id.start_with?('N')
       end
     RUBY
-    site = condition('&&', 67...74, 78...97)
+    decision = condition('&&', 67...74, 78...97)
     paths = [
       { path: [true, true], count: 1 },
       { path: [true, false], count: 0 },
@@ -35,7 +35,7 @@ class SiteTreeTest < TidTest
         { text: "id.start_with?('N')", cells: [false, true, nil] }
       ]
     }
-    actual = PathCoverage::SiteTree.of(source, site, paths)
+    actual = PathCoverage::DecisionTree.of(source, decision, paths)
     assert_equal expected, actual
   end
 
@@ -51,7 +51,7 @@ class SiteTreeTest < TidTest
       end
     RUBY
     either = condition('||', 28...36, 40...52)
-    site = condition('&&', 16...23, either)
+    decision = condition('&&', 16...23, either)
     paths = [
       { path: [true, true, nil], count: 2 },
       { path: [true, false, true], count: 0 },
@@ -72,7 +72,7 @@ class SiteTreeTest < TidTest
         }
       ]
     }
-    actual = PathCoverage::SiteTree.of(source, site, paths)
+    actual = PathCoverage::DecisionTree.of(source, decision, paths)
     assert_equal expected, actual
   end
 
@@ -92,7 +92,7 @@ class SiteTreeTest < TidTest
       end
     RUBY
     both = condition('&&', 26...34, 38...50)
-    site = condition(
+    decision = condition(
       '?:', 16...23, arm(:then, 26...50, both), arm(:else, 53...56)
     )
     paths = [
@@ -123,14 +123,14 @@ class SiteTreeTest < TidTest
         }
       ]
     }
-    actual = PathCoverage::SiteTree.of(source, site, paths)
+    actual = PathCoverage::DecisionTree.of(source, decision, paths)
     assert_equal expected, actual
   end
 
   test 'EuNs80', %w(
   | Example: if order.big? && order.new? 5 else 7 end
   | An if's tree is the same as a ternary's.
-  | Its predicate, an && here, is one leaf, the && a site of
+  | Its predicate, an && here, is one leaf, the && a decision of
   | its own; the predicate decides which arm each path took.
   | Both arms (5 and 7) are plain, so the if's value is nil.
   ) do
@@ -143,7 +143,8 @@ class SiteTreeTest < TidTest
         end
       end
     RUBY
-    site = PathCoverage::Manifest.sites(source, 'k.rb').values.first
+    decision = PathCoverage::Manifest.decisions(source,
+                                                'k.rb').values.first
     paths = [
       { path: [true], count: 1 },
       { path: [false], count: 2 }
@@ -157,7 +158,7 @@ class SiteTreeTest < TidTest
         { arm: :else, text: '7', cells: [false, true], body: nil }
       ]
     }
-    actual = PathCoverage::SiteTree.of(source, site, paths)
+    actual = PathCoverage::DecisionTree.of(source, decision, paths)
     assert_equal expected, actual
   end
 
@@ -172,7 +173,8 @@ class SiteTreeTest < TidTest
         end
       end
     RUBY
-    site = PathCoverage::Manifest.sites(source, 'k.rb').values.first
+    decision = PathCoverage::Manifest.decisions(source,
+                                                'k.rb').values.first
     paths = [
       { path: [true], count: 1 },
       { path: [false], count: 0 }
@@ -184,7 +186,7 @@ class SiteTreeTest < TidTest
         { arm: :then, text: nil, cells: [false, true], body: nil }
       ]
     }
-    actual = PathCoverage::SiteTree.of(source, site, paths)
+    actual = PathCoverage::DecisionTree.of(source, decision, paths)
     assert_equal expected, actual
   end
 
@@ -202,7 +204,7 @@ class SiteTreeTest < TidTest
         end
       end
     RUBY
-    site = condition(
+    decision = condition(
       'unless', 24...34, arm(:then, 39...40), arm(:else, 52...53)
     )
     paths = [
@@ -217,7 +219,7 @@ class SiteTreeTest < TidTest
         { arm: :else, text: '7', cells: [false, true], body: nil }
       ]
     }
-    actual = PathCoverage::SiteTree.of(source, site, paths)
+    actual = PathCoverage::DecisionTree.of(source, decision, paths)
     assert_equal expected, actual
   end
 
@@ -244,7 +246,7 @@ class SiteTreeTest < TidTest
     RUBY
     small = condition('when', 28...29, 31...32)
     text = condition('when', 51...57)
-    site = condition(
+    decision = condition(
       'case', arm(:when, 37...43, small), arm(:when, 62...67, text),
       arm(:else, 79...85)
     )
@@ -285,7 +287,7 @@ class SiteTreeTest < TidTest
         }
       ]
     }
-    actual = PathCoverage::SiteTree.of(source, site, paths)
+    actual = PathCoverage::DecisionTree.of(source, decision, paths)
     assert_equal expected, actual
   end
 
@@ -297,35 +299,35 @@ class SiteTreeTest < TidTest
   | So the rows read as the code does.
   ) do
     source = "def k(a, b, c) = (a || b).any? && c\n"
-    site = PathCoverage::Manifest.sites(source, 'k.rb').values.first
-    paths = PathCoverage::SitePaths.possible(site).map do |path|
-      { path:, count: 0 }
-    end
-    tree = PathCoverage::SiteTree.of(source, site, paths)
+    found = PathCoverage::Manifest.decisions(source, 'k.rb')
+    decision = found.values.first
+    possible = PathCoverage::DecisionPaths.possible(decision)
+    paths = possible.map { |path| { path:, count: 0 } }
+    tree = PathCoverage::DecisionTree.of(source, decision, paths)
     inner, leaf = tree[:operands].first[:operands]
     assert_equal ['( ||', ').any?'], [inner[:label], leaf[:text]]
   end
 
   test 'EuNs85', %w(
-  | Example: user&.account&.owner as a site of its own
+  | Example: user&.account&.owner as a decision of its own
   | Its leaves are its receivers, user and account, as only
   | they decide its path, and its tree shows just those: owner
   | decides no path, and is called exactly where account is not
   | nil.
   ) do
     source = "def owner_of(user) = user&.account&.owner\n"
-    site = PathCoverage::Manifest.sites(source, 'k.rb').values.first
-    paths = PathCoverage::SitePaths.possible(site).map do |path|
-      { path:, count: 0 }
-    end
-    tree = PathCoverage::SiteTree.of(source, site, paths)
+    found = PathCoverage::Manifest.decisions(source, 'k.rb')
+    decision = found.values.first
+    possible = PathCoverage::DecisionPaths.possible(decision)
+    paths = possible.map { |path| { path:, count: 0 } }
+    tree = PathCoverage::DecisionTree.of(source, decision, paths)
     texts = tree[:operands].map { _1[:text] }
     assert_equal %w(user account), texts
   end
 
   test 'EuNs86', %w(
   | Example: if member ... elsif big ... end
-  | The elsif is an if site of its own, its tree labelled
+  | The elsif is an if decision of its own, its tree labelled
   | elsif, as it is written, though its operator is if.
   | The first if's tree has no label, its operator if
   | naming it.
@@ -339,12 +341,11 @@ class SiteTreeTest < TidTest
         end
       end
     RUBY
-    sites = PathCoverage::Manifest.sites(source, 'k.rb')
-    trees = sites.transform_values do |site|
-      paths = PathCoverage::SitePaths.possible(site).map do |path|
-        { path:, count: 0 }
-      end
-      PathCoverage::SiteTree.of(source, site, paths)
+    decisions = PathCoverage::Manifest.decisions(source, 'k.rb')
+    trees = decisions.transform_values do |decision|
+      possible = PathCoverage::DecisionPaths.possible(decision)
+      paths = possible.map { |path| { path:, count: 0 } }
+      PathCoverage::DecisionTree.of(source, decision, paths)
     end
     labels = trees.transform_values { [_1[:operator], _1[:label]] }
     expected = {
@@ -367,11 +368,11 @@ class SiteTreeTest < TidTest
         end
       end
     RUBY
-    site = PathCoverage::Manifest.sites(source, 'k.rb').values.first
-    paths = PathCoverage::SitePaths.possible(site).map do |path|
-      { path:, count: 1 }
-    end
-    tree = PathCoverage::SiteTree.of(source, site, paths)
+    found = PathCoverage::Manifest.decisions(source, 'k.rb')
+    decision = found.values.first
+    possible = PathCoverage::DecisionPaths.possible(decision)
+    paths = possible.map { |path| { path:, count: 1 } }
+    tree = PathCoverage::DecisionTree.of(source, decision, paths)
     arms = tree[:operands].map { [_1[:arm], _1[:cells]] }
     expected = [[:when, [true, false]], [:else, [false, true]]]
     assert_equal expected, arms

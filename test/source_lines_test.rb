@@ -14,7 +14,7 @@ class SourceLinesTest < TidTest
         def self.team?(id) = ok?(id) && id.size == 6
       end
     RUBY
-    sites = {
+    decisions = {
       'source/kata.rb:3:23' => condition('&&', 67...74, 78...97),
       'source/kata.rb:4:23' => condition('&&', 121...128, 132...144)
     }
@@ -41,13 +41,13 @@ class SourceLinesTest < TidTest
       { number: 5, text: 'end', status: nil, span: nil }
     ]
     source_lines = PathCoverage::SourceLines
-    actual = source_lines.of(source, sites, operands)
+    actual = source_lines.of(source, decisions, operands)
     assert_equal expected, actual
   end
 
   test 'MDBw15', %w(
-  | a line holding a site with gaps shows gaps,
-  | even when another site on the same line is covered,
+  | a line holding a decision with gaps shows gaps,
+  | even when another decision on the same line is covered,
   | so a gap is never reported as covered
   ) do
     source = <<~RUBY
@@ -55,7 +55,7 @@ class SourceLinesTest < TidTest
         def self.pair?(a, b) = [ok?(a) && new?(a), ok?(b) && new?(b)]
       end
     RUBY
-    sites = {
+    decisions = {
       'source/kata.rb:2:26' => condition('&&', 38...44, 48...55),
       'source/kata.rb:2:45' => condition('&&', 57...63, 67...74)
     }
@@ -70,7 +70,7 @@ class SourceLinesTest < TidTest
       ]
     }
     source_lines = PathCoverage::SourceLines
-    line = source_lines.of(source, sites, operands)[1]
+    line = source_lines.of(source, decisions, operands)[1]
     assert_equal :gaps, line[:status]
   end
 
@@ -84,7 +84,7 @@ class SourceLinesTest < TidTest
       end
     RUBY
     fixed = { 54...72 => :truthy }
-    sites = {
+    decisions = {
       'source/clock.rb:2:11' =>
         condition('||', 35...50, 54...72, fixed:)
     }
@@ -95,12 +95,12 @@ class SourceLinesTest < TidTest
       ]
     }
     source_lines = PathCoverage::SourceLines
-    line = source_lines.of(source, sites, operands)[1]
+    line = source_lines.of(source, decisions, operands)[1]
     assert_equal :covered, line[:status]
   end
 
   test 'MDBw17', %w(
-  | sites whose lines overlap merge into one span,
+  | decisions whose lines overlap merge into one span,
   | so all the lines they cover form a single button
   ) do
     source = <<~RUBY
@@ -109,7 +109,7 @@ class SourceLinesTest < TidTest
           new?(a), ok?(b) && new?(b)]
       end
     RUBY
-    sites = {
+    decisions = {
       'source/kata.rb:2:26' => condition('&&', 38...44, 52...59),
       'source/kata.rb:3:13' => condition('&&', 61...67, 71...78)
     }
@@ -124,7 +124,7 @@ class SourceLinesTest < TidTest
       ]
     }
     source_lines = PathCoverage::SourceLines
-    lines = source_lines.of(source, sites, operands)
+    lines = source_lines.of(source, decisions, operands)
     expected = [nil, 2..3, 2..3, nil]
     actual = lines.map { |line| line[:span] }
     assert_equal expected, actual
@@ -143,7 +143,7 @@ class SourceLinesTest < TidTest
         end
       end
     RUBY
-    sites = {
+    decisions = {
       'source/kata.rb:3:4' => condition('&&', 37...44, 54...73)
     }
     operands = {
@@ -164,7 +164,7 @@ class SourceLinesTest < TidTest
       { number: 6, text: 'end', status: nil, span: nil }
     ]
     source_lines = PathCoverage::SourceLines
-    actual = source_lines.of(source, sites, operands)
+    actual = source_lines.of(source, decisions, operands)
     assert_equal expected, actual
   end
 end

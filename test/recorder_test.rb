@@ -15,69 +15,71 @@ class RecorderTest < TidTest
 
   test '8TuB20', %w(
   | each operand's truthy and falsy outcomes are counted,
-  | keyed by its site and index
+  | keyed by its decision and index
   ) do
     recorder = PathCoverage::Recorder.new
-    site = 'k.rb:2:2'
+    decision = 'k.rb:2:2'
     # ok?(id) && new?(id), called three times
-    recorder.record(site, 0, true)
-    recorder.record(site, 1, true)
-    recorder.record(site, 0, true)
-    recorder.record(site, 1, false)
-    recorder.record(site, 0, nil) # so new?(id) never runs
+    recorder.record(decision, 0, true)
+    recorder.record(decision, 1, true)
+    recorder.record(decision, 0, true)
+    recorder.record(decision, 1, false)
+    recorder.record(decision, 0, nil) # so new?(id) never runs
     expected = {
-      [site, 0] => { truthy: 2, falsy: 1 },
-      [site, 1] => { truthy: 1, falsy: 1 }
+      [decision, 0] => { truthy: 2, falsy: 1 },
+      [decision, 1] => { truthy: 1, falsy: 1 }
     }
     assert_equal expected, recorder.counts
   end
 
   test '8TuB50', %w(
-  | each evaluation of a site, entered before its first leaf
+  | each evaluation of a decision, entered before its first leaf
   | and left after its last, counts its path: the outcome of
   | each leaf it reached, nil for one it never did; leaving
-  | returns the site's value unchanged
+  | returns the decision's value unchanged
   ) do
     recorder = PathCoverage::Recorder.new
-    site = 'k.rb:2:2'
+    decision = 'k.rb:2:2'
     # ok?(id) && new?(id), called twice
-    trail = recorder.enter(site, 2)
-    recorder.record(site, 0, true)
-    recorder.record(site, 1, false)
+    trail = recorder.enter(decision, 2)
+    recorder.record(decision, 0, true)
+    recorder.record(decision, 1, false)
     assert_same false, recorder.leave(trail, false)
-    trail = recorder.enter(site, 2)
-    recorder.record(site, 0, nil)
+    trail = recorder.enter(decision, 2)
+    recorder.record(decision, 0, nil)
     assert_nil recorder.leave(trail, nil)
-    expected = { site => { [true, false] => 1, [false, nil] => 1 } }
-    assert_equal expected, recorder.site_paths
+    expected = { decision => { [true, false] => 1,
+                               [false, nil] => 1 } }
+    assert_equal expected, recorder.decision_paths
   end
 
   test '8TuB51', %w(
-  | an evaluation of a site in another thread, while one is
+  | an evaluation of a decision in another thread, while one is
   | under way, fills in a trail of its own, so neither
   | thread's path takes the other's outcomes
   ) do
     recorder = PathCoverage::Recorder.new
-    site = 'k.rb:2:2'
+    decision = 'k.rb:2:2'
     # ok?(id) && new?(id), in two threads at once
     entered = Queue.new
     resume = Queue.new
-    trail = recorder.enter(site, 2)
-    recorder.record(site, 0, true)
+    trail = recorder.enter(decision, 2)
+    recorder.record(decision, 0, true)
     other = Thread.new do
-      mine = recorder.enter(site, 2)
-      recorder.record(site, 0, false)
+      mine = recorder.enter(decision, 2)
+      recorder.record(decision, 0, false)
       entered.push(:entered)
       resume.pop
       recorder.leave(mine, false)
     end
     entered.pop
-    recorder.record(site, 1, true)
+    recorder.record(decision, 1, true)
     resume.push(:resume)
     other.join
     recorder.leave(trail, true)
-    expected = { site => { [false, nil] => 1, [true, true] => 1 } }
-    assert_equal expected, recorder.site_paths
+    expected = { decision => { [false, nil] => 1,
+                               [true, true] => 1 } }
+    assert_equal expected, recorder.decision_paths
   end
 
   test '8TuB52', %w(
@@ -88,20 +90,20 @@ class RecorderTest < TidTest
   | is cleared down to it
   ) do
     recorder = PathCoverage::Recorder.new
-    site = 'k.rb:2:2'
+    decision = 'k.rb:2:2'
     # ok?(id) || retry?(id), whose retry? recursed and raised
-    outer = recorder.enter(site, 2)
-    recorder.record(site, 0, false)
-    recorder.enter(site, 2)
-    recorder.record(site, 1, true)
+    outer = recorder.enter(decision, 2)
+    recorder.record(decision, 0, false)
+    recorder.enter(decision, 2)
+    recorder.record(decision, 1, true)
     assert_same true, recorder.leave(outer, true)
-    assert_equal({}, recorder.site_paths)
+    assert_equal({}, recorder.decision_paths)
 
-    trail = recorder.enter(site, 2)
-    recorder.record(site, 0, true)
+    trail = recorder.enter(decision, 2)
+    recorder.record(decision, 0, true)
     recorder.leave(trail, true)
-    expected = { site => { [true, nil] => 1 } }
-    assert_equal expected, recorder.site_paths
+    expected = { decision => { [true, nil] => 1 } }
+    assert_equal expected, recorder.decision_paths
   end
 
   test '8TuB53', %w(
@@ -110,12 +112,14 @@ class RecorderTest < TidTest
   | no path, and leaving it still returns
   ) do
     recorder = PathCoverage::Recorder.new
-    site = 'k.rb:2:2'
+    decision = 'k.rb:2:2'
     trail = Fiber.new do
-      recorder.enter(site, 2).tap { recorder.record(site, 0, true) }
+      recorder.enter(decision, 2).tap do
+        recorder.record(decision, 0, true)
+      end
     end.resume
     assert_same :ok, recorder.leave(trail, :ok)
-    assert_equal({}, recorder.site_paths)
+    assert_equal({}, recorder.decision_paths)
   end
 
   test '8TuB60', %w(
@@ -125,16 +129,16 @@ class RecorderTest < TidTest
   | Matching x against a stand-in matches x against its
   | pattern, once.
   | The stand-in records whether it matched.
-  | The first pattern (1) enters the site.
+  | The first pattern (1) enters the decision.
   | A match, or the last pattern (String), leaves it.
   | So each evaluation's path is counted.
   | Eg 1 matches the first pattern, so no later one is tried.
   | The case still picks the same arm, eg :small for 2.
   ) do
     recorder = PathCoverage::Recorder.new
-    site = 'k.rb:2:2'
+    decision = 'k.rb:2:2'
     stand = lambda do |index, pattern|
-      recorder.when_match(site, index, 3, pattern)
+      recorder.when_match(decision, index, 3, pattern)
     end
     kind = lambda do |x|
       case x
@@ -146,13 +150,13 @@ class RecorderTest < TidTest
     kinds = [1, 2, 'Kp', :k].map { |x| kind.call(x) }
     assert_equal %i[small small text other], kinds
     expected = {
-      site => {
+      decision => {
         [true, nil, nil] => 1,
         [false, true, nil] => 1, [false, false, true] => 1,
         [false, false, false] => 1
       }
     }
-    assert_equal expected, recorder.site_paths
+    assert_equal expected, recorder.decision_paths
   end
 
   test '8TuB61', %w(
@@ -168,14 +172,15 @@ class RecorderTest < TidTest
   | It counts falsy when the block was not called.
   ) do
     recorder = PathCoverage::Recorder.new
-    site = 'k.rb:2:6'
+    decision = 'k.rb:2:6'
     any = lambda do |ids, ok|
-      trail = recorder.enter(site, 2)
-      begun = recorder.begin_items(site, 0)
+      trail = recorder.enter(decision, 2)
+      begun = recorder.begin_items(decision, 0)
       found = ids.any? do |id|
-        recorder.item_at(site, 0, ok.include?(id))
+        recorder.item_at(decision, 0, ok.include?(id))
       end
-      recorder.leave(trail, recorder.end_items(site, 0, begun, found))
+      recorder.leave(trail,
+                     recorder.end_items(decision, 0, begun, found))
     end
     calls = [
       [[], []], [[:a], [:a]], [[:a], []], [%i[a b], []],
@@ -184,16 +189,16 @@ class RecorderTest < TidTest
     founds = calls.map { |ids, ok| any.call(ids, ok) }
     assert_equal [false, true, false, false, true], founds
     expected = {
-      site => {
+      decision => {
         ['0 items', nil] => 1, ['1 item', true] => 1,
         ['1 item', false] => 1, ['2+ items', false] => 1,
         ['2+ items', true] => 1
       }
     }
-    assert_equal expected, recorder.site_paths
+    assert_equal expected, recorder.decision_paths
     counts = {
-      [site, 0] => { truthy: 4, falsy: 1 },
-      [site, 1] => { truthy: 2, falsy: 4 }
+      [decision, 0] => { truthy: 4, falsy: 1 },
+      [decision, 1] => { truthy: 2, falsy: 4 }
     }
     assert_equal counts, recorder.counts
   end
@@ -205,15 +210,17 @@ class RecorderTest < TidTest
   | It is not noted on any path.
   ) do
     recorder = PathCoverage::Recorder.new
-    site = 'k.rb:2:6'
-    trail = recorder.enter(site, 2)
-    begun = recorder.begin_items(site, 0)
-    answer = Fiber.new { recorder.item_at(site, 0, :ok) }.resume
+    decision = 'k.rb:2:6'
+    trail = recorder.enter(decision, 2)
+    begun = recorder.begin_items(decision, 0)
+    answer = Fiber.new { recorder.item_at(decision, 0, :ok) }.resume
     assert_same :ok, answer
-    recorder.leave(trail, recorder.end_items(site, 0, begun, false))
-    expected = { site => { ['0 items', nil] => 1 } }
-    assert_equal expected, recorder.site_paths
-    assert_equal({ truthy: 1, falsy: 0 }, recorder.counts[[site, 1]])
+    recorder.leave(trail,
+                   recorder.end_items(decision, 0, begun, false))
+    expected = { decision => { ['0 items', nil] => 1 } }
+    assert_equal expected, recorder.decision_paths
+    assert_equal({ truthy: 1, falsy: 0 },
+                 recorder.counts[[decision, 1]])
   end
 
   test '8TuB63', %w(
@@ -227,25 +234,29 @@ class RecorderTest < TidTest
   | The call's result and the block's answers are unchanged.
   ) do
     recorder = PathCoverage::Recorder.new
-    site = 'k.rb:2:6'
+    decision = 'k.rb:2:6'
     select = lambda do |ids|
-      trail = recorder.enter(site, 2)
-      begun = recorder.begin_items(site, 0)
-      kept = ids.select { |id| recorder.answer_at(site, 0, id.odd?) }
-      recorder.leave(trail, recorder.end_items(site, 0, begun, kept))
+      trail = recorder.enter(decision, 2)
+      begun = recorder.begin_items(decision, 0)
+      kept = ids.select do |id|
+        recorder.answer_at(decision, 0, id.odd?)
+      end
+      recorder.leave(trail,
+                     recorder.end_items(decision, 0, begun, kept))
     end
     idss = [[], [1], [2], [1, 3], [2, 4], [1, 2]]
     kept = idss.map { |ids| select.call(ids) }
     assert_equal [[], [1], [], [1, 3], [], [1]], kept
     expected = {
-      site => {
+      decision => {
         ['0 items', nil] => 1, ['1 item', 'all true'] => 1,
         ['1 item', 'all false'] => 1, ['2+ items', 'all true'] => 1,
         ['2+ items', 'all false'] => 1, ['2+ items', 'both'] => 1
       }
     }
-    assert_equal expected, recorder.site_paths
-    assert_equal({ truthy: 4, falsy: 4 }, recorder.counts[[site, 1]])
+    assert_equal expected, recorder.decision_paths
+    assert_equal({ truthy: 4, falsy: 4 },
+                 recorder.counts[[decision, 1]])
   end
 
   test '8TuB64', %w(
@@ -256,31 +267,32 @@ class RecorderTest < TidTest
   | It is not noted on any path.
   ) do
     recorder = PathCoverage::Recorder.new
-    site = 'k.rb:2:6'
-    trail = recorder.enter(site, 2)
-    begun = recorder.begin_items(site, 0)
-    answer = Fiber.new { recorder.answer_at(site, 0, nil) }.resume
+    decision = 'k.rb:2:6'
+    trail = recorder.enter(decision, 2)
+    begun = recorder.begin_items(decision, 0)
+    answer = Fiber.new { recorder.answer_at(decision, 0, nil) }.resume
     assert_nil answer
-    recorder.leave(trail, recorder.end_items(site, 0, begun, []))
-    expected = { site => { ['0 items', nil] => 1 } }
-    assert_equal expected, recorder.site_paths
-    assert_equal({ truthy: 0, falsy: 1 }, recorder.counts[[site, 1]])
+    recorder.leave(trail, recorder.end_items(decision, 0, begun, []))
+    expected = { decision => { ['0 items', nil] => 1 } }
+    assert_equal expected, recorder.decision_paths
+    assert_equal({ truthy: 0, falsy: 1 },
+                 recorder.counts[[decision, 1]])
   end
 
   test '8TuB67', %w(
   | Example: ok && ids.any? { |id| id.odd? }, the any? begun in
-  | another fiber than its site was entered in
+  | another fiber than its decision was entered in
   | There is no trail to begin its items on.
-  | So it begins none, and the site's path is unchanged.
+  | So it begins none, and the decision's path is unchanged.
   ) do
     recorder = PathCoverage::Recorder.new
-    site = 'k.rb:2:4'
-    trail = recorder.enter(site, 3)
-    begun = Fiber.new { recorder.begin_items(site, 1) }.resume
+    decision = 'k.rb:2:4'
+    trail = recorder.enter(decision, 3)
+    begun = Fiber.new { recorder.begin_items(decision, 1) }.resume
     assert_nil begun
     recorder.leave(trail, true)
-    expected = { site => { [nil, nil, nil] => 1 } }
-    assert_equal expected, recorder.site_paths
+    expected = { decision => { [nil, nil, nil] => 1 } }
+    assert_equal expected, recorder.decision_paths
   end
 
   test '8TuB66', %w(
@@ -291,14 +303,18 @@ class RecorderTest < TidTest
   | It is not noted on any path.
   ) do
     recorder = PathCoverage::Recorder.new
-    site = 'k.rb:2:4'
-    trail = recorder.enter(site, 1)
+    decision = 'k.rb:2:4'
+    trail = recorder.enter(decision, 1)
     user = Struct.new(:name).new('kim')
-    noted = Fiber.new { recorder.present(site, 0, 0, user) }.resume
+    noted = Fiber.new do
+      recorder.present(decision, 0, 0, user)
+    end.resume
     assert_same user, noted
     recorder.leave(trail, 'kim')
-    assert_equal({ site => { [nil] => 1 } }, recorder.site_paths)
-    assert_equal({ truthy: 1, falsy: 0 }, recorder.counts[[site, 0]])
+    assert_equal({ decision => { [nil] => 1 } },
+                 recorder.decision_paths)
+    assert_equal({ truthy: 1, falsy: 0 },
+                 recorder.counts[[decision, 0]])
   end
 
   test '8TuB70', %w(
@@ -316,23 +332,24 @@ class RecorderTest < TidTest
 
   test '8TuB71', %w(
   | Example: ok && ids.any? { |id| id.odd? }, the any? begun in
-  | another fiber than its site was entered in, then ended
+  | another fiber than its decision was entered in, then ended
   | There is no trail its items were begun on.
   | So its receiver is counted as called, truthy.
   | Its value is returned unchanged.
   ) do
     recorder = PathCoverage::Recorder.new
-    site = 'k.rb:2:4'
-    trail = recorder.enter(site, 3)
-    begun = Fiber.new { recorder.begin_items(site, 1) }.resume
-    ended = recorder.end_items(site, 1, begun, true)
+    decision = 'k.rb:2:4'
+    trail = recorder.enter(decision, 3)
+    begun = Fiber.new { recorder.begin_items(decision, 1) }.resume
+    ended = recorder.end_items(decision, 1, begun, true)
     recorder.leave(trail, ended)
     assert_equal true, ended
-    assert_equal({ truthy: 1, falsy: 0 }, recorder.counts[[site, 1]])
+    assert_equal({ truthy: 1, falsy: 0 },
+                 recorder.counts[[decision, 1]])
   end
 
   test '8TuB72', %w(
-  | Example: @port ||= 8080 settled in a fiber where its site
+  | Example: @port ||= 8080 settled in a fiber where its decision
   | was never entered
   | There is no trail to have noted its target's outcome.
   | So the outcome skipped is noted, here truthy, as @port
@@ -340,10 +357,11 @@ class RecorderTest < TidTest
   | The write's value is returned unchanged.
   ) do
     recorder = PathCoverage::Recorder.new
-    site = 'k.rb:3:4'
-    settling = Fiber.new { recorder.settle(site, 0, true, 8080) }
+    decision = 'k.rb:3:4'
+    settling = Fiber.new { recorder.settle(decision, 0, true, 8080) }
     settled = settling.resume
     assert_equal 8080, settled
-    assert_equal({ truthy: 1, falsy: 0 }, recorder.counts[[site, 0]])
+    assert_equal({ truthy: 1, falsy: 0 },
+                 recorder.counts[[decision, 0]])
   end
 end

@@ -146,7 +146,7 @@ class TidTest < Minitest::Test
     puts $ERROR_INFO.message unless $ERROR_INFO.nil?
   end
 
-  # A site's condition as the manifest finds it, eg
+  # A decision's condition as the manifest finds it, eg
   # condition('&&', 16...23, 27...35), with commands naming
   # the leaves that are command calls, fixed the leaves that
   # can have one outcome only, and extent the byte range of the

@@ -9,17 +9,18 @@ class GapsTest < TidTest
   ) do
     # @clock = options[:clock] || MonotonicClock.new
     fixed = { 54...72 => :truthy }
-    sites = {
+    decisions = {
       'k.rb:2:11' => condition('||', 35...50, 54...72, fixed:)
     }
     counts = {
       ['k.rb:2:11', 0] => { truthy: 1, falsy: 1 },
       ['k.rb:2:11', 1] => { truthy: 1, falsy: 0 }
     }
-    site_paths = {
+    decision_paths = {
       'k.rb:2:11' => { [true, nil] => 1, [false, true] => 1 }
     }
-    result = PathCoverage::Result.new(sites, counts, site_paths)
+    result = PathCoverage::Result.new(decisions, counts,
+                                      decision_paths)
     texts = {
       'k.rb:2:11' => ['options[:clock]', 'MonotonicClock.new']
     }
@@ -30,7 +31,7 @@ class GapsTest < TidTest
   end
 
   test 'ngWa40', %w(
-  | each path a site never took is a gap, named by the
+  | each path a decision never took is a gap, named by the
   | outcome of each leaf it reaches, each leaf quoted as a
   | code span, so its text can hold commas and spaces
   ) do
@@ -65,7 +66,7 @@ class GapsTest < TidTest
   test 'ngWa42', %w(
   | a leaf written over several lines is quoted on one, each
   | run of whitespace a single space, so each gap is one
-  | line; the site's path:line:column still pins it
+  | line; the decision's path:line:column still pins it
   ) do
     text = "user.member?(\n  order.id)"
     actual = PathCoverage::Gaps.code(text)
@@ -73,10 +74,10 @@ class GapsTest < TidTest
   end
 
   test 'ngWa50', %w(
-  | the gap lines are each site's paths never taken, in
-  | manifest order, and one line for a site never reached
+  | the gap lines are each decision's paths never taken, in
+  | manifest order, and one line for a decision never reached
   ) do
-    sites = {
+    decisions = {
       'k.rb:2:2' => condition('&&', 16...23, 27...35),
       'k.rb:6:4' => condition('&&', 57...64, 68...77)
     }
@@ -84,10 +85,11 @@ class GapsTest < TidTest
       ['k.rb:2:2', 0] => { truthy: 2, falsy: 1 },
       ['k.rb:2:2', 1] => { truthy: 0, falsy: 2 }
     }
-    site_paths = {
+    decision_paths = {
       'k.rb:2:2' => { [true, false] => 2, [false, nil] => 1 }
     }
-    result = PathCoverage::Result.new(sites, counts, site_paths)
+    result = PathCoverage::Result.new(decisions, counts,
+                                      decision_paths)
     texts = {
       'k.rb:2:2' => ['ok?(id)', 'new?(id)'],
       'k.rb:6:4' => ['ok?(id)', 'old?(id)']
@@ -105,12 +107,12 @@ class GapsTest < TidTest
   test 'ngWa60', %w(
   | Example: if ready?(id) then ship(id) end, never reached
   | Its predicate is its one leaf, which never ran.
-  | So the site gets one line, saying it was never reached.
+  | So the decision gets one line, saying it was never reached.
   ) do
-    sites = {
+    decisions = {
       'k.rb:4:4' => condition('if', 47...56, arm(:then, 62...70))
     }
-    result = PathCoverage::Result.new(sites, {}, {})
+    result = PathCoverage::Result.new(decisions, {}, {})
     texts = { 'k.rb:4:4' => ['ready?(id)'] }
     actual = PathCoverage::Gaps.lines(
       result.operands, paths: result.paths, texts:

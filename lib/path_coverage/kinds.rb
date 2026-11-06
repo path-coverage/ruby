@@ -10,7 +10,7 @@ require_relative 'kinds/write'
 module PathCoverage
   # The kinds of condition, each a module that knows, for a
   # condition named by one of its OPERATORS, the ways it can be
-  # evaluated, its value in each column of its site's tree, and
+  # evaluated, its value in each column of its decision's tree, and
   # the inserts that instrument it. Each extends Kinds::Base,
   # whose hooks give what most kinds need.
   module Kinds
@@ -29,7 +29,7 @@ module PathCoverage
 
     # The names of the kinds measured, eg chain for Chain: a
     # report's fingerprint, as runs measuring different kinds
-    # list a site's paths differently.
+    # list a decision's paths differently.
     def self.names
       ALL.map { |kind| kind.name.split('::').last.downcase }
     end

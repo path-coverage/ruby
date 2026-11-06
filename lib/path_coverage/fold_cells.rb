@@ -1,7 +1,7 @@
 require_relative 'kinds'
 
 module PathCoverage
-  # The cells of a row of a site's tree on a file's page, one per
+  # The cells of a row of a decision's tree on a file's page, one per
   # path, as page data holds them. A cell says what its path did:
   # its text a letter, eg T or F, or empty with a mark the page
   # draws, eg a tick; with text to show on hover when its mark

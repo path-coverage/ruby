@@ -2,10 +2,10 @@ require_relative 'condition'
 require_relative 'kinds'
 
 module PathCoverage
-  # The tree shown under a site's line on its file's page: a
-  # grid whose columns are the site's paths, never taken first.
-  module SiteTree
-    # { operator:, counts:, cells:, operands: } for one site,
+  # The tree shown under a decision's line on its file's page: a
+  # grid whose columns are the decision's paths, never taken first.
+  module DecisionTree
+    # { operator:, counts:, cells:, operands: } for one decision,
     # from its paths, [{path:, count:}, ...]. counts are the
     # columns' counts. Every node has cells, one per column: a
     # leaf { text:, cells: } its outcome, nil where unreached;
@@ -31,7 +31,7 @@ module PathCoverage
       tree.merge(label: 'elsif')
     end
 
-    # True for an if site written as an elsif: an if's extent
+    # True for an if decision written as an elsif: an if's extent
     # starts at its keyword.
     def self.elsif?(source, condition)
       condition.operator == 'if' &&

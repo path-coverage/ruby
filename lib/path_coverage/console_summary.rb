@@ -8,42 +8,45 @@ module PathCoverage
   # groups configured each group is a heading, its own totals
   # indented under it, and there is no total over every group.
   module ConsoleSummary
-    # The summary lines of site_paths and, when cards, { def
-    # site => [taken, size] }, are given, as they are when
+    # The summary lines of decision_paths and, when cards, { def
+    # decision => [taken, size] }, are given, as they are when
     # methods are measured, of cards; groups is { name =>
     # [glob, ...] }.
-    def self.lines(site_paths, cards, groups = {})
-      return totals_lines(totals(site_paths, cards)) if groups.empty?
+    def self.lines(decision_paths, cards, groups = {})
+      if groups.empty?
+        return totals_lines(totals(decision_paths,
+                                   cards))
+      end
 
-      all = group_totals(site_paths, cards, groups)
+      all = group_totals(decision_paths, cards, groups)
       all.flat_map do |name, totals|
         ["#{name}:", *totals_lines(totals).map { |line| "  #{line}" }]
       end
     end
 
-    # { 'alone' => [taken, possible] } of site_paths, with
+    # { 'alone' => [taken, possible] } of decision_paths, with
     # 'combined' => [taken, possible] of cards when given.
-    def self.totals(site_paths, cards)
-      totals = { 'alone' => Totals.alone(site_paths) }
+    def self.totals(decision_paths, cards)
+      totals = { 'alone' => Totals.alone(decision_paths) }
       return totals if cards.nil?
 
       totals.merge('combined' => Totals.combined(cards))
     end
 
-    # { group name => totals } of each group's own sites and
+    # { group name => totals } of each group's own decisions and
     # cards alone.
-    def self.group_totals(site_paths, cards, groups)
+    def self.group_totals(decision_paths, cards, groups)
       groups.to_h do |name, globs|
         own_cards = cards ? own(cards, globs) : nil
-        [name, totals(own(site_paths, globs), own_cards)]
+        [name, totals(own(decision_paths, globs), own_cards)]
       end
     end
 
-    # The entries of sites, keyed by site name, in a file matching
-    # any of globs.
-    def self.own(sites, globs)
-      sites.select do |site, _|
-        Summary.matches?(Summary.path_of(site), globs)
+    # The entries of decisions, keyed by decision name, in a file
+    # matching any of globs.
+    def self.own(decisions, globs)
+      decisions.select do |decision, _|
+        Summary.matches?(Summary.path_of(decision), globs)
       end
     end
 

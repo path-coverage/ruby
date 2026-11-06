@@ -57,14 +57,15 @@ class AutoTest < TidTest
     assert_equal ['', '', 42], [stdout, stderr, status.exitstatus]
 
     path = 'source/kata.rb'
-    sites = PathCoverage::Manifest.sites(source, path)
+    decisions = PathCoverage::Manifest.decisions(source, path)
     expected = {
-      sites.keys.first => [
+      decisions.keys.first => [
         { 'truthy' => 1, 'falsy' => 0 },
         { 'truthy' => 1, 'falsy' => 0 }
       ]
     }
-    assert_equal expected, JSON.parse(received.join(5).value)['sites']
+    assert_equal expected,
+                 JSON.parse(received.join(5).value)['decisions']
   end
 
   # The body of the one HTTP request on client, after

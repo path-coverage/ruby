@@ -49,7 +49,7 @@ editor = Member.new(owner: false, editor: true, invite_open: false,
 Team.can_edit?(owner)
 Team.can_edit?(editor)
 
-# A site inside a block, inside an || site of its own.
+# A decision inside a block, inside an || decision of its own.
 Team.led?([owner])
 Team.led?([])
 

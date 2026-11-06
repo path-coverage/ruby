@@ -1,9 +1,9 @@
 require_relative 'condition'
 
 module PathCoverage
-  # The part of the manifest's visitor that builds the sites of
+  # The part of the manifest's visitor that builds the decisions of
   # ||= and &&= writes, eg @clock ||= Clock.new. It relies on
-  # its includer's add_site, bare_less? and extent_of.
+  # its includer's add_decision, bare_less? and extent_of.
   module ManifestWrites
     # Every node type of a ||= or &&= write, by its target: a
     # variable of each kind, a constant, a constant path, an
@@ -15,15 +15,15 @@ module PathCoverage
       %W[#{target}_or_write_node #{target}_and_write_node]
     end.map(&:to_sym).freeze
 
-    # Notes each kind of write as a site, eg
+    # Notes each kind of write as a decision, eg
     # visit_index_or_write_node for store[key] ||= 0.
     WRITE_TYPES.each do |type|
       define_method(:"visit_#{type}") do |node|
-        write?(node) ? add_site(node) : visit_child_nodes(node)
+        write?(node) ? add_decision(node) : visit_child_nodes(node)
       end
     end
 
-    # True for a ||= or &&= write that is a site: any but one
+    # True for a ||= or &&= write that is a decision: any but one
     # through &., eg box&.size ||= 3, which a nil box skips whole,
     # its target never looked at, so neither of its paths taken.
     def write?(node)
@@ -40,10 +40,10 @@ module PathCoverage
     # target is false for ||=, true for &&=. The target is a
     # leaf the rewriter never reads again, as reading it could
     # call a method twice; its outcome follows from whether the
-    # arm ran. Any site inside the write, eg in an index or on
-    # the right side, is a site of its own. A right side that is
+    # arm ran. Any decision inside the write, eg in an index or on
+    # the right side, is a decision of its own. A right side that is
     # no bare argument, eg a command call, is noted among the
-    # site's commands, to be parenthesised.
+    # decision's commands, to be parenthesised.
     def write_condition(node)
       visit_child_nodes(node)
       value = extent_of(node.value)

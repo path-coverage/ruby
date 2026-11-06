@@ -1,22 +1,22 @@
 require_relative 'manifest'
 require_relative 'method_statements'
-require_relative 'site_paths'
-require_relative 'site_tree'
+require_relative 'decision_paths'
+require_relative 'decision_tree'
 
 module PathCoverage
-  # How the rows of each card nest: for each row, the site it
-  # runs inside, the arm of that site it is in, and the paths of
-  # that site on which it runs, so a reader can tell which paths
+  # How the rows of each card nest: for each row, the decision it
+  # runs inside, the arm of that decision it is in, and the paths of
+  # that decision on which it runs, so a reader can tell which paths
   # reach a row, and count the paths through a card as a whole.
   module CardTree
-    # Part of a site's code that a row can be inside: an arm of
-    # statements, or a leaf; owner the key of the site's row,
+    # Part of a decision's code that a row can be inside: an arm of
+    # statements, or a leaf; owner the key of the decision's row,
     # range its bytes, arm its arm's name, nil for a leaf, on
-    # the indices of the site's possible paths that run it, and
-    # leaf a leaf's index among the site's leaves, nil for an arm.
+    # the indices of the decision's possible paths that run it, and
+    # leaf a leaf's index among the decision's leaves, nil for an arm.
     Region = Data.define(:owner, :range, :arm, :on, :leaf)
 
-    # The place of a row inside no other row's site.
+    # The place of a row inside no other row's decision.
     TOP = {
       'parent' => nil, 'in' => nil, 'on' => nil,
       'leaf' => nil, 'gives' => nil
@@ -24,75 +24,76 @@ module PathCoverage
 
     # Example: def f(a); if a then 1 end; end gives the value
     # row 1 its parent, the if, in its then arm, on its path 0.
-    # { def site => { "line:column" => { 'parent' =>, 'in' =>,
+    # { def decision => { "line:column" => { 'parent' =>, 'in' =>,
     # 'on' =>, 'leaf' =>, 'gives' => } } } for each def in
     # source, a row keyed by where it is named. parent is the
-    # "line:column" of the site the row runs inside, in the name
-    # of its arm, on the indices of that site's possible paths,
-    # as SitePaths.possible orders them, that run the row, leaf
-    # the index of that site's leaf holding it, and gives, for a
-    # row whose site is the whole of that leaf, the leaf's
+    # "line:column" of the decision the row runs inside, in the name
+    # of its arm, on the indices of that decision's possible paths,
+    # as DecisionPaths.possible orders them, that run the row, leaf
+    # the index of that decision's leaf holding it, and gives, for a
+    # row whose decision is the whole of that leaf, the leaf's
     # outcome on each of the row's own possible paths, nil where
     # not known; each nil where it does not apply.
-    def self.of(source, path, sites = nil)
-      sites = Manifest.sites(source, path) if sites.nil?
-      cards = MethodStatements.of(source, path, sites)
-      cards.transform_values { |rows| nested(source, sites, rows) }
+    def self.of(source, path, decisions = nil)
+      decisions = Manifest.decisions(source, path) if decisions.nil?
+      cards = MethodStatements.of(source, path, decisions)
+      cards.transform_values { nested(source, decisions, _1) }
     end
 
     # { "line:column" => its place } for each of rows, a card's,
-    # each placed in the innermost region of another row's site
-    # holding all of its own site's code, or, for a row that is
-    # no site, where it starts: a site starting where its child
-    # does, eg an || whose first operand is an any?, holds that
-    # child, and is not held by it.
-    def self.nested(source, sites, rows)
+    # each placed in the innermost region of another row's
+    # decision holding all of its own decision's code, or, for a
+    # row that is no decision, where it starts: a decision
+    # starting where its child does, eg an || whose first operand
+    # is an any?, holds that child, and is not held by it.
+    def self.nested(source, decisions, rows)
       starts = line_starts(source)
-      regions = card_regions(source, sites, rows)
+      regions = card_regions(source, decisions, rows)
       rows.to_h do |row|
         at = starts[row.line - 1] + row.column
-        site = row.site ? sites.fetch(row.site) : nil
-        span = site ? site.extent : at...(at + 1)
+        decision = row.decision ? decisions.fetch(row.decision) : nil
+        span = decision ? decision.extent : at...(at + 1)
         key = key_of(row)
-        [key, placed(key, span, regions, site)]
+        [key, placed(key, span, regions, decision)]
       end
     end
 
-    # The regions of the sites of rows, a card's, sites being
-    # { site => Condition }.
-    def self.card_regions(source, sites, rows)
-      rows.select(&:site).flat_map do |row|
-        regions_of(source, key_of(row), sites.fetch(row.site))
+    # The regions of the decisions of rows, a card's, decisions being
+    # { decision => Condition }.
+    def self.card_regions(source, decisions, rows)
+      rows.select(&:decision).flat_map do |row|
+        regions_of(source, key_of(row), decisions.fetch(row.decision))
       end
     end
 
     # The place of the row keyed key, its code the bytes span,
-    # site its Condition, nil for a row that is no site: in the
-    # site owning the smallest region of another row holding
-    # span, as place gives it; TOP for a row in no such region.
-    def self.placed(key, span, regions, site)
+    # decision its Condition, nil for a row that is no decision:
+    # in the decision owning the smallest region of another row
+    # holding span, as place gives it; TOP for a row in no such
+    # region.
+    def self.placed(key, span, regions, decision)
       holding = holding(key, span, regions)
       inner = smallest(holding)
       return TOP if inner.nil?
 
       owner = inner.owner
       own = holding.group_by(&:owner).fetch(owner)
-      place(owner, own).merge(leaf_place(own, site))
+      place(owner, own).merge(leaf_place(own, decision))
     end
 
     # The leaf and gives of a row's place, own being the regions
-    # of its parent holding it, site its Condition: the index of
-    # the innermost leaf holding it; and, when site is the whole
-    # of that leaf, site's value on each of its possible paths,
+    # of its parent holding it, decision its Condition: the index of
+    # the innermost leaf holding it; and, when decision is the whole
+    # of that leaf, decision's value on each of its possible paths,
     # as its kind gives them, the leaf's outcome there. Neither
-    # for a row that is no site, a return or a raise, which gives
+    # for a row that is no decision, a return or a raise, which gives
     # its parent nothing.
-    def self.leaf_place(own, site)
-      return { 'leaf' => nil, 'gives' => nil } if site.nil?
+    def self.leaf_place(own, decision)
+      return { 'leaf' => nil, 'gives' => nil } if decision.nil?
 
       leaf = smallest(own.reject(&:arm))
-      whole = leaf && site.extent == leaf.range
-      gives = whole ? SitePaths.values(site) : nil
+      whole = leaf && decision.extent == leaf.range
+      gives = whole ? DecisionPaths.values(decision) : nil
       { 'leaf' => leaf&.leaf, 'gives' => gives }
     end
 
@@ -105,8 +106,8 @@ module PathCoverage
       held.fetch(true, [])
     end
 
-    # A row's place in the site of the row keyed owner, own being
-    # the regions of that site holding the row: the innermost arm
+    # A row's place in the decision of the row keyed owner, own being
+    # the regions of that decision holding the row: the innermost arm
     # of them, nil for none, and the paths on which every one of
     # them runs, as the row runs only where all of them do.
     def self.place(owner, own)
@@ -120,11 +121,12 @@ module PathCoverage
       regions.min_by { |region| region.range.size }
     end
 
-    # The regions of condition, the site of the row keyed owner:
+    # The regions of condition, the decision of the row keyed owner:
     # its arms', and its leaves'.
     def self.regions_of(source, owner, condition)
-      possible = SitePaths.possible(condition)
-      node = SiteTree.node(source, condition, possible, (0..).each)
+      possible = DecisionPaths.possible(condition)
+      node = DecisionTree.node(source, condition, possible,
+                               (0..).each)
       arm_regions(owner, condition, node) +
         leaf_regions(owner, condition, possible)
     end

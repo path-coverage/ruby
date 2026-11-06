@@ -9,9 +9,9 @@ module PathCoverage
   # The operator of a safe-navigation chain, eg user&.account.
   SAFE = '&.'.freeze
 
-  # The operator of a leaf with sites inside it, eg
+  # The operator of a leaf with decisions inside it, eg
   # ids.select { |i| i.odd? }.any? as an operand of an &&: its
-  # operands are those sites' Conditions, then the leaf's own byte
+  # operands are those decisions' Conditions, then the leaf's own byte
   # range, whose outcome is the leaf's value.
   CONTAINS = 'contains'.freeze
 
@@ -70,7 +70,7 @@ module PathCoverage
   # all but find and detect, whose found item may itself be nil.
   VALUED = [*STOP_EARLY - %w[find detect], *EVERY_ITEM].freeze
 
-  # Every block method whose call is a site, by its paths.
+  # Every block method whose call is a decision, by its paths.
   BLOCK_PATHS = [
     *STOP_EARLY.map { |name| [name, STOP_EARLY_PATHS] },
     *EVERY_ITEM.map { |name| [name, EVERY_ITEM_PATHS] }
@@ -83,9 +83,9 @@ module PathCoverage
   # nothing.
   Arm = Data.define(:kind, :extent, :body)
 
-  # One site's condition as the manifest found it: its operator
+  # One decision's condition as the manifest found it: its operator
   # and its operands, each the byte range of a leaf or a nested
-  # Condition. A site's commands are the byte ranges of its
+  # Condition. A decision's commands are the byte ranges of its
   # leaves that are command calls, eg `ok? id`; its fixed are
   # { byte range => :truthy } for leaves that can have that one
   # outcome only, eg `Clock.new`. Its extent is the byte range

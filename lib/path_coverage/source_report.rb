@@ -1,7 +1,7 @@
 require_relative 'code_tokens'
 require_relative 'fold_rows'
-require_relative 'site_locations'
-require_relative 'site_tree'
+require_relative 'decision_locations'
+require_relative 'decision_tree'
 require_relative 'source_lines'
 require_relative 'summary'
 
@@ -15,15 +15,16 @@ module PathCoverage
 
     # The source report of a run: config's ignored operators, the
     # covered files of each of config's groups, each top of the
-    # rows of cards, { def site => card }, coloured, and each of
-    # files', { full path => {source:, sites:} }, lines and
-    # sites, each site's paths as site_paths has them, its fold
-    # headed by its row's top.
-    def self.of(files, config, site_paths, cards)
+    # rows of cards, { def decision => card }, coloured, and each of
+    # files', { full path => {source:, decisions:} }, lines and
+    # decisions, each decision's paths as decision_paths has
+    # them, its fold headed by its row's top.
+    def self.of(files, config, decision_paths, cards)
       rows = cards.values.flat_map { _1['rows'] }
-      tops = rows.to_h { [_1['site'], _1['top']] }
+      tops = rows.to_h { [_1['decision'], _1['top']] }
       shown = files.to_h do |full_path, parsed|
-        [config.relative(full_path), file(parsed, site_paths, tops)]
+        [config.relative(full_path),
+         file(parsed, decision_paths, tops)]
       end
       { schema: SCHEMA, ignored: config.ignored,
         groups: groups(config, shown.keys), labels: labels(rows),
@@ -31,7 +32,7 @@ module PathCoverage
     end
 
     # { top => it coloured } of each distinct top of rows, a
-    # site's or a statement's, eg return.
+    # decision's or a statement's, eg return.
     def self.labels(rows)
       rows.map { _1['top'] }.uniq.to_h do |top|
         [top, CodeTokens.label_code(top)]
@@ -46,15 +47,16 @@ module PathCoverage
       end
     end
 
-    # One file's lines and sites, parsed being its {source:,
-    # sites:}.
-    def self.file(parsed, site_paths, tops)
-      source, sites = parsed.values_at(:source, :sites)
-      shown = sites.keys.to_h do |name|
-        paths = site_paths.fetch(name)
-        [name, site(source, sites, name, paths, tops.fetch(name))]
+    # One file's lines and decisions, parsed being its {source:,
+    # decisions:}.
+    def self.file(parsed, decision_paths, tops)
+      source, decisions = parsed.values_at(:source, :decisions)
+      shown = decisions.keys.to_h do |name|
+        paths = decision_paths.fetch(name)
+        [name,
+         decision(source, decisions, name, paths, tops.fetch(name))]
       end
-      { lines: lines(source), sites: shown }
+      { lines: lines(source), decisions: shown }
     end
 
     # Example: "ok?(1)\n" gives [{ text: 'ok?(1)', tokens:
@@ -68,24 +70,24 @@ module PathCoverage
     end
 
     # Example: ok?(id) && new?(id) on line 2 gives span [2, 2].
-    # The site named name, of sites, { name => Condition }, in
+    # The decision named name, of decisions, { name => Condition }, in
     # source: the [first, last] lines it spans, and its fold's
     # rows, headed by top, its row's top, a column for each of
     # paths, [{path:, count:}], in their order, with no counts.
-    def self.site(source, sites, name, paths, top)
-      condition = sites.fetch(name)
+    def self.decision(source, decisions, name, paths, top)
+      condition = decisions.fetch(name)
       last = SourceLines.end_line(source, condition.leaves.last)
       span = [SourceLines.line_of(name), last]
       { span:, fold: fold(source, condition, paths, top) }
     end
 
-    # The rows of condition's fold, headed by top, its site row
+    # The rows of condition's fold, headed by top, its decision row
     # with no counts.
     def self.fold(source, condition, paths, top)
       outcomes = paths.map { _1[:path] }
-      tree = SiteTree.built(source, condition, outcomes)
-      located = SiteLocations.located(source, condition, tree)
-      else_at = SiteLocations.else_at(source, condition)
+      tree = DecisionTree.built(source, condition, outcomes)
+      located = DecisionLocations.located(source, condition, tree)
+      else_at = DecisionLocations.else_at(source, condition)
       own, *rest = FoldRows.rows(located.merge(else_at:, label: top))
       [own.except(:counts), *rest]
     end

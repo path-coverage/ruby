@@ -42,7 +42,7 @@ class MergeTest < TidTest
   end
 
   test 'Mg8q20', %w(
-  | the site paths of several runs merge by adding each
+  | the decision paths of several runs merge by adding each
   | path's counts, so a path one run never took another can
   ) do
     first = {
@@ -71,8 +71,9 @@ class MergeTest < TidTest
   end
 
   test 'Mg8q21', %w(
-  | the site paths of runs that list a site's paths differently,
-  | eg one with select's impossible paths cut, do not merge, as
+  | the decision paths of runs that list a decision's paths
+  | differently, eg one with select's impossible paths cut, do
+  | not merge, as
   | adding counts by position would credit one path's count to
   | another
   ) do

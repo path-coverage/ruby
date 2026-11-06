@@ -1,23 +1,24 @@
 require_relative 'condition'
-require_relative 'site'
-require_relative 'site_paths'
+require_relative 'decision'
+require_relative 'decision_paths'
 
 module PathCoverage
-  # The part of the manifest's visitor that folds every site in one
-  # expression into one site. While a leaf is visited, each site
-  # found in it, the leaf itself included, is collected as a nested
-  # Condition of that leaf, rather than noted as a site of its own.
-  # A new scope, eg a block's body or an if's arm, stops the
-  # collecting, so a site in it is a site of its own. It relies on
-  # its includer's condition_of, chain_condition, safe_chain?,
-  # block_site? and extent_of.
+  # The part of the manifest's visitor that folds every decision
+  # in one expression into one decision. While a leaf is
+  # visited, each decision found in it, the leaf itself
+  # included, is collected as a nested Condition of that leaf,
+  # rather than noted as a decision of its own. A new scope, eg
+  # a block's body or an if's arm, stops the collecting, so a
+  # decision in it is a decision of its own. It relies on its
+  # includer's condition_of, chain_condition, safe_chain?,
+  # block_decision? and extent_of.
   module ManifestFolding
-    # The sites that fold into the leaf operand, as collected
-    # finds them; none for a leaf that is wholly a site of its own,
-    # as own_site? has it, visited as one, as the leaf's outcome is
-    # its value.
-    def leaf_sites(operand)
-      unless own_site?(operand)
+    # The decisions that fold into the leaf operand, as collected
+    # finds them; none for a leaf that is wholly a decision of
+    # its own, as own_decision? has it, visited as one, as the
+    # leaf's outcome is its value.
+    def leaf_decisions(operand)
+      unless own_decision?(operand)
         return collected { operand.accept(self) }
       end
 
@@ -25,35 +26,36 @@ module PathCoverage
       []
     end
 
-    # True for a leaf that is wholly a site of its own: a block
+    # True for a leaf that is wholly a decision of its own: a block
     # method's call whose value follows from its path, or an && or
     # ||, eg a predicate, not ignored.
-    def own_site?(node)
+    def own_decision?(node)
       valued?(node) || (operator?(node) && !ignored?(node))
     end
 
-    # True for a block method's call that is a site, not ignored,
+    # True for a block method's call that is a decision, not ignored,
     # whose value follows from its path, eg any?, but not find.
     def valued?(node)
-      node.type == :call_node && block_site?(node) &&
+      node.type == :call_node && block_decision?(node) &&
         VALUED.include?(node.name.to_s) && !ignored?(node)
     end
 
-    # The one outcome each of a site's values gives a leaf.
+    # The one outcome each of a decision's values gives a leaf.
     GIVEN = { [true] => :truthy, [false] => :falsy }.freeze
 
-    # The one outcome the leaf node can have, as the site it wholly
-    # is gives it on every one of its paths, eg :truthy for a
-    # select, whose array is truthy; nil when its paths give both,
-    # or node is no such site.
+    # The one outcome the leaf node can have, as the decision it
+    # wholly is gives it on every one of its paths, eg :truthy for
+    # a select, whose array is truthy; nil when its paths give
+    # both, or node is no such decision.
     def given_outcome(node)
-      return nil unless own_site?(node)
+      return nil unless own_decision?(node)
 
-      site = @sites.fetch(Site.at(@path, site_loc(node)))
-      GIVEN[SitePaths.values(site).uniq]
+      name = Decision.at(@path, decision_loc(node))
+      decision = @decisions.fetch(name)
+      GIVEN[DecisionPaths.values(decision).uniq]
     end
 
-    # node's Condition as a site nested in a leaf: a &. chain's
+    # node's Condition as a decision nested in a leaf: a &. chain's
     # with its value as its last leaf, as its leaf's outcome
     # follows from it.
     def nested_condition_of(node)
@@ -62,8 +64,8 @@ module PathCoverage
       condition_of(node)
     end
 
-    # The Conditions of the sites found while yielding, each one
-    # collected rather than noted as a site of its own.
+    # The Conditions of the decisions found while yielding, each one
+    # collected rather than noted as a decision of its own.
     def collected
       outer = @inner
       @inner = []
@@ -73,8 +75,8 @@ module PathCoverage
       @inner = outer
     end
 
-    # Yields with no collecting, so a site found is one of its own:
-    # for a new scope, eg a block's body or an if's arm.
+    # Yields with no collecting, so a decision found is one of its
+    # own: for a new scope, eg a block's body or an if's arm.
     def scoped
       outer = @inner
       @inner = nil
@@ -83,11 +85,12 @@ module PathCoverage
       @inner = outer
     end
 
-    # range as a leaf, or, with inner sites found in it, a Condition
-    # named contains: those sites, then range, the leaf's outcome,
-    # fixed as :nonempty when nonempty. A leaf that is wholly one
-    # block method's call whose value follows from its path never
-    # comes here: it is a site of its own, as leaf_sites has it.
+    # range as a leaf, or, with inner decisions found in it, a
+    # Condition named contains: those decisions, then range, the
+    # leaf's outcome, fixed as :nonempty when nonempty. A leaf
+    # that is wholly one block method's call whose value follows
+    # from its path never comes here: it is a decision of its
+    # own, as leaf_decisions has it.
     def contained(inner, range, nonempty: false)
       return range if inner.empty?
 
@@ -98,8 +101,8 @@ module PathCoverage
 
     # True for a call, with no arguments or block, to a method
     # treated as nonempty, eg any?, whose receiver, parenthesised
-    # or not, is one of inner, the sites found in it: its outcome
-    # then follows from that site's path. It relies on its
+    # or not, is one of inner, the decisions found in it: its outcome
+    # then follows from that decision's path. It relies on its
     # includer's grouped.
     def nonempty_call?(node, inner)
       return false unless node.type == :call_node

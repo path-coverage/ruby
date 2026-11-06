@@ -1,14 +1,14 @@
 require_relative 'test_helper'
 require 'path_coverage/kernel'
 require 'path_coverage/manifest'
-require 'path_coverage/site_paths'
+require 'path_coverage/decision_paths'
 
 class FoldMatrixTest < TidTest
   # Its test swaps the configuration of the one global load
   # hook.
   serial!
 
-  # Each kind of site, as an expression over a, b, ids and u.
+  # Each kind of decision, as an expression over a, b, ids and u.
   KINDS = {
     '&&' => 'a && b',
     '||' => 'a || b',
@@ -41,15 +41,15 @@ class FoldMatrixTest < TidTest
 
   test 'Fm7k01', %w(
   | Example: a && b as the operand of (X) && c, and every other
-  | kind of site in every other position
-  | One expression is one site, whatever sites nest in it and
+  | kind of decision in every other position
+  | One expression is one decision, whatever decisions nest in it and
   | wherever they sit; but for a block method's call whose value
   | follows from its path, eg any?, that is wholly an operand,
   | a predicate, an if's test or a ?:'s arm, and an && or || that
-  | is wholly a predicate or an if's test: each is a site of its
+  | is wholly a predicate or an if's test: each is a decision of its
   | own, so two.
   | The rewritten code returns what the uninstrumented code does.
-  | Every path recorded is one of the site's possible paths.
+  | Every path recorded is one of the decision's possible paths.
   ) do |t|
     named = Struct.new(:name)
     users = [nil, named.new('kim')]
@@ -71,12 +71,12 @@ class FoldMatrixTest < TidTest
       same = inputs.map { covered.m(*_1) } ==
              inputs.map { call("Plain#{i}", _1) }
       mine = source('M', body)
-      sites = PathCoverage::Manifest.sites(mine, file)
-      impossible = sites.flat_map do |site, condition|
-        PathCoverage.recorder.site_paths[site].keys -
-          PathCoverage::SitePaths.possible(condition)
+      decisions = PathCoverage::Manifest.decisions(mine, file)
+      impossible = decisions.flat_map do |decision, condition|
+        PathCoverage.recorder.decision_paths[decision].keys -
+          PathCoverage::DecisionPaths.possible(condition)
       end
-      ["#{kind} as #{position}", sites.size, same, impossible]
+      ["#{kind} as #{position}", decisions.size, same, impossible]
     end
     expected = cases.map do |kind, position, _|
       own = OWN.fetch(kind, []).include?(position)
@@ -91,7 +91,7 @@ class FoldMatrixTest < TidTest
   # The positions where an expression is wholly a predicate.
   TESTS = %w(predicate if).freeze
 
-  # { kind => the positions where it is a site of its own }.
+  # { kind => the positions where it is a decision of its own }.
   OWN = {
     **%w(any? all? none? find_index take_while select).to_h do |kind|
       [kind, WHOLE]
@@ -101,12 +101,12 @@ class FoldMatrixTest < TidTest
 
   test 'Fm7k02', %w(
   | Example: a && b as the operand of (X) && c, with && ignored,
-  | and every other kind of site in every other position, with
+  | and every other kind of decision in every other position, with
   | that kind ignored
-  | No site measures the ignored operator, at its top or
+  | No decision measures the ignored operator, at its top or
   | nested in it.
   | The rewritten code returns what the uninstrumented code does.
-  | Every path recorded is one of the site's possible paths.
+  | Every path recorded is one of the decision's possible paths.
   ) do |t|
     named = Struct.new(:name)
     users = [nil, named.new('kim')]
@@ -131,14 +131,14 @@ class FoldMatrixTest < TidTest
       eval(plain, TOPLEVEL_BINDING) # rubocop:disable Security/Eval
       same = inputs.map { covered.m(*_1) } ==
              inputs.map { call("PlainIg#{i}", _1) }
-      sites = PathCoverage::Manifest.sites(source('M', body), file,
-                                           [kind])
+      manifest = PathCoverage::Manifest
+      decisions = manifest.decisions(source('M', body), file, [kind])
       # a Condition's inspect shows its own and every nested one's
-      shown = sites.values.inspect
+      shown = decisions.values.inspect
       named = shown.include?("operator=#{kind.inspect}")
-      impossible = sites.flat_map do |site, condition|
-        PathCoverage.recorder.site_paths[site].keys -
-          PathCoverage::SitePaths.possible(condition)
+      impossible = decisions.flat_map do |decision, condition|
+        PathCoverage.recorder.decision_paths[decision].keys -
+          PathCoverage::DecisionPaths.possible(condition)
       end
       ["#{kind} as #{position}", named, same, impossible]
     end

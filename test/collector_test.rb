@@ -95,7 +95,7 @@ class CollectorTest < TidTest
     serving = Thread.new { collector.serve(server, dir) }
     socket = TCPSocket.new('127.0.0.1', server.addr[1])
     socket.write("POST /runs HTTP/1.1\r\nContent-Length: 120\r\n\r\n")
-    socket.write('{"sites":{')
+    socket.write('{"decisions":{')
     socket.close_write
     reply = socket.read
     socket.close
@@ -299,12 +299,12 @@ class CollectorTest < TidTest
     reply
   end
 
-  # The parsed JSON report of one operand of one site, from a
+  # The parsed JSON report of one operand of one decision, from a
   # run measuring every kind.
   def report(truthy, falsy)
     counts = { 'truthy' => truthy, 'falsy' => falsy }
     {
-      'sites' => { 'source/kata.rb:3:23' => [counts] },
+      'decisions' => { 'source/kata.rb:3:23' => [counts] },
       'kinds' => %w(block case chain choice contains safe write)
     }
   end

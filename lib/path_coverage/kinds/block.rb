@@ -58,12 +58,12 @@ module PathCoverage
         end
       }.freeze
 
-      # Whether site's result has items on the path that took
-      # outcomes; nil when its kind cannot tell, eg for a site
+      # Whether decision's result has items on the path that took
+      # outcomes; nil when its kind cannot tell, eg for a decision
       # that is no block method's call.
-      def self.items?(site, outcomes)
-        receiver, body = site.operands
-        rule = HAS_ITEMS[site.operator]
+      def self.items?(decision, outcomes)
+        receiver, body = decision.operands
+        rule = HAS_ITEMS[decision.operator]
         rule&.call(outcomes[receiver], outcomes[body])
       end
 
@@ -97,10 +97,10 @@ module PathCoverage
       # Its block's opening and closing in source, ['{', '}'] or
       # ['do', 'end']: the opening between its receiver and its
       # block's expression, the closing after that expression.
-      def self.brackets(source, site)
-        receiver, body = site.operands
+      def self.brackets(source, decision)
+        receiver, body = decision.operands
         between = source.byteslice(receiver.end...body.begin)
-        closing = source.byteslice(body.end...site.extent.end)
+        closing = source.byteslice(body.end...decision.extent.end)
         [between[/\{|\bdo\b/], closing.strip]
       end
 
@@ -115,19 +115,20 @@ module PathCoverage
       # item_at call, noting its last answer, or for a method that
       # calls it with every item an answer_at call, noting every
       # answer, for its block's expression.
-      def self.calls(site, inner, leaves)
+      def self.calls(decision, inner, leaves)
         receiver, body = inner.operands
         at = leaves.index(receiver)
         every = EVERY_ITEM.include?(inner.operator)
         noter = every ? 'answer_at' : 'item_at'
-        { receiver => nil,
-          body => "PathCoverage.#{noter}(#{site.inspect}, #{at}, " }
+        opening = "PathCoverage.#{noter}(#{decision.inspect}, #{at}, "
+        { receiver => nil, body => opening }
       end
 
-      # Its call wrapped whole, its receiver the site's at-th leaf,
-      # so its items are begun before it runs and counted after.
-      def self.inserts(site, inner, at, _commands)
-        name = site.inspect
+      # Its call wrapped whole, its receiver the decision's at-th
+      # leaf, so its items are begun before it runs and counted
+      # after.
+      def self.inserts(decision, inner, at, _commands)
+        name = decision.inspect
         begun = "PathCoverage.begin_items(#{name}, #{at})"
         call = "PathCoverage.end_items(#{name}, #{at}, #{begun}, "
         Rewriter.wrap(call, inner.extent, false, :kind)

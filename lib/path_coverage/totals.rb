@@ -4,16 +4,16 @@ module PathCoverage
   # lines list as never taken.
   module Totals
     # Paths alone, each decision's counted on its own:
-    # site_paths, as Result#paths gives them, lists every
-    # possible path of each site with its count; one with a
+    # decision_paths, as Result#paths gives them, lists every
+    # possible path of each decision with its count; one with a
     # count above zero was taken.
-    def self.alone(site_paths)
-      every = site_paths.values.flatten
+    def self.alone(decision_paths)
+      every = decision_paths.values.flatten
       [every.count { |each| each[:count].positive? }, every.size]
     end
 
     # Example: cards [4, 6] and [17, 21] give [21, 27].
-    # Paths combined through each method: cards is { def site =>
+    # Paths combined through each method: cards is { def decision =>
     # [taken, size] }, each method's card's paths taken of its
     # size, its rows' paths added up.
     def self.combined(cards)

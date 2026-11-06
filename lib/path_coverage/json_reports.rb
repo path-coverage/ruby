@@ -12,19 +12,20 @@ module PathCoverage
   # counts, and path_coverage.source.json, what drawing each
   # file's code needs, for html-reporter to draw the pages from.
   module JsonReports
-    # What WithinMethods reads of a run: operands, site paths,
+    # What WithinMethods reads of a run: operands, decision paths,
     # and paths a treatment rules out, as Result gives them.
     Recorded = Data.define(:operands, :paths, :outside)
 
     # Writes both reports into config's coverage_dir, created
-    # first if need be. operands, and taken's site_paths: and
+    # first if need be. operands, and taken's decision_paths: and
     # outside:, are as Result gives them, taken's reached: as
     # Recorder#reached gives it, nil when not known; files is
-    # { full path => {source:, sites:} } for each covered file.
+    # { full path => {source:, decisions:} } for each covered file.
     def self.write(operands, files, config, **taken)
       FileUtils.mkdir_p(config.output_dir)
-      site_paths, outside = taken.values_at(:site_paths, :outside)
-      recorded = Recorded.new(operands, site_paths, outside)
+      decision_paths, outside = taken.values_at(:decision_paths,
+                                                :outside)
+      recorded = Recorded.new(operands, decision_paths, outside)
       reached = taken[:reached]
       cards = WithinMethods.listed(files, config, recorded, reached)
       write_json(recorded, files, config, [cards, reached])
@@ -32,7 +33,7 @@ module PathCoverage
     end
 
     # Writes recorded as the JSON report at config's json_path:
-    # its operands, site paths, paths a treatment rules out,
+    # its operands, decision paths, paths a treatment rules out,
     # totals, cards, each def's card, as WithinMethods.listed
     # gives them, how each card's rows nest, the statements
     # reached, when known, and config's fingerprint.
@@ -48,9 +49,9 @@ module PathCoverage
     end
 
     # Writes the source report beside the JSON report, from
-    # files, site_paths and cards, as write has them.
-    def self.write_source(files, config, site_paths, cards)
-      source = SourceReport.of(files, config, site_paths, cards)
+    # files, decision_paths and cards, as write has them.
+    def self.write_source(files, config, decision_paths, cards)
+      source = SourceReport.of(files, config, decision_paths, cards)
       path = config.json_path.sub(/\.json\z/, '.source.json')
       File.write(path, JSON.generate(source))
     end
@@ -58,13 +59,14 @@ module PathCoverage
     # The JSON report's totals, each [taken, possible] paths:
     # within each decision, and within each method; with groups
     # configured, each group's own too, under groups.
-    def self.totals(site_paths, files, config, reached)
-      cards = WithinMethods.cards(files, config, site_paths, reached)
-      totals = ConsoleSummary.totals(site_paths, cards)
+    def self.totals(decision_paths, files, config, reached)
+      cards = WithinMethods.cards(files, config, decision_paths,
+                                  reached)
+      totals = ConsoleSummary.totals(decision_paths, cards)
       groups = config.groups
       return totals if groups.empty?
 
-      own = ConsoleSummary.group_totals(site_paths, cards, groups)
+      own = ConsoleSummary.group_totals(decision_paths, cards, groups)
       totals.merge('groups' => own)
     end
   end

@@ -7,15 +7,15 @@ module PathCoverage
   # outcome when the code runs. It inserts text at the byte
   # ranges the manifest found, and never parses.
   module Rewriter
-    # Returns source with each operand in sites wrapped in a
-    # record call, each site as a whole in a leave call that
+    # Returns source with each operand in decisions wrapped in a
+    # record call, each decision as a whole in a leave call that
     # enters it first, and each statement in reaches, { name =>
     # offset }, after a reach call that counts its runs. Only
     # text is inserted, never a newline, so backtrace line
     # numbers still match the file on disk.
-    def self.rewrite(source, sites, reaches = {})
-      inserts = sites.flat_map do |site, condition|
-        site_inserts(site, condition)
+    def self.rewrite(source, decisions, reaches = {})
+      inserts = decisions.flat_map do |decision, condition|
+        decision_inserts(decision, condition)
       end
       apply(source.dup, inserts + reach_inserts(reaches))
     end
@@ -36,58 +36,59 @@ module PathCoverage
       end
     end
 
-    # The inserts for one site, as its kind gives them, eg its
+    # The inserts for one decision, as its kind gives them, eg its
     # leaves' records and its leave; a block method's call or a
     # write is noted as if nested at leaf 0.
-    def self.site_inserts(site, condition)
-      Kinds.of(condition.operator).site_inserts(site, condition)
+    def self.decision_inserts(decision, condition)
+      Kinds.of(condition.operator).decision_inserts(decision,
+                                                    condition)
     end
 
-    # The inserts that wrap each of site's leaves in a record
-    # call, innermost of all; a leaf of a nested site that needs
+    # The inserts that wrap each of decision's leaves in a record
+    # call, innermost of all; a leaf of a nested decision that needs
     # a call of its own, eg a &. chain's, in the call
-    # RewriterNested gives it, or in none, and that site's own
+    # RewriterNested gives it, or in none, and that decision's own
     # inserts too.
-    def self.record_inserts(site, condition)
-      nested = RewriterNested.calls(site, condition)
+    def self.record_inserts(decision, condition)
+      nested = RewriterNested.calls(decision, condition)
       leaves = condition.leaves
       records = leaves.each_with_index.flat_map do |range, i|
-        call = nested.fetch(range) { record_call(site, i) }
+        call = nested.fetch(range) { record_call(decision, i) }
         next [] unless call
 
         wrap(call, range, condition.commands.include?(range), :leaf)
       end
-      records + RewriterNested.inserts(site, condition)
+      records + RewriterNested.inserts(decision, condition)
     end
 
     WORD_OPERATORS = %w[and or].freeze
 
-    # The inserts that wrap site as a whole in a leave call,
+    # The inserts that wrap decision as a whole in a leave call,
     # outside its leaves' record calls, whose first argument
-    # enters the site before any leaf runs, so each evaluation
+    # enters the decision before any leaf runs, so each evaluation
     # fills in a trail of its own. An and or or is held in
     # parentheses, being, like a command call, no bare argument.
-    def self.trail_inserts(site, condition)
-      enter = "PathCoverage.enter(#{site.inspect}, " \
+    def self.trail_inserts(decision, condition)
+      enter = "PathCoverage.enter(#{decision.inspect}, " \
               "#{condition.leaves.size})"
       call = "PathCoverage.leave(#{enter}, "
       wrapped = Kinds.of(condition.operator).trailed(condition)
       nested = wrapped.is_a?(Condition)
       word = nested && WORD_OPERATORS.include?(wrapped.operator)
-      wrap(call, nested ? wrapped.extent : wrapped, word, :site)
+      wrap(call, nested ? wrapped.extent : wrapped, word, :decision)
     end
 
     # The opening of the record call around operand index of
-    # the site.
-    def self.record_call(site, index)
-      "PathCoverage.record(#{site.inspect}, #{index}, "
+    # the decision.
+    def self.record_call(decision, index)
+      "PathCoverage.record(#{decision.inspect}, #{index}, "
     end
 
     # The layers of inserts, innermost first, that break a tie
     # between inserts wrapping the same range: a leaf's call, a
-    # nested kind's call around its whole, eg end_items, a site's
+    # nested kind's call around its whole, eg end_items, a decision's
     # leave, and a statement's reach.
-    LAYERS = %i[leaf kind site reach].freeze
+    LAYERS = %i[leaf kind decision reach].freeze
 
     # The two inserts that wrap the code at range in call. Their
     # order, [size, rank], nests them among inserts at the same
@@ -112,7 +113,7 @@ module PathCoverage
     # opening inserts go in lowest order first, leaving the
     # highest outermost, then closing ones highest order first,
     # so the innermost call closes first. Eg a ternary whose
-    # predicate is a leaf: the site's leave, wrapping the whole
+    # predicate is a leaf: the decision's leave, wrapping the whole
     # ternary, opens outside the record wrapping its predicate.
     def self.apply(source, inserts)
       sorted = inserts.sort_by do |offset, _, order, close|

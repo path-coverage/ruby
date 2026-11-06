@@ -4,7 +4,7 @@ AllCops:
   # shop.rb is the demo's mock of every shape of choice the
   # report draws, written to be awkward rather than tidy;
   # demo/cards are the README's card examples, written to
-  # show each kind of site, eg ids.any? { |id| id.odd? } rather
+  # show each kind of decision, eg ids.any? { |id| id.odd? } rather
   # than ids.any?(&:odd?), which is none.
   Exclude:
     - reports/**/*
@@ -28,7 +28,7 @@ Style/CaseEquality:
     - lib/path_coverage/recorder_cases.rb
 
 # fee.rb is the README's example, whose ifs keep their end, as
-# a modifier if is no site and so would draw no grid.
+# a modifier if is no decision and so would draw no grid.
 Style/IfUnlessModifier:
   Exclude:
     - demo/source/fee.rb

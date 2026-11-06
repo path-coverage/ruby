@@ -4,11 +4,11 @@ require 'path_coverage/rewriter'
 class RewriterTest < TidTest
   test '6D1Ka2', %w(
   | each operand of an && is wrapped in a record call
-  | keyed by the && site's path:line:column
+  | keyed by the && decision's path:line:column
   | and the operand's index, at the byte ranges
   | the manifest found, with no parse of its own; the
   | whole && is wrapped in a leave call, outside them, whose
-  | first argument enters the site, so each evaluation's
+  | first argument enters the decision, so each evaluation's
   | path through it is counted
   ) do
     source = <<~RUBY
@@ -17,7 +17,7 @@ class RewriterTest < TidTest
       end
     RUBY
     both = condition('&&', 16...23, 27...35, extent: 16...35)
-    sites = { 'k.rb:2:2' => both }
+    decisions = { 'k.rb:2:2' => both }
     expected = [
       'def kata?(id)',
       '  PathCoverage.leave(' \
@@ -28,12 +28,12 @@ class RewriterTest < TidTest
       ''
     ].join("\n")
     rewriter = PathCoverage::Rewriter
-    assert_equal expected, rewriter.rewrite(source, sites)
+    assert_equal expected, rewriter.rewrite(source, decisions)
   end
 
   test '6D1Ka8', %w(
   | the leaves of a nested condition are wrapped too,
-  | indexed left to right across the whole site,
+  | indexed left to right across the whole decision,
   | and the parentheses grouping them are kept
   ) do
     source = <<~RUBY
@@ -43,7 +43,7 @@ class RewriterTest < TidTest
     RUBY
     either = condition('||', 28...36, 40...52, extent: 28...52)
     both = condition('&&', 16...23, either, extent: 16...53)
-    sites = { 'k.rb:2:2' => both }
+    decisions = { 'k.rb:2:2' => both }
     expected = [
       'def kata?(id)',
       '  PathCoverage.leave(' \
@@ -55,7 +55,7 @@ class RewriterTest < TidTest
       ''
     ].join("\n")
     rewriter = PathCoverage::Rewriter
-    assert_equal expected, rewriter.rewrite(source, sites)
+    assert_equal expected, rewriter.rewrite(source, decisions)
   end
 
   test '6D1Ka9', %w(
@@ -71,10 +71,10 @@ class RewriterTest < TidTest
         ok?(id) and id.include? 'N'
       end
     RUBY
-    site = condition(
+    decision = condition(
       'and', 16...23, 28...43, commands: [28...43], extent: 16...43
     )
-    sites = { 'k.rb:2:2' => site }
+    decisions = { 'k.rb:2:2' => decision }
     expected = [
       'def kata?(id)',
       '  PathCoverage.leave(' \
@@ -86,11 +86,11 @@ class RewriterTest < TidTest
       ''
     ].join("\n")
     rewriter = PathCoverage::Rewriter
-    assert_equal expected, rewriter.rewrite(source, sites)
+    assert_equal expected, rewriter.rewrite(source, decisions)
   end
 
   test '6D1Kb4', %w(
-  | a file with no && sites is returned unchanged
+  | a file with no && decisions is returned unchanged
   ) do
     source = <<~RUBY
       def kata?(id)
@@ -119,7 +119,7 @@ class RewriterTest < TidTest
     choice = condition(
       'if', 20...30, arm(:then, 35...43), extent: 17...30
     )
-    sites = { 'k.rb:2:2' => choice }
+    decisions = { 'k.rb:2:2' => choice }
     expected = [
       'def fee(order)',
       '  if PathCoverage.leave(' \
@@ -132,7 +132,7 @@ class RewriterTest < TidTest
       ''
     ].join("\n")
     rewriter = PathCoverage::Rewriter
-    assert_equal expected, rewriter.rewrite(source, sites)
+    assert_equal expected, rewriter.rewrite(source, decisions)
   end
 
   test '6D1Ke4', %w(
@@ -151,7 +151,7 @@ class RewriterTest < TidTest
     choice = condition(
       'unless', 24...34, arm(:then, 39...47), extent: 17...34
     )
-    sites = { 'k.rb:2:2' => choice }
+    decisions = { 'k.rb:2:2' => choice }
     expected = [
       'def fee(order)',
       '  unless PathCoverage.leave(' \
@@ -164,14 +164,14 @@ class RewriterTest < TidTest
       ''
     ].join("\n")
     rewriter = PathCoverage::Rewriter
-    assert_equal expected, rewriter.rewrite(source, sites)
+    assert_equal expected, rewriter.rewrite(source, decisions)
   end
 
   test '6D1Ke5', %w(
   | Example: case x when 1, 2 ... else ... end
   | Each pattern (1 and 2) is wrapped in a when_match call.
   | The when_match call is a stand-in for its pattern.
-  | The stand-ins enter and leave the site themselves.
+  | The stand-ins enter and leave the decision themselves.
   | So nothing wraps the case, or its subject x.
   ) do
     source = <<~RUBY
@@ -189,7 +189,7 @@ class RewriterTest < TidTest
       'case', arm(:when, 37...43, small), arm(:else, 55...61),
       extent: 14...20
     )
-    sites = { 'k.rb:2:2' => choice }
+    decisions = { 'k.rb:2:2' => choice }
     expected = [
       'def kind(x)',
       '  case x',
@@ -203,7 +203,7 @@ class RewriterTest < TidTest
       ''
     ].join("\n")
     rewriter = PathCoverage::Rewriter
-    assert_equal expected, rewriter.rewrite(source, sites)
+    assert_equal expected, rewriter.rewrite(source, decisions)
   end
 
   test '6D1Ke6', %w(
@@ -221,7 +221,7 @@ class RewriterTest < TidTest
       end
     RUBY
     found = condition('any?', 13...16, 29...35, extent: 13...37)
-    sites = { 'k.rb:2:6' => found }
+    decisions = { 'k.rb:2:6' => found }
     expected = [
       'def k(ids)',
       '  PathCoverage.leave(PathCoverage.enter("k.rb:2:6", 2), ' \
@@ -233,7 +233,7 @@ class RewriterTest < TidTest
       ''
     ].join("\n")
     rewriter = PathCoverage::Rewriter
-    assert_equal expected, rewriter.rewrite(source, sites)
+    assert_equal expected, rewriter.rewrite(source, decisions)
   end
 
   test '6D1Ke7', %w(
@@ -248,7 +248,7 @@ class RewriterTest < TidTest
       end
     RUBY
     kept = condition('select', 13...16, 31...37, extent: 13...39)
-    sites = { 'k.rb:2:6' => kept }
+    decisions = { 'k.rb:2:6' => kept }
     expected = [
       'def k(ids)',
       '  PathCoverage.leave(PathCoverage.enter("k.rb:2:6", 2), ' \
@@ -260,7 +260,7 @@ class RewriterTest < TidTest
       ''
     ].join("\n")
     rewriter = PathCoverage::Rewriter
-    assert_equal expected, rewriter.rewrite(source, sites)
+    assert_equal expected, rewriter.rewrite(source, decisions)
   end
 
   test '6D1Ke2', %w(
@@ -279,7 +279,7 @@ class RewriterTest < TidTest
     choice = condition(
       'if', both, arm(:then, 29...30), extent: 14...24
     )
-    sites = { 'k.rb:2:2' => choice }
+    decisions = { 'k.rb:2:2' => choice }
     expected = [
       'def k(a, b)',
       '  if PathCoverage.leave(' \
@@ -292,7 +292,7 @@ class RewriterTest < TidTest
       ''
     ].join("\n")
     rewriter = PathCoverage::Rewriter
-    assert_equal expected, rewriter.rewrite(source, sites)
+    assert_equal expected, rewriter.rewrite(source, decisions)
   end
 
   test '6D1Kd1', %w(
@@ -306,7 +306,7 @@ class RewriterTest < TidTest
       end
     RUBY
     arms = [arm(:then, 26...29), arm(:else, 32...35)]
-    sites = {
+    decisions = {
       'k.rb:2:2' => condition('?:', 16...23, *arms, extent: 16...35)
     }
     expected = [
@@ -318,7 +318,7 @@ class RewriterTest < TidTest
       ''
     ].join("\n")
     rewriter = PathCoverage::Rewriter
-    assert_equal expected, rewriter.rewrite(source, sites)
+    assert_equal expected, rewriter.rewrite(source, decisions)
   end
 
   test '6D1Kd3', %w(
@@ -333,7 +333,7 @@ class RewriterTest < TidTest
     both = condition('&&', 16...23, 27...35, extent: 16...35)
     arms = [arm(:then, 38...41), arm(:else, 44...47)]
     ternary = condition('?:', both, *arms, extent: 16...47)
-    sites = { 'k.rb:2:2' => ternary }
+    decisions = { 'k.rb:2:2' => ternary }
     expected = [
       'def kata?(id)',
       '  PathCoverage.leave(' \
@@ -345,12 +345,12 @@ class RewriterTest < TidTest
       ''
     ].join("\n")
     rewriter = PathCoverage::Rewriter
-    assert_equal expected, rewriter.rewrite(source, sites)
+    assert_equal expected, rewriter.rewrite(source, decisions)
   end
 
   test '6D1Kd4', %w(
   | the leaves of a condition folded in as a ternary's arm
-  | are recorded under the ternary's site, numbered on from
+  | are recorded under the ternary's decision, numbered on from
   | its predicate's
   ) do
     source = <<~RUBY
@@ -363,7 +363,7 @@ class RewriterTest < TidTest
       '?:', 16...23, arm(:then, 26...50, both), arm(:else, 53...56),
       extent: 16...56
     )
-    sites = { 'k.rb:2:2' => ternary }
+    decisions = { 'k.rb:2:2' => ternary }
     expected = [
       'def kata?(id)',
       '  PathCoverage.leave(' \
@@ -375,7 +375,7 @@ class RewriterTest < TidTest
       ''
     ].join("\n")
     rewriter = PathCoverage::Rewriter
-    assert_equal expected, rewriter.rewrite(source, sites)
+    assert_equal expected, rewriter.rewrite(source, decisions)
   end
 
   test '6D1Kr1', %w(

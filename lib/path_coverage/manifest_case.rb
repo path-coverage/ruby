@@ -1,7 +1,7 @@
 require_relative 'condition'
 
 module PathCoverage
-  # The part of the manifest's visitor that builds a case site,
+  # The part of the manifest's visitor that builds a case decision,
   # named case: its arms are its whens, each holding a when
   # condition of its patterns, and its else. It relies on its
   # includer's extent_of and statement_arm.
@@ -10,7 +10,7 @@ module PathCoverage
     # subject, as each pattern is then matched against it, and
     # no splat among its patterns, whose items cannot each be
     # stood in for.
-    def case_site?(node)
+    def case_decision?(node)
       return false if node.predicate.nil?
 
       patterns = node.conditions.flat_map(&:conditions)

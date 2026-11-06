@@ -19,20 +19,20 @@ module PathCoverage
         Chain.ways(node.with(operands: whens), fixed)
       end
 
-      # The inserts that wrap each pattern of a case site in a
+      # The inserts that wrap each pattern of a case decision in a
       # when_match call, its stand-in, which enters and leaves the
-      # site itself, as the case tries its patterns one by one;
+      # decision itself, as the case tries its patterns one by one;
       # its arms may return or raise, so no leave wraps it.
-      def self.site_inserts(site, condition)
+      def self.decision_inserts(decision, condition)
         size = condition.leaves.size
         condition.leaves.each_with_index.flat_map do |range, index|
-          call = "PathCoverage.when_match(#{site.inspect}, " \
+          call = "PathCoverage.when_match(#{decision.inspect}, " \
                  "#{index}, #{size}, "
           Rewriter.wrap(call, range, false, :leaf)
         end
       end
 
-      # Its node in a site's tree from its arms, built in order so
+      # Its node in a decision's tree from its arms, built in order so
       # its whens' patterns pair with path entries left to right:
       # a when is taken on each path one of its patterns matched,
       # and the else on each none did. A case's value is that of
@@ -52,11 +52,12 @@ module PathCoverage
       def self.arm_node(source, arm, matched, (outcomes, leaves))
         condition = arm.body
         body = if condition
-                 SiteTree.node(source, condition, outcomes, leaves)
+                 DecisionTree.node(source, condition, outcomes,
+                                   leaves)
                end
         matched << body[:cells].map { |cell| cell == true } if body
         cells = body ? matched.last : unmatched(matched, outcomes)
-        text = SiteTree.text_of(source, arm)
+        text = DecisionTree.text_of(source, arm)
         { arm: arm.kind, text:, cells:, body: }
       end
 
@@ -74,12 +75,13 @@ module PathCoverage
       end
 
       # { pattern range => the opening of its pattern call } for
-      # the patterns of inner, a case nested in a site whose leaves
-      # are leaves.
-      def self.calls(site, inner, leaves)
+      # the patterns of inner, a case nested in a decision whose
+      # leaves are leaves.
+      def self.calls(decision, inner, leaves)
         inner.leaves.to_h do |range|
           index = leaves.index(range)
-          [range, "PathCoverage.pattern(#{site.inspect}, #{index}, "]
+          [range,
+           "PathCoverage.pattern(#{decision.inspect}, #{index}, "]
         end
       end
     end

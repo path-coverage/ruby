@@ -13,7 +13,7 @@ Usage: bin/check_pixels.sh [OPTIONS] [save]
 
 Rebuilds the demo into site/, then, in headless Chrome, in the
 Puppeteer Docker image, screenshots its index and file pages in
-fixed states: on load, a def opened, a loose site opened, and a
+fixed states: on load, a def opened, a loose decision opened, and a
 fold opened.
 With save, keeps them in reports/pixels/golden/ as the golden.
 Without, writes reports/pixels/now/ and prints same or DIFFERENT

@@ -1,5 +1,5 @@
 module PathCoverage
-  # The branches of a site's tree on a file's page, joining each
+  # The branches of a decision's tree on a file's page, joining each
   # operand's row to its operator's. A branch is a string of
   # kinds, one letter per cell: t a tee, l an ell, v a bar, h a
   # dash, s a space. The page draws each kind as lines a whole

@@ -1,7 +1,7 @@
 module PathCoverage
   # Names a condition by where it starts in its file, so the
-  # rewriter and the manifest agree on which site is which.
-  module Site
+  # rewriter and the manifest agree on which decision is which.
+  module Decision
     # "path:line:column" of node, eg "k.rb:2:2".
     def self.of(path, node)
       at(path, node.location)

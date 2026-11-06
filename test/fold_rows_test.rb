@@ -7,7 +7,7 @@ class FoldRowsTest < TidTest
   | It has one row per operand: its text, then its outcome on
   | each path, T or F, blank where the path never reached it.
   ) do
-    sites = [
+    decisions = [
       {
         operator: '&&', counts: [1, 1, 1],
         cells: [true, false, false],
@@ -17,7 +17,7 @@ class FoldRowsTest < TidTest
         ]
       }
     ]
-    actual = of_kind(rows_of(sites), 'operand').map { shown(_1) }
+    actual = of_kind(rows_of(decisions), 'operand').map { shown(_1) }
     expected = [
       ['ok?(id)', 'T', 'T', 'F'],
       ["id.start_with?('N')", 'T', 'F', '']
@@ -26,11 +26,11 @@ class FoldRowsTest < TidTest
   end
 
   test 'gae535', %w(
-  | a tree opens, for each site, with a row naming its
+  | a tree opens, for each decision, with a row naming its
   | operator and each path's count, how many times it was
   | taken; its operands branch below
   ) do
-    sites = [
+    decisions = [
       {
         operator: '&&', counts: [0, 1284, 1],
         cells: [false, true, false],
@@ -40,10 +40,11 @@ class FoldRowsTest < TidTest
         ]
       }
     ]
-    rows = rows_of(sites)
-    site = rows.first
-    assert_equal ['site', '&&', [0, 1284, 1]],
-                 [site[:kind], site[:label][:text], site[:counts]]
+    rows = rows_of(decisions)
+    decision = rows.first
+    assert_equal ['decision', '&&', [0, 1284, 1]],
+                 [decision[:kind], decision[:label][:text],
+                  decision[:counts]]
     assert_equal %w(ths lhs), branches(rows)
   end
 
@@ -59,13 +60,13 @@ class FoldRowsTest < TidTest
         { text: 'id.size == 6', cells: [nil, false] }
       ]
     }
-    sites = [
+    decisions = [
       {
         operator: '&&', counts: [2, 1], cells: [true, false],
         operands: [{ text: 'ok?(id)', cells: [true, true] }, either]
       }
     ]
-    rows = rows_of(sites)
+    rows = rows_of(decisions)
     named = rows - of_kind(rows, 'operand')
     assert_equal(['&&', '||'], named.map { _1[:label][:text] })
     assert_equal %w(ths lhs sssths ssslhs), branches(rows)
@@ -84,7 +85,7 @@ class FoldRowsTest < TidTest
         { text: 'new?(id)', cells: [nil, true] }
       ]
     }
-    sites = [
+    decisions = [
       {
         operator: '&&', counts: [1, 1], cells: [true, true],
         operands: [
@@ -92,7 +93,8 @@ class FoldRowsTest < TidTest
         ]
       }
     ]
-    assert_equal %w(ths vssths vsslhs lhs), branches(rows_of(sites))
+    assert_equal %w(ths vssths vsslhs lhs),
+                 branches(rows_of(decisions))
   end
 
   test 'gae531', %w(
@@ -109,7 +111,7 @@ class FoldRowsTest < TidTest
         { text: 'id.size == 6', cells: [false, true, nil] }
       ]
     }
-    sites = [
+    decisions = [
       {
         operator: '?:', counts: [0, 1, 2], cells: [false, true, nil],
         operands: [
@@ -121,7 +123,7 @@ class FoldRowsTest < TidTest
         ]
       }
     ]
-    rows = rows_of(sites)
+    rows = rows_of(decisions)
     actual = of_kind(rows, 'arm').map { shown(_1) }
     expected = [['? &&', 'F', 'T', ''], [': :no', '', '', 'taken']]
     assert_equal expected, actual
@@ -141,7 +143,7 @@ class FoldRowsTest < TidTest
         { text: 'y == b', cells: [false, true, nil] }
       ]
     }
-    sites = [
+    decisions = [
       {
         operator: 'if', counts: [0, 1, 2], cells: [nil, nil, nil],
         operands: [
@@ -153,7 +155,7 @@ class FoldRowsTest < TidTest
         ]
       }
     ]
-    rows = rows_of(sites)
+    rows = rows_of(decisions)
     assert_equal [], of_kind(rows, 'arm')
     texts = of_kind(rows, 'operand').map { _1[:label][:text] }
     assert_equal ['x == a', 'y == b'], texts
@@ -163,7 +165,7 @@ class FoldRowsTest < TidTest
   | Example: unless x alpha end
   | Its fold has no row for its arm, as for an if.
   ) do
-    sites = [
+    decisions = [
       {
         operator: 'unless', counts: [0, 1], cells: [nil, nil],
         operands: [
@@ -173,7 +175,7 @@ class FoldRowsTest < TidTest
         ]
       }
     ]
-    assert_equal [], of_kind(rows_of(sites), 'arm')
+    assert_equal [], of_kind(rows_of(decisions), 'arm')
   end
 
   test 'gae580', %w(
@@ -181,7 +183,7 @@ class FoldRowsTest < TidTest
   | A leaf written over two lines reads as one in its fold, its
   | line break and indent one space, so its row stays one line.
   ) do
-    sites = [
+    decisions = [
       {
         operator: 'if', counts: [1, 1], cells: [nil, nil],
         operands: [
@@ -190,7 +192,7 @@ class FoldRowsTest < TidTest
         ]
       }
     ]
-    operands = of_kind(rows_of(sites), 'operand')
+    operands = of_kind(rows_of(decisions), 'operand')
     texts = operands.map { _1[:label][:text] }
     assert_equal ['order[:gift] && (order[:wrap])'], texts
   end
@@ -202,7 +204,7 @@ class FoldRowsTest < TidTest
   | marking each path that leaves the method there, the true
   | one, blank on the other.
   ) do
-    sites = [
+    decisions = [
       {
         operator: 'if', counts: [1, 1], cells: [nil, nil],
         operands: [
@@ -212,7 +214,7 @@ class FoldRowsTest < TidTest
         ]
       }
     ]
-    actual = of_kind(rows_of(sites), 'leaves').map { shown(_1) }
+    actual = of_kind(rows_of(decisions), 'leaves').map { shown(_1) }
     assert_equal [['return', '', 'leaves']], actual
   end
 
@@ -222,7 +224,7 @@ class FoldRowsTest < TidTest
   | total, so hovering return in the code pane opens the fold
   | and lights that row.
   ) do
-    sites = [
+    decisions = [
       {
         operator: 'if', counts: [1, 1], cells: [nil, nil],
         at: [50, 17, 50, 34],
@@ -234,7 +236,7 @@ class FoldRowsTest < TidTest
         ]
       }
     ]
-    placed = of_kind(rows_of(sites), 'leaves').map { _1[:at] }
+    placed = of_kind(rows_of(decisions), 'leaves').map { _1[:at] }
     assert_equal [[50, 4, 50, 16]], placed
   end
 
@@ -244,7 +246,7 @@ class FoldRowsTest < TidTest
   | are part of its one expression, each marking the paths that
   | took it.
   ) do
-    sites = [
+    decisions = [
       {
         operator: '?:', counts: [0, 1], cells: [nil, nil],
         operands: [
@@ -254,7 +256,7 @@ class FoldRowsTest < TidTest
         ]
       }
     ]
-    actual = of_kind(rows_of(sites), 'arm').map { shown(_1) }
+    actual = of_kind(rows_of(decisions), 'arm').map { shown(_1) }
     expected = [['? :a', 'taken', ''], [': :b', '', 'taken']]
     assert_equal expected, actual
   end
@@ -264,7 +266,7 @@ class FoldRowsTest < TidTest
   | Its operator && is coloured as it is in the code.
   | So is each operand, eg the 6 of id.size == 6.
   ) do
-    sites = [
+    decisions = [
       {
         operator: '&&', counts: [0, 1], cells: [true, false],
         operands: [
@@ -273,7 +275,7 @@ class FoldRowsTest < TidTest
         ]
       }
     ]
-    coloured = rows_of(sites).flat_map do |row|
+    coloured = rows_of(decisions).flat_map do |row|
       text, tokens = row[:label].values_at(:text, :tokens)
       tokens.map { |from, to, css| [css, text[from...to]] }
     end
@@ -290,7 +292,7 @@ class FoldRowsTest < TidTest
       operator: 'when', cells: [true, false],
       operands: [{ text: '1', cells: [true, false] }]
     }
-    sites = [
+    decisions = [
       {
         operator: 'case', counts: [0, 1], cells: [nil, nil],
         operands: [
@@ -301,7 +303,7 @@ class FoldRowsTest < TidTest
         ]
       }
     ]
-    rows = rows_of(sites)
+    rows = rows_of(decisions)
     assert_equal [], of_kind(rows, 'arm')
     matched = of_kind(rows, 'subtree').map { shown(_1) }
     assert_equal [%w(when T F)], matched
@@ -316,7 +318,7 @@ class FoldRowsTest < TidTest
   | The id.ok? row shows its last answer: T or F.
   | It is blank where the block was never called.
   ) do
-    sites = [
+    decisions = [
       {
         operator: 'any?', counts: [0, 1, 2],
         cells: [nil, true, false],
@@ -326,7 +328,7 @@ class FoldRowsTest < TidTest
         ]
       }
     ]
-    operands = of_kind(rows_of(sites), 'operand')
+    operands = of_kind(rows_of(decisions), 'operand')
     actual = operands.map { shown(_1).drop(1) }
     assert_equal [%w(0 1 *), ['', 'T', 'F']], actual
   end
@@ -339,7 +341,7 @@ class FoldRowsTest < TidTest
   | F when all were false.
   | TF when both.
   ) do
-    sites = [
+    decisions = [
       {
         operator: 'select', counts: [0, 1, 2], cells: [nil, nil, nil],
         operands: [
@@ -348,16 +350,16 @@ class FoldRowsTest < TidTest
         ]
       }
     ]
-    last = of_kind(rows_of(sites), 'operand').last
+    last = of_kind(rows_of(decisions), 'operand').last
     assert_equal %w(T F TF), shown(last).drop(1)
   end
 
   private
 
-  # The rows of each of sites' folds, as FoldRows.rows gives them,
+  # The rows of each of decisions' folds, as FoldRows.rows gives them,
   # one after another.
-  def rows_of(sites)
-    sites.flat_map { PathCoverage::FoldRows.rows(_1) }
+  def rows_of(decisions)
+    decisions.flat_map { PathCoverage::FoldRows.rows(_1) }
   end
 
   # The rows of rows of kind, eg operand; none when none are.
@@ -366,7 +368,7 @@ class FoldRowsTest < TidTest
   end
 
   # Example: a tee then a dash then a space gives ths.
-  # Each row's branch, but a site row's, which has none.
+  # Each row's branch, but a decision row's, which has none.
   def branches(rows)
     rows.map { _1[:branch] }.reject(&:empty?)
   end

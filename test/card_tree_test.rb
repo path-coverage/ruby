@@ -6,7 +6,7 @@ class CardTreeTest < TidTest
   test 'Ct8e01', %w(
   | Example: pick, an if of a && b holding an if of b, each arm
   | of which returns
-  | Each row of pick's card names its parent, the site whose
+  | Each row of pick's card names its parent, the decision whose
   | arm it is in, that arm, and on, the parent's possible paths
   | it runs on, by their index: the inner if runs only on the
   | outer's one path that takes its then arm. A row at the top
@@ -97,7 +97,7 @@ class CardTreeTest < TidTest
   | Example: fee, an if holding a ?: of an &&; two, two ?:s one
   | after another; led?, an || of an any? whose block is an &&
   | The ways through a card fold its tree: rows one after
-  | another multiply, and a site adds up its paths, each times
+  | another multiply, and a decision adds up its paths, each times
   | the ways of the rows it runs on that path; a row that is the
   | whole of a leaf counts only its paths that give the leaf the
   | outcome the path has.
@@ -163,7 +163,7 @@ class CardTreeTest < TidTest
   test 'Ct8e07', %w(
   | Example: led?, an || of an any? and xs.empty?
   | The || starts where the any?'s receiver, xs, does, yet it is
-  | the any?'s parent, not its child: a site is placed where its
+  | the any?'s parent, not its child: a decision is placed where its
   | whole code lies, not just where it starts.
   ) do
     source = <<~RUBY
@@ -235,11 +235,11 @@ class CardTreeTest < TidTest
   # The misfits, as misfits gives them, of every card of source,
   # as if it were k.rb.
   def misplaced_in(source)
-    sites = PathCoverage::Manifest.sites(source, 'k.rb')
-    tree = PathCoverage::CardTree.of(source, 'k.rb', sites)
+    decisions = PathCoverage::Manifest.decisions(source, 'k.rb')
+    tree = PathCoverage::CardTree.of(source, 'k.rb', decisions)
     tree.values.flat_map do |rows|
       inner = rows.values - [PathCoverage::CardTree::TOP]
-      misfits(rows.keys, inner, sites) + looped(rows)
+      misfits(rows.keys, inner, decisions) + looped(rows)
     end
   end
 
@@ -256,13 +256,13 @@ class CardTreeTest < TidTest
   # Each parent of inner, the places of a card's rows that have
   # one, that is none of keys, its rows' keys; true for each
   # place on no path; and each path a place is on that its
-  # parent, among sites, does not have.
-  def misfits(keys, inner, sites)
+  # parent, among decisions, does not have.
+  def misfits(keys, inner, decisions)
     parents = inner.map { _1['parent'] } - keys
     empty = inner.map { _1['on'].empty? } - [false]
     beyond = inner.flat_map do |place|
-      parent = sites["k.rb:#{place['parent']}"]
-      place['on'] - [*0...PathCoverage::SitePaths.possible(parent).size]
+      parent = decisions["k.rb:#{place['parent']}"]
+      place['on'] - [*0...PathCoverage::DecisionPaths.possible(parent).size]
     end
     [*parents, *empty, *beyond]
   end

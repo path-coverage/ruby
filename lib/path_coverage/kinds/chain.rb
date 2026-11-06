@@ -24,11 +24,11 @@ module PathCoverage
       def self.ways(node, fixed)
         first, *rest = node.operands
         goes_on = CONTINUES_ON.fetch(node.operator)
-        rest.reduce(SitePaths.walk(first, fixed)) do |ways, operand|
-          ways.flat_map do |outcomes, value|
+        rest.reduce(DecisionPaths.walk(first, fixed)) do |all, later|
+          all.flat_map do |outcomes, value|
             next [[outcomes, value]] unless value == goes_on
 
-            SitePaths.walk(operand, fixed).map do |more, after|
+            DecisionPaths.walk(later, fixed).map do |more, after|
               [outcomes.merge(more), after]
             end
           end

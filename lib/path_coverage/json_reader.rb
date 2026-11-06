@@ -5,7 +5,7 @@ require_relative 'merge'
 module PathCoverage
   # Reads back the JSON reports JsonWriter writes, merging the
   # counts of several runs, and refusing any report whose
-  # sites' paths are listed differently from a render's.
+  # decisions' paths are listed differently from a render's.
   module JsonReader
     # The keys of a JSON report's fingerprint.
     FINGERPRINT = %w[ignored treats].freeze
@@ -18,13 +18,15 @@ module PathCoverage
     end
 
     # The paths taken of the JSON reports at paths, as
-    # Render.run takes them: site_paths:, each site's possible
+    # Render.run takes them: decision_paths:, each decision's possible
     # paths, outside:, those a treatment rules out, and reached:,
     # each statement's reaches, each merged.
     def self.taken(paths)
-      site_paths = Merge.paths(paths.map { |path| paths_of(path) })
+      decision_paths = Merge.paths(paths.map do |path|
+        paths_of(path)
+      end)
       outside = merged(paths, 'outside')
-      { site_paths:, outside:, reached: reached(paths) }
+      { decision_paths:, outside:, reached: reached(paths) }
     end
 
     # Example: { "k.rb:2:2" => 2 } and { "k.rb:2:2" => 1 } give
@@ -42,7 +44,7 @@ module PathCoverage
 
     # Raises unless json, the JSON report at path, measured the
     # kinds a render does, with fingerprint; one that measured
-    # others, or names none, lists its sites' paths differently,
+    # others, or names none, lists its decisions' paths differently,
     # so its counts cannot be trusted to the paths a render
     # lists.
     def self.same_kinds(path, json, fingerprint)
@@ -59,7 +61,7 @@ module PathCoverage
     end
 
     # The JSON report at path's list under key, eg its paths a
-    # treatment rules out, { site => { path => count } }; none
+    # treatment rules out, { decision => { path => count } }; none
     # for a report that has none, so the render claims none.
     def self.listed_of(path, key)
       json = JSON.parse(File.read(path))
@@ -68,12 +70,12 @@ module PathCoverage
       end
     end
 
-    # The site paths of the JSON report at path, as
+    # The decision paths of the JSON report at path, as
     # Result#paths gives them; none for a report that has none.
     def self.paths_of(path)
       json = JSON.parse(File.read(path))
-      json.fetch('paths', {}).transform_values do |site|
-        site['taken'].map do |each|
+      json.fetch('paths', {}).transform_values do |decision|
+        decision['taken'].map do |each|
           { path: each['path'], count: each['count'] }
         end
       end
@@ -85,7 +87,7 @@ module PathCoverage
     def self.read(path, fingerprint)
       json = JSON.parse(File.read(path))
       same_kinds(path, json, fingerprint)
-      json['sites'].transform_values do |leaves|
+      json['decisions'].transform_values do |leaves|
         leaves.map { |leaf| counts(leaf) }
       end
     end

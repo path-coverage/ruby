@@ -3,7 +3,7 @@
 ## Why
 
 The Ruby gem and the Python port draw the same pages: the same
-index, file pages, cards and site trees, from the same CSS and JS
+index, file pages, cards and decision trees, from the same CSS and JS
 assets, copied byte for byte. Only the code that writes the HTML
 differs, and each port keeps its own copy of it (Ruby's `html_*.rb`,
 Python's `html_*.py`). Every change to a card is made twice.
@@ -63,7 +63,7 @@ One data file per page. A file page's:
   "path": "lib/a.rb",
   "lines": ["def f(a)", ...],
   "tokens": [[line, col, length, "k|n|s|c|t"], ...],
-  "sites": {
+  "decisions": {
     "2:2": { "operator": "if", "counts": [...], "tree": {...} }
   },
   "cards": {
@@ -77,7 +77,7 @@ One data file per page. A file page's:
 
 - `tokens`: syntax colouring stays in each port, as only it can lex
   its language. The renderer only paints ranges.
-- `sites[...].tree`: the site's grid as the port's site tree builds it
+- `decisions[...].tree`: the decision's grid as the port's decision tree builds it
   today (operator, cells per column, operands, arm labels, texts).
   This is the largest piece of per-language logic, and it stays in
   the port: the renderer draws cells, it does not work out outcomes.
@@ -135,4 +135,4 @@ is tested once, in the renderer's repo, against its samples.
 - Should the renderer own the complexity fold over `tree`, or the
   ports? The rule above says the ports; the console needs it too.
 - Rows that the tree treats as plain sequence (`rescue` arms,
-  `while` and `each` bodies) draw unindented until those are sites.
+  `while` and `each` bodies) draw unindented until those are decisions.

@@ -27,7 +27,7 @@ a failure, never as a hidden gap. Fail toward non-compliance.
    Good for facts about a library method used everywhere. Coarse: it
    cannot say "here, but not there".
 
-2. A comment on the site's line. Prism already gives us comments.
+2. A comment on the decision's line. Prism already gives us comments.
 
    ```ruby
    ids.any? { |id| id.odd? }   # paths: ids nonempty
@@ -39,13 +39,13 @@ a failure, never as a hidden gap. Fail toward non-compliance.
    later truthy). Unknown words in a `# paths:` comment are an error,
    so a typo never silently does nothing.
 
-3. Config by site name, eg `fact 'kata.rb:3:23', ...`. Breaks as soon
+3. Config by decision name, eg `fact 'kata.rb:3:23', ...`. Breaks as soon
    as a line moves. Not recommended.
 
 4. Derived from the code itself, no annotation:
    - a guard earlier in the method (`return if ids.empty?`) makes a
      later "0 items" path impossible;
-   - the same leaf text twice in one site (`a && b || a && c`) must
+   - the same leaf text twice in one decision (`a && b || a && c`) must
      have the same outcome on one evaluation, if it has no side
      effects;
    - RBS or Sorbet signatures saying a method never returns nil.
@@ -54,7 +54,7 @@ a failure, never as a hidden gap. Fail toward non-compliance.
 
 ## Recommendation
 
-Do 2 next: the `# paths:` comment, scoped to its site, checked at
+Do 2 next: the `# paths:` comment, scoped to its decision, checked at
 runtime, reusing the existing treatments. Keep 1 for library-wide
 facts. Treat 4 as later work, one inference at a time, starting with
 guard clauses, since "0 items" is the commonest impossible path.

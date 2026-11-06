@@ -13,7 +13,7 @@ Usage: bin/build_demo.sh [OPTIONS]
 Runs demo/run.rb, a mock source tree under path coverage, in
 the Docker image built from the repo's Dockerfile, writing its
 JSON reports to site/, then draws its HTML report there
-(index.html first) with the html-reporter image. The same site
+(index.html first) with the html-reporter image. The same decision
 is what the GitHub Pages workflow publishes.
 
 Options:

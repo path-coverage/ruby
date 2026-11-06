@@ -3,7 +3,7 @@ require 'path_coverage/paths_report'
 
 class PathsReportTest < TidTest
   test 'Pr7q10', %w(
-  | the paths report gives each site its leaves' spans, as
+  | the paths report gives each decision its leaves' spans, as
   | line:column pairs, beside each path and its count, so a
   | tool reading the JSON can recover each leaf exactly
   ) do
@@ -12,9 +12,9 @@ class PathsReportTest < TidTest
         ok?(id) && new?(id)
       end
     RUBY
-    site = condition('&&', 16...23, 27...35)
-    sites = { 'k.rb:2:2' => site }
-    files = { '/app/k.rb' => { source:, sites: } }
+    decision = condition('&&', 16...23, 27...35)
+    decisions = { 'k.rb:2:2' => decision }
+    files = { '/app/k.rb' => { source:, decisions: } }
     taken = [
       { path: [true, true], count: 1 },
       { path: [true, false], count: 0 },
@@ -30,7 +30,7 @@ class PathsReportTest < TidTest
   end
 
   test 'Pr7q20', %w(
-  | each site's leaf texts are cut from its file's source,
+  | each decision's leaf texts are cut from its file's source,
   | for the gap lines to name
   ) do
     source = <<~RUBY
@@ -38,9 +38,9 @@ class PathsReportTest < TidTest
         ok?(id) && new?(id)
       end
     RUBY
-    site = condition('&&', 16...23, 27...35)
-    sites = { 'k.rb:2:2' => site }
-    files = { '/app/k.rb' => { source:, sites: } }
+    decision = condition('&&', 16...23, 27...35)
+    decisions = { 'k.rb:2:2' => decision }
+    files = { '/app/k.rb' => { source:, decisions: } }
     expected = { 'k.rb:2:2' => ['ok?(id)', 'new?(id)'] }
     assert_equal expected, PathCoverage::PathsReport.texts(files)
   end

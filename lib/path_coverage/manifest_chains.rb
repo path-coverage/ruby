@@ -1,7 +1,7 @@
 require_relative 'condition'
 
 module PathCoverage
-  # The part of the manifest's visitor that builds the sites of
+  # The part of the manifest's visitor that builds the decisions of
   # safe-navigation chains, eg user&.account&.owner. It relies
   # on its includer's extent_of.
   module ManifestChains
@@ -23,7 +23,7 @@ module PathCoverage
       chain_calls(node).any?(&:safe_navigation?)
     end
 
-    # A call that is a site as a Condition: a &. chain's, or a
+    # A call that is a decision as a Condition: a &. chain's, or a
     # block method call's. It relies on its includer's
     # block_condition.
     def call_condition(node)
@@ -36,10 +36,10 @@ module PathCoverage
     # receivers of its &. calls, innermost first, each nil or
     # not nil, and, with value, the whole chain's value last, as
     # when it is an operand of an && or an if's predicate. Any
-    # site in a call's arguments or block, or in the chain's
-    # first receiver, is a site of its own. A chain that is no
+    # decision in a call's arguments or block, or in the chain's
+    # first receiver, is a decision of its own. A chain that is no
     # bare argument, eg a command call, is noted among the
-    # site's commands, to be parenthesised.
+    # decision's commands, to be parenthesised.
     def chain_condition(node, value:)
       calls = chain_calls(node)
       visit_chain(calls)
@@ -52,7 +52,7 @@ module PathCoverage
     end
 
     # The byte range of a &. call's receiver, noted among its
-    # site's fixed leaves as :present, never nil, when it is a
+    # decision's fixed leaves as :present, never nil, when it is a
     # call to a method treated as present.
     def receiver_of(call)
       receiver = call.receiver
@@ -63,7 +63,7 @@ module PathCoverage
       range
     end
 
-    # Visits the sites inside a chain's calls' arguments and
+    # Visits the decisions inside a chain's calls' arguments and
     # blocks, and inside its first receiver, eg (a || b) in
     # (a || b)&.size, but never a call of the chain itself.
     def visit_chain(calls)

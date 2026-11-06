@@ -21,7 +21,7 @@ const pause = (ms) => new Promise((done) => setTimeout(done, ms));
 
 // Opens file's page with the card of the def on line open, by
 // clicking the def's line number when the card starts closed,
-// and its first site's fold open, so its paths' outcomes show.
+// and its first decision's fold open, so its paths' outcomes show.
 // Returns the card's id, eg paths-1.
 async function openCard(page, file, line) {
   await page.goto(`file:///report/files/${file}.html`);
@@ -30,7 +30,7 @@ async function openCard(page, file, line) {
   const hidden = await page.$eval(`#${id}`, (card) => card.hidden);
   if (hidden) { await page.click(`#L${line}`); }
   await pause(400);
-  await page.click(`#${id} .prow.site`);
+  await page.click(`#${id} .prow.decision`);
   // Moves the mouse off the card, so no row is lit by hovering.
   await page.mouse.move(0, 0);
   await pause(800);

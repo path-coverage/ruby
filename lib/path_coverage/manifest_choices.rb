@@ -1,7 +1,7 @@
 require_relative 'condition'
 
 module PathCoverage
-  # The part of the manifest's visitor that builds the sites
+  # The part of the manifest's visitor that builds the decisions
   # whose predicate picks an arm: a ternary, named ?:, an if,
   # named if, and an unless, named unless. It relies on its
   # includer's condition_of, extent_of, grouped, leaf and
@@ -11,12 +11,12 @@ module PathCoverage
     # being an if_node with no if keyword.
     CHOICE_TYPES = %i[if_node unless_node].freeze
 
-    # Where node's site is named: a &. chain's start; a block
+    # Where node's decision is named: a &. chain's start; a block
     # method's call at its method; a ternary at its ?, so it never
-    # shares the name of a site starting where it does, eg its
+    # shares the name of a decision starting where it does, eg its
     # predicate; an if's or an unless's keyword, which a
     # modifier's statement comes before; anything else's own start.
-    def site_loc(node)
+    def decision_loc(node)
       return node.location if safe_chain?(node)
       return node.message_loc if node.type == :call_node
       return node.location unless CHOICE_TYPES.include?(node.type)
@@ -72,8 +72,9 @@ module PathCoverage
     end
 
     # An if's arm, statements its code, which never folds into
-    # the if's site; as a new scope, any site inside it is a site
-    # of its own. An arm with no statements has no extent.
+    # the if's decision; as a new scope, any decision inside it
+    # is a decision of its own. An arm with no statements has no
+    # extent.
     def statement_arm(kind, statements)
       scoped { statements&.accept(self) }
       extent = statements ? extent_of(statements) : nil
@@ -81,7 +82,7 @@ module PathCoverage
     end
 
     # An if's else arm, from subsequent: an else's statements,
-    # or an elsif, which is a site of its own; none for none.
+    # or an elsif, which is a decision of its own; none for none.
     def else_arm(subsequent)
       return [] if subsequent.nil?
       if subsequent.type == :else_node
@@ -104,32 +105,32 @@ module PathCoverage
 
     # One arm of a ternary, statements its code: a ternary, or a
     # block method's call whose value follows from its path, is a
-    # site of its own, as an if's arm holding an if is, so the arm
+    # decision of its own, as an if's arm holding an if is, so the arm
     # is plain; another condition folds in as its body, being part
-    # of the one expression, as does a plain arm with sites inside
+    # of the one expression, as does a plain arm with decisions inside
     # it, its value its last leaf; a plain arm with none has no
     # body.
     def arm_of(kind, statements)
       written = grouped(statements.body.first)
       extent = extent_of(statements)
       body = if ternary?(written) || valued?(written)
-               own_site(statements)
+               own_decision(statements)
              else
                arm_body(written, statements, extent)
              end
       Arm.new(kind:, extent:, body:)
     end
 
-    # No body, for an arm, statements its code, whose one site is
-    # a site of its own: visited in a new scope, so noted as one.
-    def own_site(statements)
+    # No body, for an arm, statements its code, whose one decision is
+    # a decision of its own: visited in a new scope, so noted as one.
+    def own_decision(statements)
       scoped { statements.accept(self) }
       nil
     end
 
     # The body of a ternary's arm, statements its code, written its
     # one expression, extent its byte range: the condition written
-    # is, when it folds; else the sites inside it, contained, nil
+    # is, when it folds; else the decisions inside it, contained, nil
     # for none.
     def arm_body(written, statements, extent)
       return condition_of(written) if foldable?(written)
@@ -138,7 +139,7 @@ module PathCoverage
       inner.empty? ? nil : contained(inner, extent)
     end
 
-    # True for a condition that folds into a ternary's site: an
+    # True for a condition that folds into a ternary's decision: an
     # &&, ||, and or or not ignored.
     def foldable?(node)
       operator?(node) && !ignored?(node)
@@ -151,8 +152,8 @@ module PathCoverage
 
     # A ternary's or an if's predicate as its operand: a &. chain
     # nested as a Condition, its value its last leaf; anything
-    # else a leaf, an && or || among them, as a site of its own,
-    # as leaf_sites has it.
+    # else a leaf, an && or || among them, as a decision of its own,
+    # as leaf_decisions has it.
     def predicate_of(node)
       predicate = grouped(node.predicate)
       return leaf(predicate) if ignored?(predicate)

@@ -5,28 +5,28 @@ require_relative 'fold_cells'
 require_relative 'kinds'
 
 module PathCoverage
-  # The tree of a site, from SiteTree.of, as its row's fold in a
-  # card shows it: a grid whose columns are the site's paths, as
-  # page data holds its rows, each a kind, a branch, a label,
-  # where its code is and a cell per path.
+  # The tree of a decision, from DecisionTree.of, as its row's
+  # fold in a card shows it: a grid whose columns are the
+  # decision's paths, as page data holds its rows, each a kind,
+  # a branch, a label, where its code is and a cell per path.
   module FoldRows
-    # The rows of site's fold, as page data holds them: site's own
-    # row, naming its operator and each path's count, and where its
-    # else keyword is, if it has one; then the rows of its
-    # operands.
-    def self.rows(site)
-      text = site.fetch(:label) { site[:operator] }
+    # The rows of decision's fold, as page data holds them:
+    # decision's own row, naming its operator and each path's
+    # count, and where its else keyword is, if it has one; then
+    # the rows of its operands.
+    def self.rows(decision)
+      text = decision.fetch(:label) { decision[:operator] }
       label = CodeTokens.label_code(text)
-      own = { kind: 'site', branch: '', label:, at: site[:at],
-              else: site[:else_at], counts: site[:counts] }
-      [own, *operand_rows(site, '')]
+      own = { kind: 'decision', branch: '', label:, at: decision[:at],
+              else: decision[:else_at], counts: decision[:counts] }
+      [own, *operand_rows(decision, '')]
     end
 
     # The rows of a condition's operands, each branching from
     # its operator after indent; a nested condition's operands,
     # and those of an arm's condition, follow its own row,
-    # indented under its branch. A leaf with sites inside it
-    # branches as those sites, then the leaf, in the order they
+    # indented under its branch. A leaf with decisions inside it
+    # branches as those decisions, then the leaf, in the order they
     # run.
     def self.operand_rows(condition, indent)
       own = Kinds.of(condition[:operator]).rows(condition, indent)
@@ -108,8 +108,8 @@ module PathCoverage
     end
 
     # operands with each node standing for the nodes its kind
-    # unfolds it into, eg a leaf with sites inside it for those
-    # sites, then the leaf; a leaf or an arm for itself.
+    # unfolds it into, eg a leaf with decisions inside it for those
+    # decisions, then the leaf; a leaf or an arm for itself.
     def self.unfolded(operands)
       operands.flat_map do |operand|
         operator = operand[:operator]
@@ -118,7 +118,7 @@ module PathCoverage
     end
 
     # A nested condition's row: its branch, its operator, or its
-    # label when it has one, eg select { for a site inside a leaf,
+    # label when it has one, eg select { for a decision inside a leaf,
     # and its value on each path.
     def self.subtree_row(condition, branch)
       text = condition.fetch(:label) { condition[:operator] }

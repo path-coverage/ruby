@@ -5,7 +5,7 @@ require_relative 'json_reports'
 require_relative 'manifest'
 require_relative 'paths_report'
 require_relative 'post'
-require_relative 'site_paths'
+require_relative 'decision_paths'
 require_relative 'within_methods'
 
 module PathCoverage
@@ -14,13 +14,15 @@ module PathCoverage
   # another process.
   module Render
     # Writes the JSON reports, then runs each reporter chosen in
-    # config. operands, and taken's site_paths: and outside:, are
+    # config. operands, and taken's decision_paths: and outside:, are
     # as Result gives them, and its reached: as Recorder#reached
-    # gives it; files is { full path => {source:, sites:} } for
+    # gives it; files is { full path => {source:, decisions:} } for
     # each covered file.
     def self.run(operands, files, config, **taken)
       recorded = taken.merge(
-        site_paths: every_site(taken.fetch(:site_paths, {}), files),
+        decision_paths: every_decision(
+          taken.fetch(:decision_paths, {}), files
+        ),
         outside: taken.fetch(:outside, {})
       )
       JsonReports.write(operands, files, config, **recorded)
@@ -30,58 +32,59 @@ module PathCoverage
     # Runs each reporter chosen in config, from operands, files,
     # and recorded, as run has them.
     def self.reporters(operands, files, config, recorded)
-      site_paths = recorded[:site_paths]
+      decision_paths = recorded[:decision_paths]
       chosen = config.reporters
       if chosen.include?(:gaps)
-        gaps(operands, files, site_paths, recorded[:outside])
+        gaps(operands, files, decision_paths, recorded[:outside])
       end
       if chosen.include?(:summary)
-        summary(files, config, site_paths, recorded[:reached])
+        summary(files, config, decision_paths, recorded[:reached])
       end
       return unless chosen.include?(:post)
 
-      post(operands, files, config, site_paths)
+      post(operands, files, config, decision_paths)
     end
 
     # Runs the :post reporter: operands, and the paths report of
-    # site_paths in files, with config's fingerprint.
-    def self.post(operands, files, config, site_paths)
-      report = PathsReport.of(site_paths, files)
+    # decision_paths in files, with config's fingerprint.
+    def self.post(operands, files, config, decision_paths)
+      report = PathsReport.of(decision_paths, files)
       url = config.collector_url
       fingerprint = config.fingerprint
       Post.deliver(operands, url, report, fingerprint:)
     end
 
     # Prints the summary lines: the paths taken of all possible
-    # alone, and combined, each def's card of files as site_paths
+    # alone, and combined, each def's card of files as decision_paths
     # and reached have it; then any operators ignored.
-    def self.summary(files, config, site_paths, reached)
-      cards = WithinMethods.cards(files, config, site_paths, reached)
-      puts ConsoleSummary.lines(site_paths, cards, config.groups) +
+    def self.summary(files, config, decision_paths, reached)
+      cards = WithinMethods.cards(files, config, decision_paths,
+                                  reached)
+      puts ConsoleSummary.lines(decision_paths, cards,
+                                config.groups) +
            ConsoleSummary.ignored_lines(config.ignored)
     end
 
-    # site_paths with every site in files that it lacks, eg
+    # decision_paths with every decision in files that it lacks, eg
     # from a JSON report with no paths, given each possible
     # path at a count of zero: unable to say which paths such
-    # a site took, the report claims none.
-    def self.every_site(site_paths, files)
+    # a decision took, the report claims none.
+    def self.every_decision(decision_paths, files)
       none = files.values.each_with_object({}) do |parsed, all|
-        parsed[:sites].each do |site, condition|
-          all[site] = SitePaths.possible(condition).map do |path|
-            { path:, count: 0 }
-          end
+        parsed[:decisions].each do |decision, condition|
+          possible = DecisionPaths.possible(condition)
+          all[decision] = possible.map { |path| { path:, count: 0 } }
         end
       end
-      none.merge(site_paths)
+      none.merge(decision_paths)
     end
 
-    # Prints the gap lines: each path a site never took, and each
+    # Prints the gap lines: each path a decision never took, and each
     # path taken that a treatment rules out, as outside lists
     # them, each leaf named by its text in files.
-    def self.gaps(operands, files, site_paths, outside)
+    def self.gaps(operands, files, decision_paths, outside)
       texts = PathsReport.texts(files)
-      paths = site_paths
+      paths = decision_paths
       lines = Gaps.lines(operands, paths:, texts:, outside:)
       lines.each { |line| puts line }
     end
