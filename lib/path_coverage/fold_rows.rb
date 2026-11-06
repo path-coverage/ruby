@@ -1,7 +1,7 @@
 require_relative 'condition'
-require_relative 'html_branch'
-require_relative 'html_cells'
-require_relative 'html_syntax'
+require_relative 'code_tokens'
+require_relative 'fold_branches'
+require_relative 'fold_cells'
 require_relative 'kinds'
 
 module PathCoverage
@@ -9,14 +9,14 @@ module PathCoverage
   # card shows it: a grid whose columns are the site's paths, as
   # page data holds its rows, each a kind, a branch, a label,
   # where its code is and a cell per path.
-  module HtmlTree
+  module FoldRows
     # The rows of site's fold, as page data holds them: site's own
     # row, naming its operator and each path's count, and where its
     # else keyword is, if it has one; then the rows of its
     # operands.
     def self.rows(site)
       text = site.fetch(:label) { site[:operator] }
-      label = HtmlSyntax.label_code(text)
+      label = CodeTokens.label_code(text)
       own = { kind: 'site', branch: '', label:, at: site[:at],
               else: site[:else_at], counts: site[:counts] }
       [own, *operand_rows(site, '')]
@@ -36,8 +36,8 @@ module PathCoverage
       last = operands.size - 1
       operands.each_with_index.flat_map do |operand, i|
         tip = i == last
-        branch = indent + (tip ? HtmlBranch::ELL : HtmlBranch::TEE)
-        under = indent + (tip ? HtmlBranch::GAP : HtmlBranch::BAR)
+        branch = indent + (tip ? FoldBranches::ELL : FoldBranches::TEE)
+        under = indent + (tip ? FoldBranches::GAP : FoldBranches::BAR)
         node_rows(operand, branch, under)
       end
     end
@@ -56,8 +56,8 @@ module PathCoverage
     # it: return or raise, coloured as code, marking each path
     # that leaves there, placed at its code.
     def self.leaves_row(node, branch)
-      cells = HtmlCells.values(node[:cells], HtmlCells::LEAVES)
-      label = HtmlSyntax.code(node[:leaves])
+      cells = FoldCells.values(node[:cells], FoldCells::LEAVES)
+      label = CodeTokens.code(node[:leaves])
       { kind: 'leaves', branch:, label:, at: node[:at], cells: }
     end
 
@@ -67,7 +67,7 @@ module PathCoverage
     # the paths taking it.
     def self.arm_rows(arm, branch, under)
       body = arm[:body]
-      label = HtmlSyntax.ternary_arm_code(Kinds::Choice.arm_label(arm))
+      label = CodeTokens.ternary_arm_code(Kinds::Choice.arm_label(arm))
       row = { kind: 'arm', branch:, label:, at: arm[:at],
               cells: arm_cells(arm, body) }
       body ? [row, *operand_rows(body, under)] : [row]
@@ -76,9 +76,9 @@ module PathCoverage
     # The cells of arm's row: its body's values, when its body is
     # a condition; else a tick on each path that took it.
     def self.arm_cells(arm, body)
-      return HtmlCells.values(body[:cells]) if body
+      return FoldCells.values(body[:cells]) if body
 
-      HtmlCells.values(arm[:cells], HtmlCells::TAKEN)
+      FoldCells.values(arm[:cells], FoldCells::TAKEN)
     end
 
     # The operands of condition a card's fold shows: a ?:'s arms,
@@ -122,8 +122,8 @@ module PathCoverage
     # and its value on each path.
     def self.subtree_row(condition, branch)
       text = condition.fetch(:label) { condition[:operator] }
-      cells = HtmlCells.values(condition[:cells])
-      { kind: 'subtree', branch:, label: HtmlSyntax.label_code(text),
+      cells = FoldCells.values(condition[:cells])
+      { kind: 'subtree', branch:, label: CodeTokens.label_code(text),
         at: condition[:at], cells: }
     end
 
@@ -133,8 +133,8 @@ module PathCoverage
     # each path.
     def self.operand_row(operand, branch)
       one_line = operand[:text].to_s.gsub(/\s*\n\s*/, ' ')
-      { kind: 'operand', branch:, label: HtmlSyntax.code(one_line),
-        at: operand[:at], cells: HtmlCells.values(operand[:cells]) }
+      { kind: 'operand', branch:, label: CodeTokens.code(one_line),
+        at: operand[:at], cells: FoldCells.values(operand[:cells]) }
     end
   end
 end

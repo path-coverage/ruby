@@ -1,7 +1,7 @@
 require_relative 'test_helper'
-require 'path_coverage/html_tree'
+require 'path_coverage/fold_rows'
 
-class HtmlTreeTest < TidTest
+class FoldRowsTest < TidTest
   test 'gae530', %w(
   | Example: the tree of ok?(id) && id.start_with?('N')
   | It has one row per operand: its text, then its outcome on
@@ -354,10 +354,10 @@ class HtmlTreeTest < TidTest
 
   private
 
-  # The rows of each of sites' folds, as HtmlTree.rows gives them,
+  # The rows of each of sites' folds, as FoldRows.rows gives them,
   # one after another.
   def rows_of(sites)
-    sites.flat_map { PathCoverage::HtmlTree.rows(_1) }
+    sites.flat_map { PathCoverage::FoldRows.rows(_1) }
   end
 
   # The rows of rows of kind, eg operand; none when none are.

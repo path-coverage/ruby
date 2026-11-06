@@ -1,7 +1,7 @@
 require 'fileutils'
-require_relative 'html_cards'
-require_relative 'html_data'
-require_relative 'html_syntax'
+require_relative 'code_tokens'
+require_relative 'page_cards'
+require_relative 'page_data'
 require_relative 'html_template'
 require_relative 'site_tree'
 require_relative 'source_lines'
@@ -11,7 +11,7 @@ require_relative 'within_methods'
 module PathCoverage
   # The :html reporter: index.html, and files/<path>.html for
   # each covered file, written to the configuration's
-  # output_dir. Each page is its data, as HtmlData gives it, in
+  # output_dir. Each page is its data, as PageData gives it, in
   # the shared renderer's page, as HtmlTemplate writes it.
   module HtmlReport
     # Writes every page. recorded is [site_paths, reached]:
@@ -36,7 +36,7 @@ module PathCoverage
     def self.write_pages(operands, files, config, recorded)
       files.each do |full_path, parsed|
         path = config.relative(full_path)
-        cards = HtmlCards.methods(path, parsed, recorded)
+        cards = PageCards.methods(path, parsed, recorded)
         out = "#{config.output_dir}/files/#{path}.html"
         write_page(out, path, parsed, [operands, recorded[0]], cards)
       end
@@ -55,7 +55,7 @@ module PathCoverage
       tabs = groups.empty? ? [] : Summary.groups(rows, groups)
       ignored = config.ignored
       tables = [['All files', rows, Summary.total(rows)], *tabs]
-      HtmlTemplate.page(HtmlData.index(tables, ignored))
+      HtmlTemplate.page(PageData.index(tables, ignored))
     end
 
     # Writes one file's page to out, from its sites' operand
@@ -66,17 +66,17 @@ module PathCoverage
       source, sites = parsed.values_at(:source, :sites)
       plain = SourceLines.of(source, sites, operands)
       lines = coloured(source, plain)
-      tops = HtmlCards.tops(path, parsed, [operands, site_paths])
-      data = HtmlData.file(path, lines, cards + tops)
+      tops = PageCards.tops(path, parsed, [operands, site_paths])
+      data = PageData.file(path, lines, cards + tops)
       page = HtmlTemplate.page(data)
       FileUtils.mkdir_p(File.dirname(out))
       File.write(out, page)
     end
 
     # lines, as SourceLines.of gives them for source, each with
-    # its coloured tokens, as HtmlSyntax.of gives them.
+    # its coloured tokens, as CodeTokens.of gives them.
     def self.coloured(source, lines)
-      tokens = HtmlSyntax.of(source)
+      tokens = CodeTokens.of(source)
       lines.map do |line|
         line.merge(tokens: tokens.fetch(line[:number], []))
       end

@@ -1,7 +1,7 @@
 require_relative 'test_helper'
-require 'path_coverage/html_syntax'
+require 'path_coverage/code_tokens'
 
-class HtmlSyntaxTest < TidTest
+class CodeTokensTest < TidTest
   test 'Sx7h10', %w(
   | Example: def ok?(id) = id.size == 6 # six
   | def is a keyword, 6 a number and # six a comment.
@@ -10,7 +10,7 @@ class HtmlSyntaxTest < TidTest
   ) do
     source = "def ok?(id) = id.size == 6 # six\n"
     expected = { 1 => [[0, 3, 'k'], [25, 26, 'n'], [27, 32, 'c']] }
-    assert_equal expected, PathCoverage::HtmlSyntax.of(source)
+    assert_equal expected, PathCoverage::CodeTokens.of(source)
   end
 
   test 'Sx7h11', %w(
@@ -20,7 +20,7 @@ class HtmlSyntaxTest < TidTest
   ) do
     source = "x = \"hi\" if :a\n"
     expected = { 1 => [[4, 8, 's'], [9, 11, 'k'], [12, 14, 's']] }
-    assert_equal expected, PathCoverage::HtmlSyntax.of(source)
+    assert_equal expected, PathCoverage::CodeTokens.of(source)
   end
 
   test 'Sx7h12', %w(
@@ -34,7 +34,7 @@ class HtmlSyntaxTest < TidTest
       2 => [[0, 2, 's']],
       3 => [[0, 3, 's'], [4, 7, 'c']]
     }
-    assert_equal expected, PathCoverage::HtmlSyntax.of(source)
+    assert_equal expected, PathCoverage::CodeTokens.of(source)
   end
 
   test 'Sx7h14', %w(
@@ -52,7 +52,7 @@ class HtmlSyntaxTest < TidTest
       4 => [[0, 4, 's']],
       5 => [[0, 1, 's']]
     }
-    assert_equal expected, PathCoverage::HtmlSyntax.of(source)
+    assert_equal expected, PathCoverage::CodeTokens.of(source)
   end
 
   test 'Sx7h15', %w(
@@ -63,7 +63,7 @@ class HtmlSyntaxTest < TidTest
   ) do
     source = "x = \"\nb\"\n"
     expected = { 1 => [[4, 5, 's']], 2 => [[0, 2, 's']] }
-    assert_equal expected, PathCoverage::HtmlSyntax.of(source)
+    assert_equal expected, PathCoverage::CodeTokens.of(source)
   end
 
   test 'Sx7h16', %w(
@@ -77,7 +77,7 @@ class HtmlSyntaxTest < TidTest
             [21, 22, 'n'], [23, 24, 'o'], [25, 26, 'n']],
       2 => [[0, 2, 'v'], [3, 6, 'o'], [7, 8, 'n']]
     }
-    assert_equal expected, PathCoverage::HtmlSyntax.of(source)
+    assert_equal expected, PathCoverage::CodeTokens.of(source)
   end
 
   test 'Sx7h17', %w(
@@ -90,7 +90,7 @@ class HtmlSyntaxTest < TidTest
   ) do
     texts = ['&&', '||', '&.', '?:', 'if', 'id.size == 6']
     tokens = texts.map do |text|
-      PathCoverage::HtmlSyntax.code(text)[:tokens]
+      PathCoverage::CodeTokens.code(text)[:tokens]
     end
     expected = [
       [[0, 2, 'o']], [[0, 2, 'o']], [[0, 2, 'o']], [[0, 2, 'o']],
@@ -104,7 +104,7 @@ class HtmlSyntaxTest < TidTest
   | @user and &. touch, but are of different classes.
   | So each keeps a range of its own, not joined.
   ) do
-    ranges = PathCoverage::HtmlSyntax.of("name = @user&.name\n")
+    ranges = PathCoverage::CodeTokens.of("name = @user&.name\n")
     assert_equal({ 1 => [[7, 12, 'v'], [12, 14, 'o']] }, ranges)
   end
 end

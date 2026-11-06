@@ -4,7 +4,7 @@ module PathCoverage
   # The colours of a file's code on its page: each token Prism
   # lexes, as Ruby itself does, gets the class of its kind, eg k
   # for a keyword, so the page's CSS colours it.
-  module HtmlSyntax
+  module CodeTokens
     # The class of each coloured token type that is not a keyword
     # or a number: c comment, s string, t constant, v instance
     # variable, o an operator that decides a path.

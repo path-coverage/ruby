@@ -12,8 +12,8 @@ module PathCoverage
       File.read(File.join(DIR, name))
     end
 
-    # Example: HtmlData.index's data gives the index page.
-    # The page drawing data, as HtmlData gives it: the template
+    # Example: PageData.index's data gives the index page.
+    # The page drawing data, as PageData gives it: the template
     # pages.json names, its style the style sheet, its data the
     # data, and its script the scripts its kind of page runs.
     def self.page(data)

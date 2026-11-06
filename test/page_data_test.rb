@@ -1,7 +1,7 @@
 require_relative 'test_helper'
-require 'path_coverage/html_data'
+require 'path_coverage/page_data'
 
-class HtmlDataTest < TidTest
+class PageDataTest < TidTest
   test 'Hd7a10', %w(
   | Example: shop.rb, 1 of its 3 method paths taken, and a group
   | holding no file
@@ -14,7 +14,7 @@ class HtmlDataTest < TidTest
     none = { sites: 0, decisions: [0, 0], methods: [0, 0] }
     tables = [['All files', [row], row], ['Admin', [], none]]
 
-    data = PathCoverage::HtmlData.index(tables, ['&&='])
+    data = PathCoverage::PageData.index(tables, ['&&='])
 
     expected = {
       schema: 1, page: 'index',
@@ -53,7 +53,7 @@ class HtmlDataTest < TidTest
     place = { first: 42, last: 53, column: 2, status: 'gaps',
               top: false, sites: nil }
     asked = []
-    data = PathCoverage::HtmlData.card(card, place) do |site, top|
+    data = PathCoverage::PageData.card(card, place) do |site, top|
       asked << [site, top]
       [{ kind: 'site' }]
     end
@@ -83,7 +83,7 @@ class HtmlDataTest < TidTest
       { number: 49, text: '', status: nil, span: nil, tokens: [] }
     ]
 
-    data = PathCoverage::HtmlData.file('source/shop.rb', lines, [])
+    data = PathCoverage::PageData.file('source/shop.rb', lines, [])
 
     expected = {
       schema: 1, page: 'file', path: 'source/shop.rb',
@@ -118,7 +118,7 @@ class HtmlDataTest < TidTest
                  { 'paths' => 1, 'taken' => 1 }]
     }
     cards = [initialize.call(1), initialize.call(0), ship, pick]
-    statuses = cards.map { PathCoverage::HtmlData.status(_1) }
+    statuses = cards.map { PathCoverage::PageData.status(_1) }
     assert_equal %w(covered gaps gaps covered), statuses
   end
 end

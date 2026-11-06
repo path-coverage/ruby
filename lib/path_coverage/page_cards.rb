@@ -1,5 +1,5 @@
-require_relative 'html_data'
-require_relative 'html_tree'
+require_relative 'fold_rows'
+require_relative 'page_data'
 require_relative 'site_tree'
 require_relative 'within_methods'
 
@@ -11,7 +11,7 @@ module PathCoverage
   # lists them, each site's row with its tree's rows folded under
   # it. It relies on HtmlReport.located to place each tree's rows
   # in the source.
-  module HtmlCards
+  module PageCards
     # The cards of each method of the file at path, parsed as
     # Manifest.parse gives it; site_paths as Result#paths gives
     # them, reached as Recorder#reached does.
@@ -33,10 +33,10 @@ module PathCoverage
     # WithinMethods.card gives it, its folds as folds gives them.
     def self.method_card(site, card, &)
       first, column = site.split(':').last(2).map { Integer(_1) }
-      status = HtmlData.status(card)
+      status = PageData.status(card)
       place = { first:, last: card['last'], column:, status:,
                 top: false, sites: nil }
-      HtmlData.card(card, place, &)
+      PageData.card(card, place, &)
     end
 
     # A top card for each span of lines holding sites at the top
@@ -54,9 +54,9 @@ module PathCoverage
     # The top card from card, its folds as folds gives them.
     def self.top(card, &)
       place = { first: card['first'], last: card['last'], column: 0,
-                status: HtmlData.status(card), top: true,
+                status: PageData.status(card), top: true,
                 sites: card['rows'].size }
-      HtmlData.card(card, place, &)
+      PageData.card(card, place, &)
     end
 
     # The rows of site's tree, as page data holds them, for its
@@ -67,7 +67,7 @@ module PathCoverage
       tree = SiteTree.of(source, condition, site_paths.fetch(site))
       located = HtmlReport.located(source, condition, tree)
       else_at = else_at(source, condition)
-      HtmlTree.rows(located.merge(else_at:, label: top))
+      FoldRows.rows(located.merge(else_at:, label: top))
     end
 
     # [line, column, line, column] of condition's else keyword in

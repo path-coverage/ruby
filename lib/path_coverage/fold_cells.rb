@@ -6,7 +6,7 @@ module PathCoverage
   # its text a letter, eg T or F, or empty with a mark the page
   # draws, eg a tick; with text to show on hover when its mark
   # alone may not say enough.
-  module HtmlCells
+  module FoldCells
     # [text, mark, hover] of a leaf's or a condition's cell, by
     # the value it took on the path: a letter for each value
     # but a &. receiver's, which is a mark, present or absent,

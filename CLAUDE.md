@@ -7,7 +7,7 @@
   `bin/capture_card_images.sh` to refresh the README's PNGs.
 - `bin/build_demo.sh` builds the demo into `site/` (ignored).
 - The pages are drawn in the browser by the shared renderer,
-  `../html-reporter`, from the data `HtmlData` builds. The files
+  `../html-reporter`, from the data `PageData` builds. The files
   in `lib/path_coverage/html/` are its copy: change them there,
   then run `bin/sync_html.sh`.
 - Before a refactor of the HTML, CSS or JS, run

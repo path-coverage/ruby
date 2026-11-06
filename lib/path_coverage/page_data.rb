@@ -1,4 +1,4 @@
-require_relative 'html_syntax'
+require_relative 'code_tokens'
 require_relative 'method_statements'
 
 module PathCoverage
@@ -6,7 +6,7 @@ module PathCoverage
   # renderer's schema.json has it: what the page draws, every
   # number it shows that is not a plain count worked out here, so
   # the page and the console never disagree.
-  module HtmlData
+  module PageData
     # The version of schema.json the data follows.
     SCHEMA = 1
 
@@ -99,7 +99,7 @@ module PathCoverage
     def self.row_of(row, &fold)
       site = row['site']
       {
-        at: row['at'], site:, top: HtmlSyntax.label_code(row['top']),
+        at: row['at'], site:, top: CodeTokens.label_code(row['top']),
         paths: row['paths'], taken: row['taken'],
         fold: (fold.call(site, row['top']) if site)
       }

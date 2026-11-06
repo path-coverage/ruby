@@ -4,7 +4,7 @@ module PathCoverage
   # kinds, one letter per cell: t a tee, l an ell, v a bar, h a
   # dash, s a space. The page draws each kind as lines a whole
   # row tall, so a branch joins the rows above and below it.
-  module HtmlBranch
+  module FoldBranches
     # The branch to an operand with more after it.
     TEE = 'ths'.freeze
     # The branch to the last operand.
