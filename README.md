@@ -1,70 +1,98 @@
 # <img src="https://avatars.githubusercontent.com/u/353243247?v=4" alt="" width="32" height="32"> path-coverage/ruby
 
+Path coverage for Ruby, to run alongside SimpleCov's line and branch
+coverage.
+
 [![Gem Version](https://img.shields.io/gem/v/path_coverage)](https://rubygems.org/gems/path_coverage)
 [![Downloads](https://img.shields.io/gem/dt/path_coverage)](https://rubygems.org/gems/path_coverage)
 [![License](https://img.shields.io/github/license/path-coverage/ruby)](LICENSE.md)
 
-Path coverage for Ruby, to run alongside SimpleCov's line and branch
-coverage.
-
-Status: decisions cover `&&`, `||`, `and`, `or`, the ternary `?:`,
-`if`/`elsif`/`else` and `unless` (modifiers included), `case`/`when`
-with a subject, and the block methods `any?` `all?` `none?` `find`
-`detect` `find_index` `take_while` `select` `filter` `reject`
-`partition` `count` `filter_map`, the writes `||=` and `&&=`, and `&.`
-safe-navigation chains. Method paths cover every decision at a method's
-top level.
-More decisions hidden inside calls come next (see Roadmap).
-
-Demo: https://path-coverage.github.io/ruby/ shows the HTML report
-for the mock source tree in `demo/`. `make demo` builds and opens the
-same report locally.
+- [Overview](#overview)
+- [Getting started](#getting-started)
+- [Reading the HTML](#reading-the-html)
+- [Ignoring and treating](#ignoring-and-treating)
+- [Use when you cannot edit the code!](#use-when-you-cannot-edit-the-code)
+- [What a run reports](#what-a-run-reports)
+- [How it works](#how-it-works)
+- [Roadmap](#roadmap)
+- [Constraints](#constraints)
+- [Development](#development)
 
 ## Overview
 
-A *decision* is one decision in your code: an `&&`, `||`, `if`,
-`case`, `&.` chain, `||=`, or a block method such as `any?`.
-Each way it can go is a *path*. For example
+A *decision* is a choice in your code, eg an `&&`, `||`, `if`,
+`case`, etc. Each way it can go is a *path*. For example
 
 ```ruby
-name.size > 2 && name.ascii_only?
+def discount(member, coupon)
+  member || coupon ? 10 : 0
+end
 ```
 
-has three paths: true then true, true then false, and false
-alone, as `&&` then skips its right side.
+has three paths: a member, a non-member with a coupon, and
+neither. Tests calling `discount(true, nil)` and
+`discount(false, nil)` cover every line and both branches of the
+`?:`, yet no test ever tried a coupon.
 
 Line and branch coverage can be 100% while a path was never
 taken. path_coverage counts how often each path was taken:
 alone, each decision's paths on their own, and combined, through
 each method's decisions.
 
-As the run exits it writes its report:
+As the run exits it writes its report as two JSON files:
 - `path_coverage.json`, for AIs and other tools.
 - `path_coverage.source.json`, what drawing each file's code needs.
 
-The HTML report, for people, is drawn from those two by
-[html-reporter](https://github.com/path-coverage/html-reporter):
-`index.html`, a sortable row per covered file with its paths
-combined taken, and a page per file with its cards.
+## Getting started
+
+```ruby
+# test coverage config, before any application code is required
+require 'simplecov'
+require 'path_coverage'
+SimpleCov.start do
+  # ...
+end
+PathCoverage.start do
+  root APP_DIR                   # cover globs and decision names are relative to it
+  cover 'source/**/*.rb'         # each matching file is instrumented as it loads
+  cover 'test/**/*.rb'           # more than one cover glob may be given
+  skip 'source/vendor/**/*.rb'   # except these, though a cover glob matches them
+  coverage_dir '/tmp/coverage'   # where path_coverage.json is written
+  report :gaps, :summary         # the reporters run at exit (default :gaps);
+                                 # also :post
+  group 'code', 'source/**/*.rb' # each group its own totals
+  group 'test', 'test/**/*.rb'
+  ignore '&&='                   # operators whose decisions are not measured
+end
+```
+
+## Reading the HTML
+
+https://path-coverage.github.io/ruby/ shows a demo HTML report
+for the mock source tree in `demo/`. `make demo` builds and opens the
+same report locally.
+
+The HTML report, for people, is drawn from the two JSON files, by
+[html-reporter](https://github.com/path-coverage/html-reporter).
 
 ```sh
 docker run --rm -v "$PWD/coverage:/paths" ghcr.io/path-coverage/html-reporter /paths
 ```
 
-## Reading the HTML
-
 Clicking a `def` line on a file's HTML page opens that method's
-*card* to its left. One card is always open.
+*card* to its left.
 
 A card has a row for each decision in the method, by `line:col`,
 with its counts of paths not taken and taken.
 
 Clicking a row's `▼` opens it:
-- on the left is the decision's code, as a tree.
+- on the left are the decision's parts, one per row: its
+  operator, eg `&&`, then each operand it tests, nested
+  operators indented under it.
 - on the right is one column for each possible path through it.
   - the column's head is `≀0` for a path never taken, and `≀*`
     for one taken (hover for its count). Look for zeros!
-  - the symbols in a column line up with the tree's rows, and
+  - the symbols in a column line up with those rows, and
     are explained below.
 
 Hovering over code in the open card's method opens the tree holding
@@ -155,30 +183,31 @@ Ruby code can be very compact so short expressions can generate lots of paths!
 
 ![A file's page: line 2, if user&.admin? && ids.select { |id| id.odd? }.any?, its card open to its left](docs/example-overview.png)
 
+## Ignoring and treating
 
-## Getting started
+`ignore '&&=', '||='` stops `&&=` and `||=` writes being measured.
+A decision inside such a write is still measured, eg the `a && b` in
+`@m ||= a && b`. Ignoring `&&` does not ignore `and`, nor does ignoring
+`||` ignore `or`. The summary and the JSON report list what is
+ignored.
 
-```ruby
-# test coverage config, before any application code is required
-require 'simplecov'
-require 'path_coverage'
-SimpleCov.start do
-  # ...
-end
-PathCoverage.start do
-  root APP_DIR                 # cover globs and decision names are relative to it
-  cover 'source/**/*.rb'       # each matching file is instrumented as it loads
-  cover 'test/**/*.rb'         # more than one cover glob may be given
-  skip 'source/vendor/**/*.rb' # except these, though a cover glob matches them
-  coverage_dir '/tmp/coverage' # where path_coverage.json is written
-  report :gaps, :summary       # the reporters run at exit (default :gaps);
-                               # also :post
-  group 'code', 'source/**/*.rb' # each group a tab of its own on index.html
-  group 'test', 'test/**/*.rb'
-  ignore '&&='                 # operators whose decisions are not measured
-  treat 'name', as: :present   # a call to name is never nil
-  treat 'any?', as: :nonempty  # any? is true when its receiver has items
-end
+`treat` tells path_coverage what you know about a method, so paths that
+cannot happen are not listed as gaps. Add `in: 'source/models/**'` to
+limit a treatment to the files that glob matches.
+
+- `treat 'name', as: :present`: a call to `name` is never nil, so
+  `user.name&.size` has no path with `user.name` nil.
+- `treat 'any?', as: :nonempty`: `x.any?` is true exactly when `x` has
+  items. When `x` is a call to `select`, `reject`, `filter`,
+  `filter_map`, `partition` or `take_while`, the path that call took
+  often decides whether it kept any items. Paths where `any?` disagrees
+  with that are not listed, eg `ids.select { |i| i.odd? }.any?` true
+  with `ids` empty.
+
+A run where a treatment turns out to be wrong is reported:
+
+```text
+source/user.rb:4:9 path taken that a treatment rules out: `user.name` nil
 ```
 
 ## Use when you cannot edit the code!
@@ -497,33 +526,17 @@ rewrite happens in memory; no file on disk changes.
 At exit the manifests parsed during the run are reused; only covered files
 the run never loaded are read and parsed then.
 
-## Ignoring and treating
-
-`ignore '&&=', '||='` stops `&&=` and `||=` writes being measured.
-A decision inside such a write is still measured, eg the `a && b` in
-`@m ||= a && b`. Ignoring `&&` does not ignore `and`, nor does ignoring
-`||` ignore `or`. The summary and `index.html` list what is ignored.
-
-`treat` tells path_coverage what you know about a method, so paths that
-cannot happen are not listed as gaps. Add `in: 'source/models/**'` to
-limit a treatment to the files that glob matches.
-
-- `treat 'name', as: :present`: a call to `name` is never nil, so
-  `user.name&.size` has no path with `user.name` nil.
-- `treat 'any?', as: :nonempty`: `x.any?` is true exactly when `x` has
-  items. When `x` is a call to `select`, `reject`, `filter`,
-  `filter_map`, `partition` or `take_while`, the path that call took
-  often decides whether it kept any items. Paths where `any?` disagrees
-  with that are not listed, eg `ids.select { |i| i.odd? }.any?` true
-  with `ids` empty.
-
-A run where a treatment turns out to be wrong is reported:
-
-```text
-source/user.rb:4:9 path taken that a treatment rules out: `user.name` nil
-```
-
 ## Roadmap
+
+Decisions covered now: `&&`, `||`, `and`, `or`, the ternary `?:`,
+`if`/`elsif`/`else` and `unless` (modifiers included), `case`/`when`
+with a subject, and the block methods `any?` `all?` `none?` `find`
+`detect` `find_index` `take_while` `select` `filter` `reject`
+`partition` `count` `filter_map`, the writes `||=` and `&&=`, and `&.`
+safe-navigation chains. Method paths cover every decision at a method's
+top level.
+
+Next:
 
 - decisions hidden inside calls, each with its own outcome classes:
   - `one?`, whose last answer does not decide it, and block methods
