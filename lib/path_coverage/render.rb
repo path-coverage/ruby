@@ -1,6 +1,5 @@
 require_relative 'console_summary'
 require_relative 'gaps'
-require_relative 'html_report'
 require_relative 'json_reader'
 require_relative 'manifest'
 require_relative 'paths_report'
@@ -22,8 +21,9 @@ module PathCoverage
       if reporters.include?(:gaps)
         gaps(operands, files, site_paths, taken.fetch(:outside, {}))
       end
-      html_and_summary(operands, files, config,
-                       [site_paths, taken[:reached]])
+      if reporters.include?(:summary)
+        summary(files, config, site_paths, taken[:reached])
+      end
       return unless reporters.include?(:post)
 
       post(operands, files, config, site_paths)
@@ -38,26 +38,13 @@ module PathCoverage
       Post.deliver(operands, url, report, fingerprint:)
     end
 
-    # Runs the :html and :summary reporters, each when chosen.
-    def self.html_and_summary(operands, files, config, recorded)
-      site_paths, reached = recorded
-      reporters = config.reporters
-      if reporters.include?(:html)
-        HtmlReport.write(operands, files, config, recorded)
-      end
-      return unless reporters.include?(:summary)
-
-      cards = WithinMethods.cards(files, config, site_paths, reached)
-      summary(config, site_paths, cards)
-    end
-
     # Prints the summary lines: the paths taken of all possible
-    # within decisions, and, when cards are given, as they are
-    # when methods are measured, within methods; then any
-    # operators ignored.
-    def self.summary(config, site_paths, cards)
-      groups = config.groups
-      puts ConsoleSummary.lines(site_paths, cards, groups) +
+    # within decisions, and within methods, each def's card of
+    # files as site_paths and reached have it; then any operators
+    # ignored.
+    def self.summary(files, config, site_paths, reached)
+      cards = WithinMethods.cards(files, config, site_paths, reached)
+      puts ConsoleSummary.lines(site_paths, cards, config.groups) +
            ConsoleSummary.ignored_lines(config.ignored)
     end
 

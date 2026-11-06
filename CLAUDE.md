@@ -6,10 +6,10 @@
 - After any change to how a card looks, run
   `bin/capture_card_images.sh` to refresh the README's PNGs.
 - `bin/build_demo.sh` builds the demo into `site/` (ignored).
-- The pages are drawn in the browser by the shared renderer,
-  `../html-reporter`, from the data `PageData` builds. The files
-  in `lib/path_coverage/html/` are its copy: change them there,
-  then run `bin/sync_html.sh`.
+- The gem writes no HTML. It writes `path_coverage.json` and
+  `path_coverage.source.json` (`SourceReport`); the image
+  `ghcr.io/path-coverage/html-reporter`, from `../html-reporter`,
+  draws the pages from those two. Change the pages there.
 - Before a refactor of the HTML, CSS or JS, run
   `bin/check_pixels.sh save`; after it, `bin/check_pixels.sh`
   prints same or DIFFERENT for each demo screenshot.

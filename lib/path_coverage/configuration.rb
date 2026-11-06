@@ -13,7 +13,7 @@ module PathCoverage
       collector cover coverage_dir group ignore report root
       skip treat
     ].freeze
-    REPORTERS = %w[gaps html post summary].freeze
+    REPORTERS = %w[gaps post summary].freeze
 
     # Evaluates the settings block against a new configuration.
     def initialize(&)

@@ -189,41 +189,10 @@ class KernelTest < TidTest
     assert_output("squad.rb:3:24 never reached\n") { t.report }
   end
 
-  test '6rTS4f', %w(
-  | Example: report :html, and fee with two ifs called once,
-  | with true then false
-  | index.html's Total row has its total within each method:
-  | 2 of 4, 50%, fee's card: one of each if's two paths, its
-  | writes and value no rows.
-  ) do |t|
-    t.write(<<~RUBY, 'fee.rb')
-      module Fee
-        def self.fee(member, big)
-          total = 100
-          if member
-            total -= 5
-          end
-          if big
-            total -= 10
-          end
-          total
-        end
-      end
-    RUBY
-    t.start { report :html }
-    t.load('fee.rb')::Fee.fee(true, false)
-    t.report
-
-    total = page_data("#{t.dir}/index.html")['tables'][0]['total']
-    expected = { 'sites' => 2, 'methods' => [2, 4], 'percent' => 50 }
-    assert_equal expected, total
-  end
-
   test '6rTS4h', %w(
-  | Example: report :html with group 'Models', 'models/*.rb', of
-  | covered files models/crew.rb and lib/zip.rb
-  | index.html has a tab for All files, Models, and Ungrouped.
-  | The Models tab's table lists models/crew.rb alone.
+  | Example: group 'Models', 'models/*.rb', of covered files
+  | models/crew.rb and lib/zip.rb
+  | The source report's Models group lists models/crew.rb alone.
   | The JSON report's totals have each group's own too: Models
   | took none of crew?'s 3 paths, within its decision or its
   | method.
@@ -236,15 +205,13 @@ class KernelTest < TidTest
       root t.dir
       cover '**/*.rb'
       coverage_dir t.dir
-      report :html
+      report
       group 'Models', 'models/*.rb'
     end
     exit_report.call
 
-    tables = page_data("#{t.dir}/index.html")['tables']
-    names = tables.map { _1['name'] }
-    assert_equal ['All files', 'Models', 'Ungrouped'], names
-    models = tables[1]['rows'].map { _1['path'] }
+    written = File.read("#{t.dir}/path_coverage.source.json")
+    models = JSON.parse(written)['groups']['Models']
     assert_equal ['models/crew.rb'], models
     json = t.json
     groups = {
@@ -254,11 +221,9 @@ class KernelTest < TidTest
   end
 
   test '6rTS4n', %w(
-  | Example: report :html with group 'Models', 'models/*.rb',
-  | and lib/zip.rb the only covered file
+  | Example: group 'Models', 'models/*.rb', and lib/zip.rb the
+  | only covered file
   | No covered file is in the Models group.
-  | So the Models tab's Total row has 0 sites, 0 of 0 paths, and
-  | no percent, as none is possible.
   | The JSON report's Models totals are [0, 0], within
   | decisions and within methods.
   ) do |t|
@@ -269,14 +234,11 @@ class KernelTest < TidTest
       root t.dir
       cover '**/*.rb'
       coverage_dir t.dir
-      report :html
+      report
       group 'Models', 'models/*.rb'
     end
     exit_report.call
 
-    total = page_data("#{t.dir}/index.html")['tables'][1]['total']
-    expected = { 'sites' => 0, 'methods' => [0, 0], 'percent' => nil }
-    assert_equal expected, total
     json = t.json
     groups = {
       'Models' => { 'decisions' => [0, 0], 'methods' => [0, 0] }
@@ -307,110 +269,6 @@ class KernelTest < TidTest
     items = orders.map { |order| items_module.items_of(order) }
     assert_equal [[], [1], [2], []], items
     assert_output('', '') { t.report }
-  end
-
-  test '6rTS4q', %w(
-  | Example: fee with two ifs called once, with true then
-  | false, then a render of the run's JSON report into another
-  | dir
-  | The JSON report holds the statements reached too.
-  | So the render's index has the same Total row as the run's.
-  | Within each method: 2 of 4, 50%, one of each if's two paths.
-  ) do |t|
-    t.write(<<~RUBY, 'fee.rb')
-      module Fee
-        def self.fee(member, big)
-          total = 100
-          if member
-            total -= 5
-          end
-          if big
-            total -= 10
-          end
-          total
-        end
-      end
-    RUBY
-    live = "#{t.dir}/live"
-    exit_report = nil
-    on_exit = ->(&block) { exit_report = block }
-    PathCoverage.start(on_exit:) do
-      root t.dir
-      cover '*.rb'
-      coverage_dir live
-      report :html
-    end
-    t.load('fee.rb')::Fee.fee(true, false)
-    exit_report.call
-
-    later = "#{t.dir}/later"
-    FileUtils.mkdir_p(later)
-    FileUtils.cp("#{live}/path_coverage.json", later)
-    config = PathCoverage::Configuration.new do
-      root t.dir
-      cover '*.rb'
-      coverage_dir later
-      report :html
-    end
-    PathCoverage::Render.from_json(config)
-
-    total = page_data("#{later}/index.html")['tables'][0]['total']
-    expected = { 'sites' => 2, 'methods' => [2, 4], 'percent' => 50 }
-    assert_equal expected, total
-  end
-
-  test '6rTS4r', %w(
-  | Example: measure :decisions, :methods, fee with two ifs,
-  | a report after fee(true, false), another after
-  | fee(false, false) too, then a render of both reports
-  | The render merges the paths and reaches of every report.
-  | So member was taken both ways, big false only.
-  | Within each method: 3 of 4, 75%, not the first report's 2.
-  ) do |t|
-    t.write(<<~RUBY, 'fee_runs.rb')
-      module Fee
-        def self.fee(member, big)
-          total = 100
-          if member
-            total -= 5
-          end
-          if big
-            total -= 10
-          end
-          total
-        end
-      end
-    RUBY
-    reports = %w(first second).map { |run| "#{t.dir}/#{run}" }
-    exit_reports = reports.map do |out|
-      exit_report = nil
-      on_exit = ->(&block) { exit_report = block }
-      PathCoverage.start(on_exit:) do
-        root t.dir
-        cover '*.rb'
-        coverage_dir out
-      end
-      exit_report
-    end
-    fee = t.load('fee_runs.rb')::Fee
-    fee.fee(true, false)
-    assert_output(/path never taken/, '') { exit_reports[0].call }
-    fee.fee(false, false)
-    assert_output(/path never taken/, '') { exit_reports[1].call }
-
-    later = "#{t.dir}/later"
-    FileUtils.mkdir_p(later)
-    config = PathCoverage::Configuration.new do
-      root t.dir
-      cover '*.rb'
-      coverage_dir later
-      report :html
-    end
-    jsons = reports.map { |out| "#{out}/path_coverage.json" }
-    PathCoverage::Render.from_json(config, jsons)
-
-    total = page_data("#{later}/index.html")['tables'][0]['total']
-    assert_equal [[3, 4], 75], total.values_at('methods', 'percent')
   end
 
   test '6rTS4t', %w(
@@ -633,7 +491,7 @@ class KernelTest < TidTest
         end
       end
     RUBY
-    t.start { report :html }
+    t.start { report }
     admin = t.load('safe_admin.rb')::Admin
     user = admin::User
     calls = [[false, nil], [true, nil], [true, user.new(:dev)],
@@ -645,8 +503,7 @@ class KernelTest < TidTest
     json = t.json
     taken = json['paths']['safe_admin.rb:6:4']['taken']
     assert_equal([1, 1, 1, 1], taken.map { _1['count'] })
-    page = "#{t.dir}/files/safe_admin.rb.html"
-    rows = of_kind(fold_at(page, 'safe_admin.rb:6'), 'operand')
+    rows = of_kind(fold_at(t, 'safe_admin.rb:6'), 'operand')
     texts = rows.map { shown(_1).first }
     assert_equal ['ok', 'user', 'admin?'], texts
     assert_equal ['user', 'present', 'present', 'absent', ''],
@@ -755,14 +612,13 @@ class KernelTest < TidTest
         end
       end
     RUBY
-    t.start { report :html }
+    t.start { report }
     both = t.load('both_html.rb')::Both
     answers = [[1], [2], [1, -1]].map { |ids| both.both?(ids) }
     assert_equal [true, false, false], answers
     assert_output('', '') { t.report }
 
-    page = "#{t.dir}/files/both_html.rb.html"
-    rows = fold_at(page, 'both_html.rb:3')
+    rows = fold_at(t, 'both_html.rb:3')
     operators = rows - of_kind(rows, 'operand')
     names = operators.map { shown(_1).first }
     assert_equal ['&&', 'select {'], names
@@ -803,34 +659,6 @@ class KernelTest < TidTest
     assert_equal([1, 1], taken.map { _1['count'] })
   end
 
-  test '6rTS48', %w(
-  | Example: report :html, and crew? called once
-  | The exit report writes index.html into coverage_dir.
-  | It writes a page per covered file too, eg crew.rb.html.
-  | Each site on the page counts the paths it took.
-  | It prints no gaps, since :gaps was not chosen.
-  | index.html's Total row has 1 of 3, 33%, within each method:
-  | one of crew?'s && row's three paths taken; ok?'s one
-  | statement is no row.
-  ) do |t|
-    t.write(<<~RUBY, 'crew.rb')
-      module Crew
-        def self.ok?(id) = !id.empty?
-        def self.crew?(id) = ok?(id) && id.size == 6
-      end
-    RUBY
-    t.start { report :html }
-    t.load('crew.rb')::Crew.crew?('Kp9sA2')
-
-    assert_output('', '') { t.report }
-
-    total = page_data("#{t.dir}/index.html")['tables'][0]['total']
-    expected = { 'sites' => 1, 'methods' => [1, 3], 'percent' => 33 }
-    assert_equal expected, total
-    rows = fold_at("#{t.dir}/files/crew.rb.html", 'crew.rb:3')
-    assert_equal [0, 0, 1], rows.first['counts']
-  end
-
   test '6rTS49', %w(
   | a coverage_dir that does not exist yet is created,
   | parents and all, before the exit report writes into it
@@ -848,12 +676,39 @@ class KernelTest < TidTest
       root t.dir
       cover '*.rb'
       coverage_dir out
-      report :html
+      report
     end
     exit_report.call
 
     assert File.file?("#{out}/path_coverage.json")
-    assert File.file?("#{out}/index.html")
+  end
+
+  test '6rTS44', %w(
+  | the exit report writes the source report beside the JSON
+  | report: each covered file's lines and its sites
+  ) do |t|
+    t.write(<<~RUBY, 'pair.rb')
+      module Pair
+        def self.ok?(id) = !id.empty?
+        def self.pair?(id) = ok?(id) && id.size == 6
+      end
+    RUBY
+    exit_report = nil
+    on_exit = ->(&block) { exit_report = block }
+    PathCoverage.start(on_exit:) do
+      root t.dir
+      cover '*.rb'
+      coverage_dir t.dir
+      report
+    end
+    exit_report.call
+
+    written = File.read("#{t.dir}/path_coverage.source.json")
+    report = JSON.parse(written)
+    file = report['files'].fetch('pair.rb')
+    assert_equal 4, file['lines'].size
+    assert_equal ['pair.rb:3:23'], file['sites'].keys
+    assert_equal '&&', report['labels']['&&']['text']
   end
 
   test '6rTS4b', %w(
@@ -905,95 +760,6 @@ class KernelTest < TidTest
     PathCoverage.start_from_env(env, on_exit:)
     kata = "#{t.dir}/source/kata.rb"
     assert_equal [kata], PathCoverage.config.files
-  end
-
-  test '6rTS4a', %w(
-  | the pages rendered later from the JSON report alone,
-  | by a render that recorded nothing, are the very pages
-  | the recording run wrote, fixed leaves and gaps and all
-  ) do |t|
-    t.write(<<~RUBY, 'gang.rb')
-      module Gang
-        LIMIT = 6
-        def self.ok?(id) = !id.empty?
-        def self.gang?(id) = ok?(id) && id.size == LIMIT
-        def self.limit(n) = n || 6
-      end
-    RUBY
-    live = "#{t.dir}/live"
-    exit_report = nil
-    on_exit = ->(&block) { exit_report = block }
-    PathCoverage.start(on_exit:) do
-      root t.dir
-      cover '*.rb'
-      coverage_dir live
-      report :html
-    end
-    gang = t.load('gang.rb')::Gang
-    gang.gang?('Kp9sA2')
-    gang.limit(nil)
-    exit_report.call
-
-    later = "#{t.dir}/later"
-    FileUtils.mkdir_p(later)
-    FileUtils.cp("#{live}/path_coverage.json", later)
-    config = PathCoverage::Configuration.new do
-      root t.dir
-      cover '*.rb'
-      coverage_dir later
-      report :html
-    end
-    PathCoverage::Render.from_json(config)
-
-    %w(index.html files/gang.rb.html).each do |page|
-      expected = File.read("#{live}/#{page}")
-      assert_equal expected, File.read("#{later}/#{page}"), page
-    end
-  end
-
-  test '6rTS4m', %w(
-  | Example: a run covering crew.rb and gen.rb, then a render of
-  | its JSON report, into the same dir, with skip 'gen.rb'
-  | The render writes crew.rb's page only.
-  | gen.rb's page, from the run before, is removed.
-  | So the files dir holds a page for each covered file alone.
-  ) do |t|
-    t.write(<<~RUBY, 'crew.rb')
-      module Crew
-        def self.crew?(id) = !id.empty? && id.size == 6
-      end
-    RUBY
-    t.write(<<~RUBY, 'gen.rb')
-      module Gen
-        def self.gen?(id) = id.nil? || id.empty?
-      end
-    RUBY
-    out = "#{t.dir}/reports"
-    exit_report = nil
-    on_exit = ->(&block) { exit_report = block }
-    PathCoverage.start(on_exit:) do
-      root t.dir
-      cover '*.rb'
-      coverage_dir out
-      report :html
-    end
-    crew = t.load('crew.rb')::Crew
-    gen = t.load('gen.rb')::Gen
-    crew.crew?('Kp9sA2')
-    gen.gen?('Kp9sA2')
-    exit_report.call
-
-    config = PathCoverage::Configuration.new do
-      root t.dir
-      cover '*.rb'
-      skip 'gen.rb'
-      coverage_dir out
-      report :html
-    end
-    PathCoverage::Render.from_json(config)
-
-    pages = Dir.glob('**/*.html', base: "#{out}/files")
-    assert_equal ['crew.rb.html'], pages
   end
 
   test '6rTS41', %w(
@@ -1320,14 +1086,14 @@ class KernelTest < TidTest
         def self.of(user) = user&.account&.owner
       end
     RUBY
-    t.start { report :html }
+    t.start { report }
     owner = t.load('owner.rb')::Owner
     account = Struct.new(:owner).new('kim')
     users = [nil, Struct.new(:account).new(account)]
     assert_equal([nil, 'kim'], users.map { owner.of(_1) })
     t.report
 
-    rows = fold_at("#{t.dir}/files/owner.rb.html", 'owner.rb:2')
+    rows = fold_at(t, 'owner.rb:2')
     texts = of_kind(rows, 'operand').map { shown(_1).first }
     assert_equal %w(user account), texts
   end
@@ -1382,11 +1148,10 @@ class KernelTest < TidTest
         end
       end
     RUBY
-    t.start { report :html }
+    t.start { report }
     t.load('ship6b.rb')::Ship.ship(3)
     t.report
-    page = "#{t.dir}/files/ship6b.rb.html"
-    assert_equal [%w(ship 1), %w(4:13 1)], card_taken(page, 2)
+    assert_equal [%w(ship 1), %w(4:13 1)], card_taken(t, 2)
     assert_equal({ 'ship6b.rb:2:2' => 1 }, t.json['reached'])
   end
 
@@ -1413,14 +1178,13 @@ class KernelTest < TidTest
         end
       end
     RUBY
-    t.start { report :html }
+    t.start { report }
     label = t.load('label6c.rb')::Label
     label.label(true, true)
     label.mark(false)
     t.report
-    page = "#{t.dir}/files/label6c.rb.html"
     located = lambda do |line, kind|
-      rows = of_kind(fold_at(page, "label6c.rb:#{line}"), kind)
+      rows = of_kind(fold_at(t, "label6c.rb:#{line}"), kind)
       rows.map { !_1['at'].nil? }
     end
     assert_equal [true, true], located.call(3, 'arm')
@@ -1432,8 +1196,7 @@ class KernelTest < TidTest
   | Example: ship, an if then a value, measured within methods,
   | called once with a paid order
   | Its card folds the if's tree under the if's row: its
-  | operator, a count for each of its 2 paths, the one never
-  | taken first, and its operands.
+  | operator, and its operands.
   ) do |t|
     t.write(<<~RUBY, 'ship6d.rb')
       module Ship
@@ -1445,11 +1208,10 @@ class KernelTest < TidTest
         end
       end
     RUBY
-    t.start { report :html }
+    t.start { report }
     t.load('ship6d.rb')::Ship.ship({ paid: true })
     t.report
-    rows = fold_at("#{t.dir}/files/ship6d.rb.html", 'ship6d.rb:3')
-    assert_equal [0, 1], rows.first['counts']
+    rows = fold_at(t, 'ship6d.rb:3')
     texts = of_kind(rows, 'operand').map { shown(_1).first }
     assert_equal ['order[:paid]'], texts
   end
@@ -1468,7 +1230,7 @@ class KernelTest < TidTest
         def self.fee(big) = big ? 10 : 5
       end
     RUBY
-    t.start { report :html }
+    t.start { report }
     t.load('rate.rb')::Fee.fee(true)
     t.report
     assert_equal [2, 4], t.json['totals']['methods']
@@ -1476,20 +1238,20 @@ class KernelTest < TidTest
 
   test '6rTS6f', %w(
   | Example: rate.rb, a ?: at its top level, with no RATE set
-  | Its page has a top card for line 1, as a method has a card,
-  | titled file, its scope: one ?: row, 1 of its 2 paths taken.
+  | It has a top card for line 1, as a method has a card, with
+  | no calls, titled file, its scope: one ?: row, 1 of its 2
+  | paths taken.
   ) do |t|
     t.write(<<~RUBY, 'rate.rb')
       RATE = ENV.key?('RATE6rTS6f') ? 2 : 1
     RUBY
-    t.start { report :html }
+    t.start { report }
     t.load('rate.rb')
     t.report
-    page = "#{t.dir}/files/rate.rb.html"
-    cards = page_data(page)['cards']
-    placed = cards.map { _1.values_at('first', 'top') }
-    assert_equal [[1, true]], placed
-    assert_equal [%w(file 1), %w(1:30 1)], card_taken(page, 1)
+    cards = t.json['cards']
+    placed = cards.map { |site, card| [site, card['calls']] }
+    assert_equal [['rate.rb:1:0', nil]], placed
+    assert_equal [%w(file 1), %w(1:30 1)], card_taken(t, 1)
   end
 
   test '6rTS6g', %w(
@@ -1503,11 +1265,10 @@ class KernelTest < TidTest
         RATE = ENV.key?('RATE6rTS6g') ? 2 : 1
       end
     RUBY
-    t.start { report :html }
+    t.start { report }
     t.load('rate.rb')
     t.report
-    page = "#{t.dir}/files/rate.rb.html"
-    assert_equal [%w(Rate 1), %w(2:32 1)], card_taken(page, 2)
+    assert_equal [%w(Rate 1), %w(2:32 1)], card_taken(t, 2)
   end
 
   test '6rTS6h', %w(
@@ -1520,11 +1281,10 @@ class KernelTest < TidTest
         RATE = ENV.key?('RATE6rTS6h') ? 2 : 1
       end
     RUBY
-    t.start { report :html }
+    t.start { report }
     t.load('rate.rb')
     t.report
-    page = "#{t.dir}/files/rate.rb.html"
-    assert_equal [%w(Rate 1), %w(2:32 1)], card_taken(page, 2)
+    assert_equal [%w(Rate 1), %w(2:32 1)], card_taken(t, 2)
   end
 
   test '6rTS6j', %w(
@@ -1541,7 +1301,7 @@ class KernelTest < TidTest
         def self.fee(big) = big ? 10 : 5
       end
     RUBY
-    t.start { report :html }
+    t.start { report }
     t.load::Fee.fee(true)
     t.report
     expected = {
@@ -1570,7 +1330,7 @@ class KernelTest < TidTest
         RATE = ENV.key?('RATE6rTS6k') ? 2 : 1
       end
     RUBY
-    t.start { report :html }
+    t.start { report }
     t.load('rate.rb')
     t.report
     expected = {
@@ -1603,7 +1363,7 @@ class KernelTest < TidTest
         end
       end
     RUBY
-    t.start { report :html }
+    t.start { report }
     t.load::Fee.fee(false, true)
     t.report
     top = PathCoverage::CardTree::TOP
@@ -1622,7 +1382,7 @@ class KernelTest < TidTest
         RATE = ENV.key?('RATE6rTS6p') ? 2 : 1
       end
     RUBY
-    t.start { report :html }
+    t.start { report }
     t.load('rate.rb')
     t.report
     top = PathCoverage::CardTree::TOP
@@ -1642,7 +1402,7 @@ class KernelTest < TidTest
         def self.pick(a, b) = a ? (b ? 1 : 2) : 3
       end
     RUBY
-    t.start { report :html }
+    t.start { report }
     pick = t.load::Pick
     pick.pick(true, true)
     pick.pick(false, true)
@@ -1655,38 +1415,6 @@ class KernelTest < TidTest
     inner = { 'parent' => '2:26', 'in' => 'then', 'on' => [0] }
     tree = { '2:26' => top, '2:31' => top.merge(inner) }
     assert_equal tree, t.json['tree'][t.file]['2:2']
-  end
-
-  test '6rTS6r', %w(
-  | Example: module Fee holding fee, called once, its report then
-  | holding no reaches, as one the :post reporter sent does,
-  | rendered from that report alone
-  | How many times fee was called is not known, so its card says
-  | nothing of it, rather than saying it was never called.
-  ) do |t|
-    t.write(<<~RUBY)
-      module Fee
-        def self.fee(big) = big ? 10 : 5
-      end
-    RUBY
-    t.start
-    t.load::Fee.fee(true)
-    capture_io { t.report }
-    sent = "#{t.dir}/sent.json"
-    File.write(sent, JSON.generate(t.json.except('reached')))
-    later = "#{t.dir}/later"
-    FileUtils.mkdir_p(later)
-    config = PathCoverage::Configuration.new do
-      root t.dir
-      cover '*.rb'
-      coverage_dir later
-      report :html
-    end
-    PathCoverage::Render.from_json(config, [sent])
-    page = "#{later}/files/#{t.file}.html"
-    card = card_at(page, 2)
-    title = card['title'].values_at('name', 'calls', 'taken')
-    assert_equal ['fee', nil, 1], title
   end
 
   test '6rTS6s', %w(
@@ -1718,14 +1446,13 @@ class KernelTest < TidTest
         end
       end
     RUBY
-    t.start { report :html }
+    t.start { report }
     pick = t.load::Pick
     pick.pick(true)
     pick.size(5)
     t.report
-    page = "#{t.dir}/files/#{t.file}.html"
     elses = [3, 11].map do |line|
-      first = fold_at(page, "#{t.file}:#{line}").first
+      first = fold_at(t, "#{t.file}:#{line}").first
       [shown(first).first, first['else']]
     end
     assert_equal [['if/else', [5, 4, 5, 8]], ['if', nil]], elses
@@ -1762,37 +1489,32 @@ class KernelTest < TidTest
 
   private
 
-  # Example: index.html gives its data, eg its tables.
-  # The data of the report's page in the file page, as it holds
-  # it inline, for the renderer to draw.
-  def page_data(page)
-    inline = File.read(page)[/^window\.pathCoverage = (.*);$/, 1]
-    JSON.parse(inline.gsub('<\/', '</'))
-  end
-
   # Example: owner.rb:2 gives the rows of the site on line 2.
-  # The rows of the fold, in its card, of the first site at
-  # file:line in the file page.
-  def fold_at(page, line)
-    rows = page_data(page)['cards'].flat_map { _1['rows'] }
-    by_line = rows.group_by { _1['site'].to_s[/\A(.*):\d+\z/, 1] }
-    by_line.fetch(line).first.fetch('fold')
-  end
-
-  # The card at line first in the file page.
-  def card_at(page, first)
-    cards = page_data(page)['cards']
-    cards.group_by { _1['first'] }.fetch(first).first
+  # The rows of the fold of the first site at file:line, as the
+  # source report fixture's run wrote has them.
+  def fold_at(fixture, line)
+    written = File.read("#{fixture.dir}/path_coverage.source.json")
+    file = line[/\A(.*):\d+\z/, 1]
+    sites = JSON.parse(written)['files'].fetch(file)['sites']
+    site = sites.keys.grep(/\A#{Regexp.escape(line)}:/).first
+    sites.fetch(site).fetch('fold')
   end
 
   # Example: ship's card gives [%w(ship 1), %w(4:13 1)].
-  # [label, taken] of the title, then of each row, of the card at
-  # line first in the file page.
-  def card_taken(page, first)
-    card = card_at(page, first)
-    rows = card['rows'].map { |row| [row['at'], row['taken'].to_s] }
-    title = card['title']
-    [[title['name'], title['taken'].to_s], *rows]
+  # [name, taken] of the card at line first in the JSON report
+  # fixture's run wrote, its rows' taken added up, then [at,
+  # taken] of each row.
+  def card_taken(fixture, first)
+    card = card_at(fixture, first)
+    rows = card['rows'].map { |row| [row['at'], row['taken']] }
+    taken = rows.sum { |_, count| count.to_i }
+    [[card['name'], taken], *rows].map { |name, n| [name, n.to_s] }
+  end
+
+  # The card at line first in the JSON report fixture's run wrote.
+  def card_at(fixture, first)
+    cards = fixture.json['cards'].values
+    cards.to_h { [_1['first'], _1] }.fetch(first)
   end
 
   # The rows of rows of kind, eg operand; none when none are.

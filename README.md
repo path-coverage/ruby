@@ -39,7 +39,16 @@ within each site, and within each method, through its sites.
 
 As the run exits it writes its report:
 - `path_coverage.json`, for AIs and other tools.
-- `index.html`, with a page per file, for people.
+- `path_coverage.source.json`, what drawing each file's code needs.
+
+The HTML report, for people, is drawn from those two by
+[html-reporter](https://github.com/path-coverage/html-reporter):
+`index.html`, a sortable row per covered file with its paths taken
+within each method, and a page per file with its cards.
+
+```sh
+docker run --rm -v "$PWD/coverage:/paths" ghcr.io/path-coverage/html-reporter /paths
+```
 
 ## Reading the HTML
 
@@ -161,8 +170,8 @@ PathCoverage.start do
   cover 'test/**/*.rb'         # more than one cover glob may be given
   skip 'source/vendor/**/*.rb' # except these, though a cover glob matches them
   coverage_dir '/tmp/coverage' # where path_coverage.json is written
-  report :gaps, :html          # the reporters run at exit (default :gaps);
-                               # also :summary and :post
+  report :gaps, :summary       # the reporters run at exit (default :gaps);
+                               # also :post
   group 'code', 'source/**/*.rb' # each group a tab of its own on index.html
   group 'test', 'test/**/*.rb'
   ignore '&&='                 # operators whose sites are not measured
@@ -191,7 +200,8 @@ run and measure only those given a collector.
 
 The gem's `path_coverage_collector` command is that collector. It saves
 each report POSTed to it as a numbered file, and once every run is done
-they render as one report:
+their gaps and summary print as one report (runs merged this way have
+no HTML report):
 
 ```sh
 path_coverage_collector 4570 /tmp/paths/runs   # until sent TERM
@@ -235,6 +245,10 @@ As the process exits:
   every run left. A report whose kinds, `ignored` or `treats` differ
   from `config`'s is refused, as its sites list their paths
   differently.
+- `path_coverage.source.json` is always written beside it: each
+  covered file's lines and their coloured tokens, and where each site
+  is and its fold's rows, so html-reporter can draw the pages without
+  parsing Ruby.
 - `:gaps` prints one line per site path never taken, in manifest
   order, naming the outcome of each leaf on it:
 
@@ -416,12 +430,6 @@ answer true or false.
 
 ### Reporters
 
-- `:html` writes `index.html` to `coverage_dir`: a sortable row per
-  covered file, with its sites and its paths taken of all possible
-  within each method (eg `9 / 28 32%`, or `-` for a file with no
-  method of two or more decisions), and a Total row. Each file name
-  opens `files/<path>.html`, the file's source with its cards, as
-  Reading the HTML shows.
 - `:post` sends the JSON report, as an HTTP POST, to the url set by
   `collector 'http://...'`. It is for a run whose own files are thrown
   away, such as a failing `docker build` step. It prints nothing, never

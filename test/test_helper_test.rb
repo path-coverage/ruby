@@ -66,20 +66,21 @@ class TestHelperTest < TidTest
   end
 
   test 'Fb7B30', %w(
-  | Example: t.write of RATE = a ?: on ENV, t.start with report
-  | :html, t.load, then t.report, with no RATE set
+  | Example: t.write of RATE = a ?: on ENV, t.start with group
+  | 'all', t.load, then t.report, with no RATE set
   | t.start starts path_coverage covering t.dir's .rb files,
   | reporting into t.dir, any settings of its block added.
   | t.report runs the report the process's exit would. t.json is
-  | the JSON report it wrote: the ?:'s else taken once.
+  | the JSON report it wrote: the ?:'s else taken once, and the
+  | group's totals.
   ) do |t|
     t.write("RATE = ENV.key?('RATE_Fb7B30') ? 2 : 1\n")
-    t.start { report :html }
+    t.start { group 'all', '*.rb' }
     t.load
-    t.report
+    assert_output(/path never taken/) { t.report }
     taken = t.json['paths']["#{t.file}:1:31"]['taken']
     assert_equal([0, 1], taken.map { _1['count'] })
-    assert File.exist?("#{t.dir}/index.html")
+    assert_equal ['all'], t.json['totals']['groups'].keys
   end
 
   test 'Fb7B40', %w(

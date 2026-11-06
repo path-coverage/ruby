@@ -5,13 +5,11 @@ AllCops:
   # report draws, written to be awkward rather than tidy;
   # demo/cards are the README's card examples, written to
   # show each kind of site, eg ids.any? { |id| id.odd? } rather
-  # than ids.any?(&:odd?), which is none;
-  # html_paths.rb is a SPIKE, unlinted while its design settles.
+  # than ids.any?(&:odd?), which is none.
   Exclude:
     - reports/**/*
     - demo/source/shop.rb
     - demo/cards/**/*
-    - lib/path_coverage/html_paths.rb
 
 Layout/LineLength:
   Max: 70

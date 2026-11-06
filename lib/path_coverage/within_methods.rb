@@ -146,7 +146,7 @@ module PathCoverage
       MethodStatements.of(source, path, sites).to_h do |site, rows|
         taken = MethodStatements.taken(rows, paths, reached)
         ways = CardWays.card(source, sites, rows)
-        calls = reached&.fetch(site, 0)
+        calls = reached.fetch(site, 0)
         named = [names[site], lasts[site], ways, calls]
         [site, card(site, named, rows.zip(taken))]
       end

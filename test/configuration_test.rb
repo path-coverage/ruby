@@ -110,18 +110,19 @@ class ConfigurationTest < TidTest
   end
 
   test 'A9MJ15', %w(
-  | an unknown reporter in the start block is refused,
+  | an unknown reporter in the start block is refused, eg
+  | :html, whose report html-reporter draws from the JSON,
   | naming it and listing the reporters there are
   ) do
     error = assert_raises(PathCoverage::ConfigurationError) do
       PathCoverage::Configuration.new do
         root '/app'
-        report :gaps, :htm
+        report :gaps, :html
       end
     end
     expected = [
-      'unknown reporter htm in PathCoverage.start',
-      'the reporters are: gaps, html, post, summary'
+      'unknown reporter html in PathCoverage.start',
+      'the reporters are: gaps, post, summary'
     ].join("\n")
     assert_equal expected, error.message
   end

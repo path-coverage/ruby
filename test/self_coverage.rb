@@ -39,7 +39,7 @@ module SelfCoverage
     skip 'test/self_coverage.rb'
     skip 'test/coverage_metrics_formatter.rb'
     coverage_dir '/reports/paths'
-    report :html
+    report
     group 'code', 'lib/**/*.rb'
     group 'test', 'test/**/*.rb'
   end

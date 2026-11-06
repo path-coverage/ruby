@@ -18,10 +18,17 @@ module PathCoverage
       columns = paths.sort_by.with_index do |taken, i|
         [taken[:count].zero? ? 0 : 1, i]
       end
-      outcomes = columns.map { |taken| taken[:path] }
-      tree = node(source, condition, outcomes, (0..).each)
-      tree = tree.merge(label: 'elsif') if elsif?(source, condition)
+      tree = built(source, condition, columns.map { _1[:path] })
       tree.merge(counts: columns.map { |taken| taken[:count] })
+    end
+
+    # The tree of condition with no counts, a column for each of
+    # outcomes, each path's outcomes, in the order given.
+    def self.built(source, condition, outcomes)
+      tree = node(source, condition, outcomes, (0..).each)
+      return tree unless elsif?(source, condition)
+
+      tree.merge(label: 'elsif')
     end
 
     # True for an if site written as an elsif: an if's extent

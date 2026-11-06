@@ -1,12 +1,12 @@
 # Runs the demo source tree under path coverage, as a
-# test suite would, writing the report to COVERAGE_DIR.
+# test suite would, writing the JSON reports to COVERAGE_DIR.
 require 'path_coverage'
 
 PathCoverage.start do
   root __dir__
   cover 'source/**/*.rb'
   coverage_dir ENV.fetch('COVERAGE_DIR')
-  report :gaps, :html
+  report :gaps
 end
 
 require_relative 'source/kata'

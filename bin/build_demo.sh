@@ -3,6 +3,7 @@ set -Eeu
 
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly IMAGE=path_coverage-test
+readonly REPORTER=ghcr.io/path-coverage/html-reporter
 
 show_help()
 {
@@ -11,8 +12,9 @@ Usage: bin/build_demo.sh [OPTIONS]
 
 Runs demo/run.rb, a mock source tree under path coverage, in
 the Docker image built from the repo's Dockerfile, writing its
-HTML report to site/ (index.html first). The same site is what
-the GitHub Pages workflow publishes.
+JSON reports to site/, then draws its HTML report there
+(index.html first) with the html-reporter image. The same site
+is what the GitHub Pages workflow publishes.
 
 Options:
   -h    Show this help
@@ -41,5 +43,10 @@ docker run --rm \
   --env COVERAGE_DIR=/site \
   "${IMAGE}" \
   sh -c 'rm -rf /site/* && ruby -Ilib demo/run.rb'
+
+docker run --rm \
+  --user "$(id -u):$(id -g)" \
+  --volume "${ROOT_DIR}/site:/site" \
+  "${REPORTER}" /site
 
 echo "${ROOT_DIR}/site/index.html"

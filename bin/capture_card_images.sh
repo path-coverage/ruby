@@ -4,6 +4,7 @@ set -Eeu
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly RUBY_IMAGE=path_coverage-test
 readonly CHROME_IMAGE=ghcr.io/puppeteer/puppeteer:23.10.4
+readonly REPORTER=ghcr.io/path-coverage/html-reporter
 readonly HOME_DIR=/home/pptruser
 readonly REPORT_DIR="${ROOT_DIR}/reports/cards"
 
@@ -13,7 +14,8 @@ show_help()
 Usage: bin/capture_card_images.sh [OPTIONS]
 
 Runs demo/cards/run.rb, one method per kind of card cell,
-under path coverage, writing its HTML report to reports/cards/.
+under path coverage, writing its JSON reports to reports/cards/,
+and draws its HTML report there with the html-reporter image.
 Then, in headless Chrome, in the Puppeteer Docker image, saves
 each method's card to docs/, eg docs/cell-blank.png, and each
 example page, its card open, eg docs/example-taken.png, for the
@@ -44,6 +46,10 @@ docker run --rm \
   --env COVERAGE_DIR=/report \
   "${RUBY_IMAGE}" \
   sh -c 'rm -rf /report/* && ruby -Ilib demo/cards/run.rb'
+
+docker run --rm \
+  --volume "${REPORT_DIR}:/report" \
+  "${REPORTER}" /report
 
 # Run as root so the bind-mounted docs/ is writable; the module
 # and browser paths then name pptruser's, as root's home differs.

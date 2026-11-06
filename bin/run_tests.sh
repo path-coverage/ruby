@@ -3,6 +3,7 @@ set -Eeu
 
 readonly ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly IMAGE=path_coverage-test
+readonly REPORTER=ghcr.io/path-coverage/html-reporter
 
 show_help()
 {
@@ -80,6 +81,13 @@ run_in_image()
 }
 
 run_in_image ruby -Ilib -Itest -e "${LOADER}" -- "$@"
+
+# path_coverage's own HTML report, drawn from the two JSON reports
+# the run wrote into reports/paths.
+docker run --rm \
+  --user "$(id -u):$(id -g)" \
+  --volume "${ROOT_DIR}/reports/paths:/paths" \
+  "${REPORTER}" /paths
 
 if [ $# -eq 0 ]; then
   run_in_image ruby bin/check_coverage_metrics.rb

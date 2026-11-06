@@ -1,6 +1,7 @@
 # Runs cells.rb under path coverage, calling each method so its
-# card shows every kind of cell, and writes the HTML report to
-# COVERAGE_DIR. Run by bin/capture_card_images.sh.
+# card shows every kind of cell, and writes the JSON reports to
+# COVERAGE_DIR, for html-reporter to draw. Run by
+# bin/capture_card_images.sh.
 require 'path_coverage'
 
 PathCoverage.start do
@@ -14,7 +15,7 @@ PathCoverage.start do
   cover 'odds.rb'
   cover 'notify.rb'
   coverage_dir ENV.fetch('COVERAGE_DIR')
-  report :html
+  report
   treat 'any?', as: :nonempty
 end
 
