@@ -2,7 +2,7 @@
 
 [![Gem Version](https://img.shields.io/gem/v/path_coverage)](https://rubygems.org/gems/path_coverage)
 [![Downloads](https://img.shields.io/gem/dt/path_coverage)](https://rubygems.org/gems/path_coverage)
-[![License](https://img.shields.io/github/license/cyber-dojo/path_coverage)](LICENSE.md)
+[![License](https://img.shields.io/github/license/path-coverage/ruby)](LICENSE.md)
 
 Path coverage for Ruby, to run alongside SimpleCov's line and branch
 coverage.
@@ -16,7 +16,7 @@ safe-navigation chains. Method paths cover every site at a method's
 top level.
 More decisions hidden inside calls come next (see Roadmap).
 
-Demo: https://cyber-dojo.github.io/path_coverage/ shows the HTML report
+Demo: https://path-coverage.github.io/ruby/ shows the HTML report
 for the mock source tree in `demo/`. `make demo` builds and opens the
 same report locally.
 

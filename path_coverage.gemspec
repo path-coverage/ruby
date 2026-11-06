@@ -10,7 +10,7 @@ Gem::Specification.new do |s|
                   'taken in the terminal and as HTML.'
   s.authors = ['Jon Jagger']
   s.license = 'BSD-2-Clause'
-  s.homepage = 'https://github.com/cyber-dojo/path_coverage'
+  s.homepage = 'https://github.com/path-coverage/ruby'
   s.files = Dir['lib/**/*'].select { |f| File.file?(f) } +
             %w[README.md LICENSE.md exe/path_coverage_collector]
   s.bindir = 'exe'
