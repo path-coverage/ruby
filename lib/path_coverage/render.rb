@@ -1,6 +1,7 @@
 require_relative 'console_summary'
 require_relative 'gaps'
 require_relative 'json_reader'
+require_relative 'json_reports'
 require_relative 'manifest'
 require_relative 'paths_report'
 require_relative 'post'
@@ -8,23 +9,36 @@ require_relative 'site_paths'
 require_relative 'within_methods'
 
 module PathCoverage
-  # The reporters, run from operands alone: needing nothing the
-  # run recorded beyond them, they can run in another process.
+  # The JSON reports and the reporters, run from operands alone:
+  # needing nothing the run recorded beyond them, they can run in
+  # another process.
   module Render
-    # Runs each reporter chosen in config. operands, and taken's
-    # site_paths: and outside:, are as Result gives them, and its
-    # reached: as Recorder#reached gives it; files is
-    # { full path => {source:, sites:} } for each covered file.
+    # Writes the JSON reports, then runs each reporter chosen in
+    # config. operands, and taken's site_paths: and outside:, are
+    # as Result gives them, and its reached: as Recorder#reached
+    # gives it; files is { full path => {source:, sites:} } for
+    # each covered file.
     def self.run(operands, files, config, **taken)
-      site_paths = every_site(taken.fetch(:site_paths, {}), files)
-      reporters = config.reporters
-      if reporters.include?(:gaps)
-        gaps(operands, files, site_paths, taken.fetch(:outside, {}))
+      recorded = taken.merge(
+        site_paths: every_site(taken.fetch(:site_paths, {}), files),
+        outside: taken.fetch(:outside, {})
+      )
+      JsonReports.write(operands, files, config, **recorded)
+      reporters(operands, files, config, recorded)
+    end
+
+    # Runs each reporter chosen in config, from operands, files,
+    # and recorded, as run has them.
+    def self.reporters(operands, files, config, recorded)
+      site_paths = recorded[:site_paths]
+      chosen = config.reporters
+      if chosen.include?(:gaps)
+        gaps(operands, files, site_paths, recorded[:outside])
       end
-      if reporters.include?(:summary)
-        summary(files, config, site_paths, taken[:reached])
+      if chosen.include?(:summary)
+        summary(files, config, site_paths, recorded[:reached])
       end
-      return unless reporters.include?(:post)
+      return unless chosen.include?(:post)
 
       post(operands, files, config, site_paths)
     end

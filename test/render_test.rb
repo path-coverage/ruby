@@ -41,6 +41,45 @@ class RenderTest < TidTest
     end
   end
 
+  test 'Rn5d11', %w(
+  | Example: kata?'s && in two runs, one taking its middle
+  | path, the other its last
+  | Rendering from their JSON reports writes the merged JSON
+  | report into coverage_dir, each path's count the sum of
+  | both runs', and the source report beside it, as a run
+  | does, for html-reporter to draw.
+  ) do |t|
+    source = "def kata?(id) = ok?(id) && id.size == 6\n"
+    t.write(source, 'kata.rb')
+    site = PathCoverage::Manifest.sites(source, 'kata.rb').keys.first
+    leaves = [%w(1:16 1:23), %w(1:27 1:39)]
+    operands = [{ truthy: 1, falsy: 1 }, { truthy: 0, falsy: 1 }]
+    runs = [[0, 1, 0], [0, 0, 1]].each_with_index.map do |counts, n|
+      taken = [[true, true], [true, false], [false, nil]]
+              .zip(counts).map { |path, count| { path:, count: } }
+      file = "#{t.dir}/run#{n}.json"
+      report = { site => { leaves:, taken: } }
+      writer = PathCoverage::JsonWriter
+      writer.write({ site => operands }, file, report)
+      file
+    end
+    out = "#{t.dir}/merged"
+    config = PathCoverage::Configuration.new do
+      root t.dir
+      cover '*.rb'
+      coverage_dir out
+      report
+    end
+    PathCoverage::Render.from_json(config, runs)
+
+    merged = JSON.parse(File.read("#{out}/path_coverage.json"))
+    counts = merged['paths'][site]['taken'].map { _1['count'] }
+    assert_equal [0, 1, 1], counts
+    written = File.read("#{out}/path_coverage.source.json")
+    kata = JSON.parse(written)['files']['kata.rb']
+    assert_equal [site], kata['sites'].keys
+  end
+
   test 'Rn5d20', %w(
   | a JSON report with no paths, eg from an older version,
   | cannot say which paths were taken, so rendering from it

@@ -1,6 +1,7 @@
 require_relative 'test_helper'
 require 'path_coverage/collector'
 require 'path_coverage/configuration'
+require 'path_coverage/manifest'
 require 'path_coverage/render'
 require 'json'
 require 'socket'
@@ -49,24 +50,20 @@ class PostTest < TidTest
     port = server.addr[1]
     received = Thread.new { request_body(server.accept) }
     source = "def fee(u) = u ? 5 : 7\n"
-    site = condition(
-      '?:', 13...14, arm(:then, 17...18), arm(:else, 21...22)
-    )
-    sites = { 'fee.rb:1:13' => site }
+    sites = PathCoverage::Manifest.sites(source, 'fee.rb')
     files = { '/app/fee.rb' => { source:, sites: } }
-    operands = { 'fee.rb:1:13' => [{ truthy: 1, falsy: 1 }] }
-    site_paths = {
-      'fee.rb:1:13' => [
-        { path: [true], count: 1 }, { path: [false], count: 1 }
-      ]
-    }
+    site = 'fee.rb:1:15'
+    assert_equal [site], sites.keys
+    operands = { site => [{ truthy: 1, falsy: 1 }] }
+    taken = [{ path: [true], count: 1 }, { path: [false], count: 1 }]
+    site_paths = { site => taken }
     config = post_config(t.dir, "http://127.0.0.1:#{port}/runs")
     render = PathCoverage::Render
     assert_output('', '') do
       render.run(operands, files, config, site_paths:)
     end
     expected = {
-      'fee.rb:1:13' => {
+      site => {
         'leaves' => [%w(1:13 1:14)],
         'taken' => [
           { 'path' => [true], 'count' => 1 },

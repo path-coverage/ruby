@@ -1,15 +1,10 @@
-require 'fileutils'
 require_relative 'calls'
 require_relative 'configuration'
-require_relative 'console_summary'
-require_relative 'json_writer'
 require_relative 'manifest'
-require_relative 'paths_report'
 require_relative 'recorder'
 require_relative 'render'
 require_relative 'result'
 require_relative 'rewriter'
-require_relative 'source_report'
 require_relative 'within_methods'
 
 # Path coverage for Ruby. This file is the kernel: it loads
@@ -100,69 +95,15 @@ module PathCoverage
     RubyVM::InstructionSequence.compile(rewritten, path, path)
   end
 
-  # Writes the JSON report, then runs the chosen reporters, for
-  # every covered file whether or not the run loaded it, into
-  # coverage_dir, created first if need be.
+  # Writes the JSON reports, then runs the chosen reporters, for
+  # every covered file whether or not the run loaded it, from
+  # the counts and site paths this run recorded.
   def self.report(config)
     files = parsed_files(config)
-    result = collect(files, config)
-    Render.run(result.operands, files, config,
-               **result.taken, reached: @recorder.reached)
-  end
-
-  # The Result of every covered file, with the counts and site
-  # paths this run recorded, once its operands and paths are
-  # written as the JSON report, and its source as the source
-  # report.
-  def self.collect(files, config)
     sites = merged_sites(files)
     result = Result.new(sites, @recorder.counts, @recorder.site_paths)
-    FileUtils.mkdir_p(config.output_dir)
-    reached = @recorder.reached
-    cards = WithinMethods.listed(files, config, result, reached)
-    write_json(result, files, config, cards)
-    write_source(files, config, result.paths, cards)
-    result
-  end
-
-  # Writes result as the JSON report at config's json_path: its
-  # operands, site paths, paths a treatment rules out, totals,
-  # cards, each def's card, as WithinMethods.listed gives them,
-  # how each card's rows nest, the statements the recorder
-  # reached, so a render from the JSON alone has them, and
-  # config's fingerprint.
-  def self.write_json(result, files, config, cards)
-    report = PathsReport.of(result.paths, files)
-    tree = WithinMethods.tree(files, config, result)
-    parts = {
-      totals: totals(result, files, config), outside: result.outside,
-      cards:, tree:, fingerprint: config.fingerprint,
-      reached: @recorder.reached
-    }
-    path = config.json_path
-    JsonWriter.write(result.operands, path, report, **parts)
-  end
-
-  # Writes the source report beside the JSON report, from files,
-  # site_paths and cards, as collect has them.
-  def self.write_source(files, config, site_paths, cards)
-    source = SourceReport.of(files, config, site_paths, cards)
-    path = config.json_path.sub(/\.json\z/, '.source.json')
-    File.write(path, JSON.generate(source))
-  end
-
-  # The JSON report's totals, each [taken, possible] paths:
-  # within each decision, and within each method; with groups
-  # configured, each group's own too, under groups.
-  def self.totals(result, files, config)
-    reached = @recorder.reached
-    cards = WithinMethods.cards(files, config, result.paths, reached)
-    totals = ConsoleSummary.totals(result.paths, cards)
-    groups = config.groups
-    return totals if groups.empty?
-
-    own = ConsoleSummary.group_totals(result.paths, cards, groups)
-    totals.merge('groups' => own)
+    Render.run(result.operands, files, config,
+               **result.taken, reached: @recorder.reached)
   end
 
   # { full path => {source:, sites:} } for every covered file:

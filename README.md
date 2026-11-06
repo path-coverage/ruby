@@ -200,8 +200,8 @@ run and measure only those given a collector.
 
 The gem's `path_coverage_collector` command is that collector. It saves
 each report POSTed to it as a numbered file, and once every run is done
-their gaps and summary print as one report (runs merged this way have
-no HTML report):
+they render as one report, its two JSON files written to `coverage_dir`
+for html-reporter to draw:
 
 ```sh
 path_coverage_collector 4570 /tmp/paths/runs   # until sent TERM
