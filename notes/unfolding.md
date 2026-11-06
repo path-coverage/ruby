@@ -157,9 +157,34 @@ shows two rows of 2 paths, not one of 3.
 
 - Each card has two tabs. One is the rows, as now. The other is the
   card's complexity, eg 37, the ways through the method folded over
-  the tree, and opens to show those 37 whole paths, each covered or
-  not. Impossible paths, those `gives` rules out, are not shown
-  there.
+  the tree. Impossible paths, those `gives` rules out, are not
+  counted or shown.
+
+- The complexity tab does not try to draw how sites connect, or how
+  that multiplies the count. The code pane already shows that
+  structure. The tab is one column per way, each covered or not,
+  with its count on hover:
+
+  ```
+  complexity 4     [1] [2] [3] [4]
+                    *   0   *   0
+  ```
+
+- Choosing a column paints that one way onto the code pane: each
+  leaf's outcome on it, the code it runs lit, the code it skips
+  dimmed, and where it returns or raises:
+
+  ```
+  way 3:
+    if member && paid     member T  paid F
+      total -= 5          dimmed: not run on this way
+    end
+    return 0 if big       big T: the way ends here
+    total                 dimmed
+  ```
+
+  So a gap reads as code: the dimmed lines and red leaves say what a
+  test must do to take that way.
 
 - Per-site counts cannot say which whole paths were taken:
 
