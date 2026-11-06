@@ -255,18 +255,10 @@ PathCoverage::Render.from_json(config, runs)
 
 As the process exits:
 
-- `path_coverage.json` is always written to `coverage_dir`: every decision
-  of every covered file, with each operand's true and false counts under
-  `decisions`, each decision's paths under `paths`, each method's card under
-  `cards`, how each card's rows nest under `tree`, the statements
-  reached under `reached`, and the paths taken
-  of all possible under `totals`, as [taken, possible]: `alone`,
-  `combined`, and, with groups, each group's
-  own under `groups`, eg `"groups": {"code": {"alone": [481, 567]}}`.
-  It also names the kinds of decision measured under `kinds`, any `ignored`
-  operators and `treats`, and any paths taken that a treatment rules
-  out under `outside`.
-  It is the base the other reporters read, so they can also be run
+- `path_coverage.json` and `path_coverage.source.json` are always
+  written to `coverage_dir`. Their keys, with examples, are in
+  [path-coverage/schemas](https://github.com/path-coverage/schemas#path_coveragejson).
+  `path_coverage.json` is the base the other reporters read, so they can also be run
   later, in another process, from
   it alone: `PathCoverage::Render.from_json(config)`, where `config` is a
   `PathCoverage::Configuration` built from the same settings block.
@@ -275,10 +267,6 @@ As the process exits:
   every run left. A report whose kinds, `ignored` or `treats` differ
   from `config`'s is refused, as its decisions list their paths
   differently.
-- `path_coverage.source.json` is always written beside it: each
-  covered file's lines and their coloured tokens, and where each decision
-  is and its fold's rows, so html-reporter can draw the pages without
-  parsing Ruby.
 - `:gaps` prints one line per decision path never taken, in manifest
   order, naming the outcome of each leaf on it:
 
@@ -300,20 +288,7 @@ order; a leaf that short-circuiting skipped is not on it. Each leaf is
 quoted as a Markdown code span, on one line, its fence one backtick longer
 than any run of backticks inside it. The gap lines are for people; a tool
 should read the JSON, whose `paths` give each decision's leaves as
-`line:column` spans, and each possible path with its count:
-
-```json
-"paths": {
-  "source/kata.rb:3:23": {
-    "leaves": [["3:23", "3:30"], ["3:34", "3:42"]],
-    "taken": [
-      { "path": [true, true], "count": 2 },
-      { "path": [true, false], "count": 0 },
-      { "path": [false, null], "count": 1 }
-    ]
-  }
-}
-```
+`line:column` spans, and each possible path with its count.
 
 A decision is an outermost condition. Its leaves are numbered left to right
 across the whole of it, nested conditions included. A condition inside a
@@ -406,57 +381,8 @@ how many times it was called, so a method never called is a gap,
 even one with no rows. A file's code outside any method gets a card
 of its own.
 
-The JSON report's `cards` hold each card's rows, its `ways` (the ways
-one call can go through it) and its `calls`:
-
-```json
-"cards": {
-  "label.rb:1:0": {
-    "name": "label", "first": 1, "last": 7, "ways": 2, "calls": 1,
-    "rows": [
-      { "at": "2:02", "top": "if", "paths": 2, "taken": 1, "decision": "label.rb:2:2" },
-      { "at": "3:04", "top": "return", "paths": 1, "taken": 1, "decision": null },
-      { "at": "5:04", "top": "return", "paths": 1, "taken": 0, "decision": null }
-    ]
-  }
-}
-```
-
-Its `tree` says how those rows nest, by file, then card, then row.
-A row inside a decision names that decision as its `parent`, the arm it is
-`in`, and `on`, the indices of the parent's paths that run it, in the
-order `paths` lists them. A row at the method's top has none of these.
-
-```json
-"tree": {
-  "label.rb": {
-    "1:0": {
-      "2:2": { "parent": null, "in": null, "on": null, "leaf": null, "gives": null },
-      "3:4": { "parent": "2:2", "in": "then", "on": [0], "leaf": null, "gives": null },
-      "5:4": { "parent": "2:2", "in": "else", "on": [1], "leaf": null, "gives": null }
-    }
-  }
-}
-```
-
-A row inside one of its parent's leaves names that `leaf`, by index.
-A row that is the whole of that leaf, like the `any?` here, also
-`gives` the leaf's outcome on each of its own paths, `null` where not
-known:
-
-```ruby
-def led?(xs)
-  xs.any? { |x| x.odd? } || xs.empty?
-end
-```
-
-```json
-"2:5": { "parent": "2:2", "in": null, "on": [0, 1, 2], "leaf": 0,
-         "gives": [false, true, false, true, false] }
-```
-
-Its 5 paths are 0 items, then 1 item and 2+ items, each with a last
-answer true or false.
+The JSON report's `cards` hold each card's rows, its `ways` and its
+`calls`, and its `tree` says how those rows nest.
 
 ### Reporters
 
