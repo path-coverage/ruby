@@ -118,3 +118,7 @@ no path of the gem's own was ruled out.
   marking it needs a
   field in the schema.
 - Top cards, code outside every def, are as before.
+
+The direction for both implementations, with combined becoming path
+coverage and ruled-out paths a separate diagnostic, is in
+python/notes/combined-is-path-coverage.md.
