@@ -2,24 +2,31 @@ module PathCoverage
   # Whether code leaves the method where it stands, decided once,
   # from Prism's nodes, for every part of the gem that asks.
   module Leaving
-    # 'return' for a return, 'raise' for a call of raise with no
-    # receiver; nil for a statement that does not leave the method.
+    # The methods whose call, with no receiver, leaves the method:
+    # raise, fail, its other name, and throw, for its catch.
+    CALLS = %i[raise fail throw].freeze
+
+    # 'return' for a return, the method's name for a call of one of
+    # CALLS with no receiver, eg 'fail'; nil for a statement that
+    # does not leave the method.
     def self.word(statement)
       return 'return' if statement.type == :return_node
 
-      'raise' if raise?(statement)
+      statement.name.to_s if leaving_call?(statement)
     end
 
-    # The word of an arm's first statement, statements its code; nil
-    # for an arm with no statements or whose first does not leave.
+    # The word of the first of an arm's statements that leaves the
+    # method, statements its code; nil for an arm with no
+    # statements or none that leaves.
     def self.of(statements)
-      statements && word(statements.body.first)
+      statements && statements.body.filter_map { word(_1) }.first
     end
 
-    # True when statement is a call of raise with no receiver.
-    def self.raise?(statement)
+    # True when statement is a call of one of CALLS with no
+    # receiver.
+    def self.leaving_call?(statement)
       statement.type == :call_node && statement.receiver.nil? &&
-        statement.name == :raise
+        CALLS.include?(statement.name)
     end
   end
 end

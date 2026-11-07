@@ -64,6 +64,36 @@ class LeavingTest < TidTest
     assert_nil PathCoverage::Leaving.of(statements)
   end
 
+  test 'Lv7W17', %w(
+  | Example: fail ArgumentError, 'no id'
+  | fail is raise by another name, so it leaves the method and
+  | its word is fail.
+  ) do
+    assert_equal 'fail', word_of("fail ArgumentError, 'no id'")
+  end
+
+  test 'Lv7W18', %w(
+  | Example: throw :found, kata
+  | throw leaves the method for its catch, so its word is
+  | throw.
+  ) do
+    assert_equal 'throw', word_of('throw :found, kata')
+  end
+
+  test 'Lv7W19', %w(
+  | Example: if order[:pickup] then total -= 2; return total end
+  | An arm that returns after a first statement still leaves the
+  | method, so its word is return.
+  ) do
+    statements = arm_statements(<<~RUBY)
+      if order[:pickup]
+        total -= 2
+        return total
+      end
+    RUBY
+    assert_equal 'return', PathCoverage::Leaving.of(statements)
+  end
+
   private
 
   # Leaving's word for the one statement of code.

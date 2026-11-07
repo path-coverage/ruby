@@ -1494,7 +1494,6 @@ class KernelTest < TidTest
   | path coverage and runs as written: :waiting for a kata not
   | started, :ready for one that is.
   ) do |t|
-    skip 'awaiting and/or rewrite fix'
     t.write(<<~RUBY, 'gate.rb')
       module Gate
         def self.state(kata)
@@ -1517,7 +1516,6 @@ class KernelTest < TidTest
   | path coverage and runs as written: :done for a finished
   | kata, :running for one that is not.
   ) do |t|
-    skip 'awaiting and/or rewrite fix'
     t.write(<<~RUBY, 'gate.rb')
       module Gate
         def self.state(kata)
@@ -1540,7 +1538,6 @@ class KernelTest < TidTest
   | path coverage and runs as written: :join for a started,
   | open kata, :wait for any other.
   ) do |t|
-    skip 'awaiting and/or rewrite fix'
     t.write(<<~RUBY, 'gate.rb')
       module Gate
         def self.state(kata)
