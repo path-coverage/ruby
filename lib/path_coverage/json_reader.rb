@@ -1,5 +1,6 @@
 require 'json'
 require_relative 'kinds'
+require_relative 'measured_by'
 require_relative 'merge'
 
 module PathCoverage
@@ -43,15 +44,19 @@ module PathCoverage
     end
 
     # Raises unless json, the JSON report at path, measured the
-    # kinds a render does, with fingerprint; one that measured
-    # others, or names none, lists its decisions' paths differently,
-    # so its counts cannot be trusted to the paths a render
-    # lists.
-    def self.same_kinds(path, json, fingerprint)
+    # kinds a render does, with fingerprint, and was measured by
+    # the same tools at the same versions; one that differs in
+    # either, or names none, can list its decisions' paths
+    # differently, so its counts cannot be trusted to the paths a
+    # render lists.
+    def self.same_measuring(path, json, fingerprint)
       kinds = json['kinds'] == Kinds.names
-      return if kinds && json.slice(*FINGERPRINT) == fingerprint
+      unless kinds && json.slice(*FINGERPRINT) == fingerprint
+        raise ArgumentError, "#{path} measured other kinds"
+      end
+      return if json['measured_by'] == MeasuredBy.versions
 
-      raise ArgumentError, "#{path} measured other kinds"
+      raise ArgumentError, "#{path} was measured by other tools"
     end
 
     # The key lists of the JSON reports at paths, as listed_of
@@ -86,7 +91,7 @@ module PathCoverage
     # fingerprint.
     def self.read(path, fingerprint)
       json = JSON.parse(File.read(path))
-      same_kinds(path, json, fingerprint)
+      same_measuring(path, json, fingerprint)
       json['decisions'].transform_values do |leaves|
         leaves.map { |leaf| counts(leaf) }
       end

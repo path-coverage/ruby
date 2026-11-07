@@ -37,7 +37,8 @@ class PostTest < TidTest
           { 'truthy' => 1, 'falsy' => 0, 'only' => 'truthy' }
         ]
       },
-      'kinds' => %w(block case chain choice contains safe write)
+      'kinds' => %w(block case chain choice contains safe write),
+      'measured_by' => PathCoverage::MeasuredBy.versions
     }
     assert_equal expected, JSON.parse(received.join(5).value)
   end

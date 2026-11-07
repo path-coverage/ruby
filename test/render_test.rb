@@ -111,6 +111,34 @@ class RenderTest < TidTest
     end
   end
 
+  test 'Rn5d37', %w(
+  | a JSON report from a run measured by another version of a
+  | tool, eg Prism, can find a file's decisions or paths
+  | differently, so rendering from it is refused rather than
+  | crediting one path's count to another
+  ) do |t|
+    source = "def kata?(id) = ok?(id) && id.size == 6\n"
+    t.write(source, 'kata.rb')
+    decisions = PathCoverage::Manifest.decisions(source, 'kata.rb')
+    decision = decisions.keys.first
+    operands = [{ truthy: 1, falsy: 1 }, { truthy: 1, falsy: 0 }]
+    file = "#{t.dir}/run.json"
+    PathCoverage::JsonWriter.write({ decision => operands }, file)
+    json = JSON.parse(File.read(file))
+    json['measured_by']['prism'] = '0.30.0'
+    File.write(file, JSON.generate(json))
+    config = PathCoverage::Configuration.new do
+      root t.dir
+      cover '*.rb'
+      coverage_dir t.dir
+      report :gaps
+    end
+    error = assert_raises(ArgumentError) do
+      PathCoverage::Render.from_json(config, [file])
+    end
+    assert_equal "#{file} was measured by other tools", error.message
+  end
+
   test 'Rn5d30', %w(
   | a JSON report from a run that measured other kinds, eg
   | one with writes switched off, lists its decisions' paths

@@ -4,6 +4,24 @@ require 'path_coverage/result'
 require 'json'
 
 class JsonWriterTest < TidTest
+  test 'wdt913', %w(
+  | the JSON names, under "measured_by", each tool that parsed or
+  | measured the run and its version: Ruby, Prism and
+  | path_coverage, as a change to any of them can list a file's
+  | decisions or paths differently, so their runs are never merged
+  ) do |t|
+    decisions = { 'k.rb:2:2' => condition('&&', 16...23, 27...35) }
+    counts = { ['k.rb:2:2', 0] => { truthy: 1, falsy: 1 } }
+    operands = PathCoverage::Result.new(decisions, counts).operands
+    path = "#{t.dir}/path_coverage.json"
+    PathCoverage::JsonWriter.write(operands, path)
+    expected = {
+      'ruby' => RUBY_VERSION, 'prism' => Prism::VERSION,
+      'path_coverage' => PathCoverage::VERSION
+    }
+    assert_equal expected, JSON.parse(File.read(path))['measured_by']
+  end
+
   test 'wdt910', %w(
   | the result is written as raw JSON under "decisions",
   | the base every other reporter reads, with the names of
@@ -25,7 +43,8 @@ class JsonWriterTest < TidTest
           { 'truthy' => 0, 'falsy' => 0 }
         ]
       },
-      'kinds' => %w(block case chain choice contains safe write)
+      'kinds' => %w(block case chain choice contains safe write),
+      'measured_by' => PathCoverage::MeasuredBy.versions
     }
     actual = JSON.parse(File.read(path))
     assert_equal expected, actual

@@ -306,7 +306,8 @@ class CollectorTest < TidTest
     {
       '$schema' => PathCoverage::JsonWriter::SCHEMA,
       'decisions' => { 'source/kata.rb:3:23' => [counts] },
-      'kinds' => %w(block case chain choice contains safe write)
+      'kinds' => %w(block case chain choice contains safe write),
+      'measured_by' => PathCoverage::MeasuredBy.versions
     }
   end
 end

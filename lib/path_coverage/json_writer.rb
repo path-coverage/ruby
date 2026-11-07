@@ -1,5 +1,6 @@
 require 'json'
 require_relative 'kinds'
+require_relative 'measured_by'
 
 module PathCoverage
   # The base reporter: the result as raw JSON, which every
@@ -28,7 +29,8 @@ module PathCoverage
     # cards:, as WithinMethods.listed gives them, and tree:, as
     # WithinMethods.tree gives it, as the JSON report's text, with
     # parts' fingerprint:, as Configuration#fingerprint gives
-    # it, the names of the kinds measured, and parts' reached:,
+    # it, the names of the kinds measured, the tools that measured
+    # it and their versions, and parts' reached:,
     # as Recorder#reached gives it, even empty, as a run that
     # reached no statement says so; none when not given; headed
     # by its schema's URL.
@@ -41,6 +43,7 @@ module PathCoverage
       report['reached'] = parts[:reached] if parts.key?(:reached)
       report.merge!(kept(parts))
       report['kinds'] = Kinds.names
+      report['measured_by'] = MeasuredBy.versions
       JSON.pretty_generate(report)
     end
 
