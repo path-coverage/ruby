@@ -384,6 +384,30 @@ of its own.
 The JSON report's `cards` hold each card's rows, its `ways` and its
 `calls`, and its `tree` says how those rows nest.
 
+A method's card counts only the paths its method can take. A
+local variable the method never writes, eg a parameter, read as a
+leaf outside any block, has one outcome all through a call, so
+
+```ruby
+def fee(member, big)
+  return 0 if member
+  total = member ? 90 : 100   # its true path: none, member is false here
+  big ? total - 10 : total
+end
+```
+
+the `?:` row has 1 path, not 2, its ways are 3, not 5, and Paths
+combined counts 5, not 6. Paths alone, and the gap lines, still
+list each decision's paths on its own. An instance variable or a
+call may change between two reads, so is never taken to be the
+same; nor is any local of a method calling `binding`, `eval`,
+`send` or the like. A path taken that the method rules out is
+counted, and printed:
+
+```text
+flip.rb:5:11 path taken that its method rules out: `member` true
+```
+
 ### Reporters
 
 - `:post` sends the JSON report, as an HTTP POST, to the url set by

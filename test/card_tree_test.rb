@@ -160,6 +160,102 @@ class CardTreeTest < TidTest
     assert_equal expected, PathCoverage::CardWays.of(source, 'k.rb')
   end
 
+  test 'Ct8e10', %w(
+  | Example: guard, a return modifier on a, then a ?: on b
+  | Folded in WayAlgebras::Listed, a card gives its ways
+  | themselves, each the [row, path] it takes at every row it
+  | reaches, path the index of the row's possible path: the way
+  | that returns at the modifier, and the two that go on to each
+  | path of the ?:.
+  ) do
+    source = <<~RUBY
+      def guard(a, b)
+        return 0 if a
+        b ? 1 : 2
+      end
+    RUBY
+    expected = [
+      [['2:11', 0]],
+      [['2:11', 1], ['3:4', 0]],
+      [['2:11', 1], ['3:4', 1]]
+    ]
+    assert_equal expected, listed(source)
+  end
+
+  test 'Ct8e11', %w(
+  | Example: f, a guard on a, an if on b holding a ?: on b, then
+  | an && of a and b; g, a && b || a && c; h, a guard on a && b,
+  | then a ?: on a && b
+  | A local variable no code in its method writes, eg a
+  | parameter, has one outcome all through a call, so a way
+  | needing it true at one leaf and false at another is no way.
+  | f: 1 way returns at the guard; past it a is false, so the ?:
+  | takes only its true path, and the && only its false one:
+  | 1 + 2 * 1 = 3, not 1 + 3 * 3. g: of its 7 paths, the 3 with
+  | a both true and false are none: 4. h: past the guard, a true
+  | means b false, so each of its 2 ways goes on to the ?:'s
+  | false path alone: 1 + 2 = 3, not 1 + 2 * 3.
+  ) do
+    source = <<~RUBY
+      def f(a, b)
+        return 0 if a
+        if b
+          x = b ? 1 : 2
+        end
+        a && b
+      end
+      def g(a, b, c) = a && b || a && c
+      def h(a, b)
+        return 0 if a && b
+        a && b ? 1 : 2
+      end
+    RUBY
+    expected = { 'k.rb:1:0' => 3, 'k.rb:8:0' => 4, 'k.rb:9:0' => 3 }
+    assert_equal expected, PathCoverage::CardWays.of(source, 'k.rb')
+  end
+
+  test 'Ct8e12', %w(
+  | Example: each a guard, then a ?: on what looks the same: w,
+  | a local written after the guard; c, a call; i, an instance
+  | variable; e, a local in a method calling binding; s, a
+  | block's own a, shadowing the method's
+  | Where the code cannot show that two leaves have the same
+  | outcome, no way is ruled out: a write, a call, or code
+  | outside the method may change it between them, and a block's
+  | parameter is another variable. Each keeps 1 + 2 ways, s its
+  | 1 + 7.
+  ) do
+    source = <<~RUBY
+      def w(a)
+        return 0 if a
+        a = !a
+        a ? 1 : 2
+      end
+      def c(x)
+        return 0 if x.ok?
+        x.ok? ? 1 : 2
+      end
+      def i
+        return 0 if @a
+        @a ? 1 : 2
+      end
+      def e(a)
+        return 0 if a
+        binding.local_variable_set(:a, 1)
+        a ? 1 : 2
+      end
+      def s(a, xs)
+        return 0 if a
+        xs.any? { |a| a && a.odd? }
+      end
+    RUBY
+    expected = {
+      'k.rb:1:0' => 3, 'k.rb:6:0' => 3, 'k.rb:10:0' => 3,
+      'k.rb:14:0' => 3, 'k.rb:19:0' => 8
+    }
+    assert_equal expected, PathCoverage::CardWays.of(source, 'k.rb')
+  end
+
   test 'Ct8e07', %w(
   | Example: led?, an || of an any? and xs.empty?
   | The || starts where the any?'s receiver, xs, does, yet it is
@@ -222,6 +318,15 @@ class CardTreeTest < TidTest
   end
 
   private
+
+  # The ways through source's one card, its def's on line 1, as
+  # if source were k.rb, as WayAlgebras::Listed folds them, each
+  # way's labels in order, and the ways in order.
+  def listed(source)
+    listed = PathCoverage::WayAlgebras::Listed
+    ways = PathCoverage::CardWays.of(source, 'k.rb', listed)
+    ways['k.rb:1:0'].map(&:sort).sort
+  end
 
   # [parent, in, on, leaf, gives] of each row of source's one
   # card, its def's on line 1, as if source were k.rb.

@@ -102,17 +102,6 @@ module PathCoverage
                     name:)
     end
 
-    # Example: { "k.rb:1:0" => [2, 4] }, 2 of ship's 4 taken.
-    # Each def's card total in source, [taken, size], its rows'
-    # taken as taken gives them from paths and reached; a row
-    # not known counts as not taken, never more than it ran.
-    def self.totals(source, path, paths, reached, decisions = nil)
-      of(source, path, decisions).transform_values do |rows|
-        seen = taken(rows, paths, reached).compact.sum
-        [seen, size(rows.map(&:paths))]
-      end
-    end
-
     # Example: 19:04, a statement on line 19 at column 4.
     # statement's line:column, the column two digits so they
     # line up.

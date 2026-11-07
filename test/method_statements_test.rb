@@ -1,6 +1,7 @@
 require_relative 'test_helper'
 require 'path_coverage/card_ways'
 require 'path_coverage/method_statements'
+require 'path_coverage/card_context'
 
 class MethodStatementsTest < TidTest
   test 'St3e01', %w(
@@ -410,9 +411,10 @@ class MethodStatementsTest < TidTest
         { path: [true], count: 1 }, { path: [false], count: 0 }
       ]
     }
-    statements = PathCoverage::MethodStatements
+    decisions = PathCoverage::Manifest.decisions(source, 'k.rb')
+    context = PathCoverage::CardContext
     totals = [{ 'k.rb:3:4' => 1 }, nil].map do |reached|
-      statements.totals(source, 'k.rb', paths, reached)
+      context.totals(source, 'k.rb', paths, reached, decisions)
     end
     expected = [{ 'k.rb:1:0' => [2, 3] }, { 'k.rb:1:0' => [1, 3] }]
     assert_equal expected, totals

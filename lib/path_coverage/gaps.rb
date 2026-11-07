@@ -29,6 +29,22 @@ module PathCoverage
       end
     end
 
+    # Example: ["k.rb:5:11 path taken that its method rules out:
+    # `a` true"].
+    # One line per path taken, or return or raise reached, that
+    # its method rules out, ruled as CardContext.ruled_out gives
+    # them, texts being { decision => each leaf's source text }.
+    # Such a line shows a fact derived from the code to be wrong.
+    def self.ruled_by_method(ruled, texts)
+      ruled.map do |name, path|
+        reached = "#{name} reached, though its method rules it out"
+        next reached if path.nil?
+
+        "#{name} path taken that its method rules out: " \
+          "#{steps(path, texts[name])}"
+      end
+    end
+
     # The outcome of each leaf path reaches, each named by its
     # text, eg "`u.name` nil". A path's first leaf always has an
     # outcome, so it always has a step.

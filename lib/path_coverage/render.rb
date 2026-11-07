@@ -1,3 +1,4 @@
+require_relative 'card_context'
 require_relative 'console_summary'
 require_relative 'gaps'
 require_relative 'json_reader'
@@ -35,7 +36,7 @@ module PathCoverage
       decision_paths = recorded[:decision_paths]
       chosen = config.reporters
       if chosen.include?(:gaps)
-        gaps(operands, files, decision_paths, recorded[:outside])
+        gaps(operands, files, config, recorded)
       end
       if chosen.include?(:summary)
         summary(files, config, decision_paths, recorded[:reached])
@@ -81,11 +82,17 @@ module PathCoverage
 
     # Prints the gap lines: each path a decision never took, and each
     # path taken that a treatment rules out, as outside lists
-    # them, each leaf named by its text in files.
-    def self.gaps(operands, files, decision_paths, outside)
+    # them, each leaf named by its text in files; then each path
+    # taken, or return or raise reached, that its method rules
+    # out, as CardContext.ruled_out finds them in files under
+    # config. recorded is as run has it.
+    def self.gaps(operands, files, config, recorded)
       texts = PathsReport.texts(files)
-      paths = decision_paths
+      paths, outside, reached =
+        recorded.values_at(:decision_paths, :outside, :reached)
       lines = Gaps.lines(operands, paths:, texts:, outside:)
+      ruled = CardContext.ruled_out(files, config, paths, reached)
+      lines += Gaps.ruled_by_method(ruled, texts)
       lines.each { |line| puts line }
     end
 

@@ -1627,6 +1627,103 @@ class KernelTest < TidTest
     assert_includes taken.values, or_paths
   end
 
+  test '6rTS80', %w(
+  | Example: fee, return 0 if member, then member ? 90 : 100,
+  | then big ? total - 10 : total, called as a member, and as a
+  | non-member with a big order and a small one
+  | Past the guard member is false, so the first ?:'s true path
+  | is none its method can take. On its own it is still a path,
+  | so paths alone count it, and the exit report prints it as
+  | never taken; but combined counts only the paths each row can
+  | take within its method, so its card row has 1 path, taken,
+  | and combined is [5, 5], not [5, 6]. Its ways are 1 + 2.
+  ) do |t|
+    t.write(<<~RUBY, 'fee.rb')
+      module Fee
+        def self.fee(member, big)
+          return 0 if member
+          total = member ? 90 : 100
+          big ? total - 10 : total
+        end
+      end
+    RUBY
+    t.start
+    fee = t.load('fee.rb')::Fee
+    actual = [fee.fee(true, false), fee.fee(false, true),
+              fee.fee(false, false)]
+    assert_equal [0, 90, 100], actual
+    expected = 'fee.rb:4:19 path never taken: `member` true'
+    assert_output("#{expected}\n") { t.report }
+    totals = { 'alone' => [5, 6], 'combined' => [5, 5] }
+    assert_equal totals, t.json['totals']
+    card = card_at(t, 2)
+    rows = card['rows'].map { _1.values_at('at', 'paths', 'taken') }
+    expected = [['3:13', 2, 2], ['4:19', 1, 1], ['5:08', 2, 2]]
+    assert_equal [3, expected], [card['ways'], rows]
+  end
+
+  test '6rTS81', %w(
+  | Example: flip, return 0 if member, then member ? 1 : 2, with
+  | sneak between them setting member true through its block's
+  | binding, called with member false and true
+  | Its method rules out the ?:'s true path, as member is false
+  | past the guard and no code in flip writes it; yet a call took
+  | it. A path taken is never dropped: combined counts it, and the
+  | exit report prints it as taken though its method rules it
+  | out, so a fact derived wrongly is seen, not hidden.
+  ) do |t|
+    t.write(<<~RUBY, 'flip.rb')
+      module Flip
+        def self.flip(member)
+          return 0 if member
+          sneak { nil }
+          member ? 1 : 2
+        end
+
+        def self.sneak(&block)
+          block.binding.local_variable_set(:member, true)
+        end
+      end
+    RUBY
+    t.start
+    flip = t.load('flip.rb')::Flip
+    assert_equal [1, 0], [flip.flip(false), flip.flip(true)]
+    expected = [
+      'flip.rb:5:11 path never taken: `member` false',
+      'flip.rb:5:11 path taken that its method rules out: ' \
+      '`member` true'
+    ].join("\n")
+    assert_output("#{expected}\n") { t.report }
+    totals = { 'alone' => [3, 4], 'combined' => [3, 4] }
+    assert_equal totals, t.json['totals']
+  end
+
+  test '6rTS82', %w(
+  | Example: halt, raise 'stop' then return 1, in a module whose
+  | own raise returns nil
+  | Its method rules out reaching the return, as a raise leaves
+  | it; yet the call reached it. The exit report prints the
+  | return as reached though its method rules it out, and
+  | combined counts it: [2, 2].
+  ) do |t|
+    t.write(<<~RUBY, 'halt.rb')
+      module Halt
+        def self.raise(*) = nil
+
+        def self.halt
+          raise 'stop'
+          return 1
+        end
+      end
+    RUBY
+    t.start
+    assert_equal 1, t.load('halt.rb')::Halt.halt
+    expected = 'halt.rb:6:4 reached, though its method rules it out'
+    assert_output("#{expected}\n") { t.report }
+    totals = { 'alone' => [0, 0], 'combined' => [2, 2] }
+    assert_equal totals, t.json['totals']
+  end
+
   private
 
   # Example: owner.rb:2 gives the rows of the decision on line 2.

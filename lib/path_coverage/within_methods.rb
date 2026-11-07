@@ -1,3 +1,4 @@
+require_relative 'card_context'
 require_relative 'card_scopes'
 require_relative 'card_tree'
 require_relative 'card_ways'
@@ -28,8 +29,8 @@ module PathCoverage
         source, decisions = parsed.values_at(:source, :decisions)
         args = [source, path, paths]
         top = MethodStatements.top_level(*args, decisions)
-        MethodStatements.totals(*args, reached, decisions)
-                        .merge("#{path}:0:0" => top)
+        CardContext.totals(*args, reached, decisions)
+                   .merge("#{path}:0:0" => top)
       end.reduce({}, :merge)
     end
 
@@ -116,11 +117,11 @@ module PathCoverage
       names = MethodStatements.names(source, path, decisions)
       lasts = MethodStatements.lasts(source, path, decisions)
       MethodStatements.of(source, path, decisions).to_h do |key, rows|
-        taken = MethodStatements.taken(rows, paths, reached)
         ways = CardWays.card(source, decisions, rows)
-        calls = reached&.fetch(key, 0)
-        named = [names[key], lasts[key], ways, calls]
-        [key, card(key, named, rows.zip(taken))]
+        named = [names[key], lasts[key], ways, reached&.fetch(key, 0)]
+        shown = CardContext.rows(source, decisions, rows, paths,
+                                 reached)
+        [key, card(key, named, shown)]
       end
     end
 

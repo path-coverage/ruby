@@ -1,8 +1,13 @@
 # Generates small Ruby methods from a grammar of the statements
-# that decide a method's paths or leave it. Each leaf is a fresh
+# that decide a method's paths or leave it. Each leaf is a
 # boolean parameter, so calling a method on every combination of
-# its parameters takes every path it has. Seeded, so a seed always
+# its parameters takes every path it can. Seeded, so a seed always
 # gives the same method.
+# Each leaf is a fresh parameter by default, so every path is
+# taken. With reuse, a leaf is as often one already drawn, so
+# leaves correlate, eg return t if p0 then t += p0 ? 1 : 2, whose
+# true path no call can take, and the method has three top-level
+# statements, so a guard can come before two that read its leaf.
 class MethodGrammar
   # The statements that leave the method.
   LEAVES = ['return t', 'raise Stop'].freeze
@@ -33,18 +38,25 @@ class MethodGrammar
   # the body, so no code follows it.
   BODY = FLAT.merge(leave: '%<leave>s').freeze
 
-  # Example: MethodGrammar.new(7).source, a method of seed 7.
-  def initialize(seed)
+  # How many top-level statements a method has, by whether its
+  # leaves can repeat.
+  TOPS = { false => 2, true => 3 }.freeze
+
+  # Example: MethodGrammar.new(7).source, a method of seed 7;
+  # MethodGrammar.new(7, reuse: true), one whose leaves can repeat.
+  def initialize(seed, reuse: false)
     @random = Random.new(seed)
     @leaves = 0
+    @reuse = reuse
   end
 
   # The source of a module Snippet holding Stop, the error its
   # raises raise, and run, whose parameters are its leaves, two
-  # top-level statements between t = 0 and its value, t.
+  # top-level statements, three with reuse, between t = 0 and its
+  # value, t.
   def source
     top = FLAT.merge(NESTING)
-    statements = Array.new(2) { statement(top) }
+    statements = Array.new(TOPS.fetch(@reuse)) { statement(top) }
     snippet(statements.join("\n"))
   end
 
@@ -74,10 +86,19 @@ class MethodGrammar
     format(template, names.to_h { [_1.to_sym, send(:"#{_1}_piece")] })
   end
 
-  # A fresh leaf: the next parameter.
+  # A leaf: with reuse, once there is one, half the time a
+  # parameter already drawn; else the next parameter.
   def leaf_piece
+    return reused_piece if @reuse && @leaves.positive? &&
+                           @random.rand(2).zero?
+
     @leaves += 1
     "p#{@leaves - 1}"
+  end
+
+  # A parameter already drawn, any of them.
+  def reused_piece
+    "p#{@random.rand(@leaves)}"
   end
 
   # The first leaf of a predicate.
