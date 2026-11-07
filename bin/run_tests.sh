@@ -24,16 +24,24 @@ With TID arguments, runs only the tests whose tid contains one of
 them, and skips the coverage check: a partial run covers only
 part of the code, so its report cannot meet the bounds.
 
+With --suite NAME, runs one suite of test/suites.rb: all, every
+test (the default); core, every test but the generated ones in
+test/property, neither run nor measured, so its check says
+whether the hand-written tests alone reach the bounds; property,
+the generated tests alone, whose coverage is not checked.
+
 The run's seed, printed first, orders both the test files and the
 tests. Give SEED to replay a run's order, eg one whose coverage
 check failed only once.
 
 Options:
-  -h    Show this help
+  -h              Show this help
+  --suite NAME    Run the suite NAME of test/suites.rb
 
 Examples:
   bin/run_tests.sh
   bin/run_tests.sh 2m4 Kp9
+  bin/run_tests.sh --suite core
   SEED=26820 bin/run_tests.sh
 EOF
 }
@@ -42,6 +50,13 @@ if [ "${1:-}" = '-h' ]; then
   show_help
   exit 0
 fi
+
+SUITE=all
+if [ "${1:-}" = '--suite' ]; then
+  SUITE="${2:?--suite needs a NAME from test/suites.rb}"
+  shift 2
+fi
+readonly SUITE
 
 docker build --quiet --tag "${IMAGE}" "${ROOT_DIR}" > /dev/null
 
@@ -58,10 +73,11 @@ readonly LOADER='
 $stdout.sync = true
 report = "/reports/coverage_metrics.json"
 File.delete(report) if File.exist?(report)
+require "/gem/test/suites"
 require "/gem/test/self_coverage"
 require "/gem/test/simplecov_config"
 order = Random.new(Integer(ENV.fetch("SEED")))
-Dir["test/**/*_test.rb"].sort.shuffle(random: order).each { |file| require File.expand_path(file) }
+Suites.files.shuffle(random: order).each { |file| require File.expand_path(file) }
 SelfCoverage.unhook
 '
 
@@ -77,6 +93,7 @@ run_in_image()
     --volume "${ROOT_DIR}/reports:/reports" \
     --env RUBYOPT='-W2 --enable-frozen-string-literal' \
     --env SEED="${SEED}" \
+    --env PATH_COVERAGE_SUITE="${SUITE}" \
     --env HOST_ROOT="${ROOT_DIR}" \
     "${IMAGE}" \
     "$@"

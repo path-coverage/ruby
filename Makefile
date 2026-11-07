@@ -1,4 +1,4 @@
-.PHONY: all image test test_check lint demo
+.PHONY: all image test test_core test_check lint demo
 
 # Everything a change must pass before it is committed.
 all: lint test test_check
@@ -13,6 +13,12 @@ image:
 #   eg make test tids='6D1K p0Kj'
 test:
 	${PWD}/bin/run_tests.sh ${tids}
+
+# Runs every test but the generated ones in test/property, and
+# gates the result: whether the hand-written tests alone reach
+# the bounds.
+test_core:
+	${PWD}/bin/run_tests.sh --suite core
 
 # Check that the coverage gate can fail: that a breached bound
 # reaches make as a non-zero exit, not merely a line of output.

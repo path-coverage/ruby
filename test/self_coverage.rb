@@ -28,16 +28,20 @@ module SelfCoverage
   # The copy's settings: lib/ and test/ covered, each a group
   # with a tab of its own, named code and test as SimpleCov's
   # groups are, reported into reports/paths at exit. This file,
-  # which starts the measuring, and the SimpleCov formatter,
-  # which runs after it ends, are skipped: they run outside the
-  # measured run, so no test can take their paths.
+  # which starts the measuring, suites.rb, loaded before it, and
+  # the SimpleCov formatter, which runs after it ends, are
+  # skipped: they run outside the measured run, so no test can
+  # take their paths. So are the files the suite leaves out,
+  # which never run.
   SETTINGS = proc do
     root '/gem'
     cover 'lib/**/*.rb'
     cover 'test/**/*.rb'
     skip 'test/projects/**/*.rb'
     skip 'test/self_coverage.rb'
+    skip 'test/suites.rb'
     skip 'test/coverage_metrics_formatter.rb'
+    Suites.excluded.each { |glob| skip glob }
     coverage_dir '/reports/paths'
     report
     group 'code', 'lib/**/*.rb'

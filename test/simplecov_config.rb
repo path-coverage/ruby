@@ -9,6 +9,10 @@ SimpleCov.start do
   coverage_dir('/reports')
   cover('lib/**/*.rb')
   cover { |file| file.project_filename.start_with?('test/') }
+  # The files the suite leaves out never run, so are not measured.
+  skip do |file|
+    Suites.excluded?(file.project_filename.delete_prefix('/'))
+  end
 
   group('code') { |file| file.filename.start_with?('/gem/lib/') }
   group('test') { |file| file.filename.start_with?('/gem/test/') }

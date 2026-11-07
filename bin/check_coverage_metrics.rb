@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 require 'json'
 require_relative '../test/coverage_metrics_check'
+require_relative '../test/suites'
 
 HELP = <<~TEXT.freeze
   Usage: bin/check_coverage_metrics.rb [OPTIONS] [REPORT] [PARAMS] [PATHS]
@@ -8,7 +9,9 @@ HELP = <<~TEXT.freeze
   Prints each group's line, branch and path coverage, then checks
   a coverage report against the min..max bounds in a params file,
   printing each breached bound, and exits non-zero if any bound
-  is breached.
+  is breached. A suite of test/suites.rb whose coverage is not
+  checked, named by PATH_COVERAGE_SUITE, is not checked here
+  either.
 
   REPORT defaults to reports/coverage_metrics.json, which
   bin/run_tests.sh writes; PARAMS to
@@ -36,6 +39,11 @@ end
 
 if ARGV.first == '-h'
   puts HELP
+  exit 0
+end
+
+unless Suites.checked?
+  puts "coverage: not checked (suite #{Suites.name})"
   exit 0
 end
 
