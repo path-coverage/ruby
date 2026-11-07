@@ -103,7 +103,7 @@ module PathCoverage
     # it, so left the method, at where its code is, so hovering it
     # lights the row; nil for an arm that does neither.
     def self.leaving(arm)
-      word = arm[:text].to_s[LEAVES, 1]
+      word = arm[:leaves]
       word && { leaves: word, cells: arm[:cells], at: arm[:at] }
     end
 

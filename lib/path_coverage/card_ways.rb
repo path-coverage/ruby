@@ -121,10 +121,7 @@ module PathCoverage
     def leaving(key)
       decision = @decisions.fetch(@rows[key].decision)
       regions = CardTree.regions_of(@source, key, decision)
-      left = regions.group_by do |region|
-        region.arm && @source.byteslice(region.range).match?(LEAVES)
-      end
-      left.fetch(true, []).flat_map(&:on)
+      regions.select(&:leaves).flat_map(&:on)
     end
 
     # pairs added up, each part on its own.

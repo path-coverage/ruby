@@ -1,4 +1,5 @@
 require_relative 'condition'
+require_relative 'leaving'
 
 module PathCoverage
   # The part of the manifest's visitor that builds the decisions
@@ -78,7 +79,8 @@ module PathCoverage
     def statement_arm(kind, statements)
       scoped { statements&.accept(self) }
       extent = statements ? extent_of(statements) : nil
-      Arm.new(kind:, extent:, body: nil)
+      leaves = Leaving.of(statements)
+      Arm.new(kind:, extent:, body: nil, leaves:)
     end
 
     # An if's else arm, from subsequent: an else's statements,
@@ -91,7 +93,7 @@ module PathCoverage
 
       scoped { subsequent.accept(self) }
       extent = extent_of(subsequent)
-      [Arm.new(kind: :else, extent:, body: nil)]
+      [Arm.new(kind: :else, extent:, body: nil, leaves: nil)]
     end
 
     # A ternary's predicate, then its then and else arms.
@@ -118,7 +120,7 @@ module PathCoverage
              else
                arm_body(written, statements, extent)
              end
-      Arm.new(kind:, extent:, body:)
+      Arm.new(kind:, extent:, body:, leaves: Leaving.of(statements))
     end
 
     # No body, for an arm, statements its code, whose one decision is

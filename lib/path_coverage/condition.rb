@@ -2,10 +2,6 @@ module PathCoverage
   # The operators whose predicate picks an arm.
   CHOICES = %w[?: if unless].freeze
 
-  # An arm whose code leaves the method, by its code's start: a
-  # return or a raise, captured.
-  LEAVES = /\A(return|raise)\b/
-
   # The operator of a safe-navigation chain, eg user&.account.
   SAFE = '&.'.freeze
 
@@ -80,8 +76,9 @@ module PathCoverage
   # :else, extent its byte range, nil for an arm with no
   # statements, and body the Condition it is, when it is one,
   # else nil for a plain value or statements, which decide
-  # nothing.
-  Arm = Data.define(:kind, :extent, :body)
+  # nothing; leaves is Leaving's word for its code, return or
+  # raise, nil for an arm that does not leave the method.
+  Arm = Data.define(:kind, :extent, :body, :leaves)
 
   # One decision's condition as the manifest found it: its operator
   # and its operands, each the byte range of a leaf or a nested

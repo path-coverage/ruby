@@ -58,7 +58,7 @@ module PathCoverage
         matched << body[:cells].map { |cell| cell == true } if body
         cells = body ? matched.last : unmatched(matched, outcomes)
         text = DecisionTree.text_of(source, arm)
-        { arm: arm.kind, text:, cells:, body: }
+        { arm: arm.kind, text:, leaves: arm.leaves, cells:, body: }
       end
 
       # Whether each column matched none of its whens' patterns:

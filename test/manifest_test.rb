@@ -524,7 +524,8 @@ class ManifestTest < TidTest
     RUBY
     both = condition('&&', 30...31, 35...36, extent: 30...36)
     choice = condition(
-      'unless', 30...36, arm(:then, 14...22), extent: 23...36
+      'unless', 30...36, arm(:then, 14...22, leaves: 'return'),
+      extent: 23...36
     )
     expected = { 'k.rb:2:11' => choice, 'k.rb:2:18' => both }
     actual = PathCoverage::Manifest.decisions(source, 'k.rb')
@@ -542,7 +543,8 @@ class ManifestTest < TidTest
       end
     RUBY
     choice = condition(
-      'if', 31...38, arm(:then, 17...27), extent: 28...38
+      'if', 31...38, arm(:then, 17...27, leaves: 'return'),
+      extent: 28...38
     )
     expected = { 'k.rb:2:13' => choice }
     actual = PathCoverage::Manifest.decisions(source, 'k.rb')

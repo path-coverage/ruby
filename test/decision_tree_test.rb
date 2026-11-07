@@ -107,7 +107,7 @@ class DecisionTreeTest < TidTest
       operands: [
         { text: 'ok?(id)', cells: [true, true, true, false] },
         {
-          arm: :then, text: 'new?(id) && id.size == 6',
+          arm: :then, text: 'new?(id) && id.size == 6', leaves: nil,
           cells: [true, true, true, false],
           body: {
             operator: '&&', cells: [false, true, false, nil],
@@ -118,7 +118,7 @@ class DecisionTreeTest < TidTest
           }
         },
         {
-          arm: :else, text: ':no',
+          arm: :else, text: ':no', leaves: nil,
           cells: [false, false, false, true], body: nil
         }
       ]
@@ -154,8 +154,10 @@ class DecisionTreeTest < TidTest
       cells: [nil, nil],
       operands: [
         { text: 'order.big? && order.new?', cells: [true, false] },
-        { arm: :then, text: '5', cells: [true, false], body: nil },
-        { arm: :else, text: '7', cells: [false, true], body: nil }
+        { arm: :then, text: '5', leaves: nil, cells: [true, false],
+          body: nil },
+        { arm: :else, text: '7', leaves: nil, cells: [false, true],
+          body: nil }
       ]
     }
     actual = PathCoverage::DecisionTree.of(source, decision, paths)
@@ -183,7 +185,8 @@ class DecisionTreeTest < TidTest
       operator: 'if', counts: [0, 1], cells: [nil, nil],
       operands: [
         { text: 'x', cells: [false, true] },
-        { arm: :then, text: nil, cells: [false, true], body: nil }
+        { arm: :then, text: nil, leaves: nil, cells: [false, true],
+          body: nil }
       ]
     }
     actual = PathCoverage::DecisionTree.of(source, decision, paths)
@@ -215,8 +218,10 @@ class DecisionTreeTest < TidTest
       operator: 'unless', counts: [0, 1], cells: [nil, nil],
       operands: [
         { text: 'order.big?', cells: [false, true] },
-        { arm: :then, text: '5', cells: [true, false], body: nil },
-        { arm: :else, text: '7', cells: [false, true], body: nil }
+        { arm: :then, text: '5', leaves: nil, cells: [true, false],
+          body: nil },
+        { arm: :else, text: '7', leaves: nil, cells: [false, true],
+          body: nil }
       ]
     }
     actual = PathCoverage::DecisionTree.of(source, decision, paths)
@@ -261,7 +266,7 @@ class DecisionTreeTest < TidTest
       cells: [nil, nil, nil, nil],
       operands: [
         {
-          arm: :when, text: ':small',
+          arm: :when, text: ':small', leaves: nil,
           cells: [true, false, true, false],
           body: {
             operator: 'when', cells: [true, false, true, false],
@@ -272,7 +277,7 @@ class DecisionTreeTest < TidTest
           }
         },
         {
-          arm: :when, text: ':text',
+          arm: :when, text: ':text', leaves: nil,
           cells: [false, false, false, true],
           body: {
             operator: 'when', cells: [nil, false, nil, true],
@@ -282,7 +287,7 @@ class DecisionTreeTest < TidTest
           }
         },
         {
-          arm: :else, text: ':other',
+          arm: :else, text: ':other', leaves: nil,
           cells: [false, true, false, false], body: nil
         }
       ]

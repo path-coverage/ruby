@@ -209,7 +209,8 @@ class FoldRowsTest < TidTest
         operator: 'if', counts: [1, 1], cells: [nil, nil],
         operands: [
           { text: 'order[:pickup]', cells: [false, true] },
-          { arm: :then, text: 'return total', cells: [false, true],
+          { arm: :then, text: 'return total', leaves: 'return',
+            cells: [false, true],
             body: nil }
         ]
       }
@@ -231,13 +232,77 @@ class FoldRowsTest < TidTest
         operands: [
           { text: 'order[:pickup]', cells: [false, true],
             at: [50, 20, 50, 34] },
-          { arm: :then, text: 'return total', at: [50, 4, 50, 16],
+          { arm: :then, text: 'return total', leaves: 'return',
+            at: [50, 4, 50, 16],
             cells: [false, true], body: nil }
         ]
       }
     ]
     placed = of_kind(rows_of(decisions), 'leaves').map { _1[:at] }
     assert_equal [[50, 4, 50, 16]], placed
+  end
+
+  test 'gae582', %w(
+  | Example: fail ArgumentError, 'no id' if id.nil?
+  | fail is raise by another name, so its arm leaves the method
+  | and its fold has a row for it, fail, marking the path that
+  | left there, the true one, blank on the other.
+  ) do
+    skip 'awaiting LEAVES redesign'
+    decisions = [
+      {
+        operator: 'if', counts: [3, 1], cells: [nil, nil],
+        operands: [
+          { text: 'id.nil?', cells: [false, true] },
+          { arm: :then, text: "fail ArgumentError, 'no id'",
+            cells: [false, true], body: nil }
+        ]
+      }
+    ]
+    actual = of_kind(rows_of(decisions), 'leaves').map { shown(_1) }
+    assert_equal [['fail', '', 'leaves']], actual
+  end
+
+  test 'gae583', %w(
+  | Example: throw :found, kata if kata.id == id
+  | throw leaves the method for its catch, so its fold has a
+  | row for it, throw, marking the path that left there, the
+  | true one, blank on the other.
+  ) do
+    skip 'awaiting LEAVES redesign'
+    decisions = [
+      {
+        operator: 'if', counts: [7, 1], cells: [nil, nil],
+        operands: [
+          { text: 'kata.id == id', cells: [false, true] },
+          { arm: :then, text: 'throw :found, kata',
+            cells: [false, true], body: nil }
+        ]
+      }
+    ]
+    actual = of_kind(rows_of(decisions), 'leaves').map { shown(_1) }
+    assert_equal [['throw', '', 'leaves']], actual
+  end
+
+  test 'gae584', %w(
+  | Example: if order[:pickup] then total -= 2; return total end
+  | Its arm returns after a first statement, so its fold still
+  | has a row for it, return, marking the path that left there,
+  | the true one, blank on the other.
+  ) do
+    skip 'awaiting LEAVES redesign'
+    decisions = [
+      {
+        operator: 'if', counts: [1, 1], cells: [nil, nil],
+        operands: [
+          { text: 'order[:pickup]', cells: [false, true] },
+          { arm: :then, text: "total -= 2\n    return total",
+            cells: [false, true], body: nil }
+        ]
+      }
+    ]
+    actual = of_kind(rows_of(decisions), 'leaves').map { shown(_1) }
+    assert_equal [['return', '', 'leaves']], actual
   end
 
   test 'gae566', %w(

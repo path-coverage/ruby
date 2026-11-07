@@ -1488,6 +1488,76 @@ class KernelTest < TidTest
     assert_equal([0, 1], taken.map { _1['count'] })
   end
 
+  test '6rTS7a', %w(
+  | Example: kata[:started] or return :waiting
+  | A file leaving its method by an or's return loads under
+  | path coverage and runs as written: :waiting for a kata not
+  | started, :ready for one that is.
+  ) do |t|
+    skip 'awaiting and/or rewrite fix'
+    t.write(<<~RUBY, 'gate.rb')
+      module Gate
+        def self.state(kata)
+          kata[:started] or return :waiting
+          :ready
+        end
+      end
+    RUBY
+    t.start
+    gate = t.load('gate.rb')::Gate
+    states = [{ started: false }, { started: true }].map do |kata|
+      gate.state(kata)
+    end
+    assert_equal %i[waiting ready], states
+  end
+
+  test '6rTS7b', %w(
+  | Example: kata[:finished] and return :done
+  | A file leaving its method by an and's return loads under
+  | path coverage and runs as written: :done for a finished
+  | kata, :running for one that is not.
+  ) do |t|
+    skip 'awaiting and/or rewrite fix'
+    t.write(<<~RUBY, 'gate.rb')
+      module Gate
+        def self.state(kata)
+          kata[:finished] and return :done
+          :running
+        end
+      end
+    RUBY
+    t.start
+    gate = t.load('gate.rb')::Gate
+    states = [{ finished: true }, { finished: false }].map do |kata|
+      gate.state(kata)
+    end
+    assert_equal %i[done running], states
+  end
+
+  test '6rTS7c', %w(
+  | Example: if (kata[:started] and kata[:open]) ... end
+  | A file whose if predicate is a parenthesised and loads under
+  | path coverage and runs as written: :join for a started,
+  | open kata, :wait for any other.
+  ) do |t|
+    skip 'awaiting and/or rewrite fix'
+    t.write(<<~RUBY, 'gate.rb')
+      module Gate
+        def self.state(kata)
+          if (kata[:started] and kata[:open])
+            :join
+          else
+            :wait
+          end
+        end
+      end
+    RUBY
+    t.start
+    gate = t.load('gate.rb')::Gate
+    katas = [{ started: true, open: true }, { started: true }]
+    assert_equal(%i[join wait], katas.map { gate.state(_1) })
+  end
+
   private
 
   # Example: owner.rb:2 gives the rows of the decision on line 2.

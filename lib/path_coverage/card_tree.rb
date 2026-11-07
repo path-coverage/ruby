@@ -13,8 +13,10 @@ module PathCoverage
     # statements, or a leaf; owner the key of the decision's row,
     # range its bytes, arm its arm's name, nil for a leaf, on
     # the indices of the decision's possible paths that run it, and
-    # leaf a leaf's index among the decision's leaves, nil for an arm.
-    Region = Data.define(:owner, :range, :arm, :on, :leaf)
+    # leaf a leaf's index among the decision's leaves, nil for an arm,
+    # and leaves its arm's Leaving word, nil for a leaf or an arm that
+    # does not leave the method.
+    Region = Data.define(:owner, :range, :arm, :on, :leaf, :leaves)
 
     # The place of a row inside no other row's decision.
     TOP = {
@@ -139,7 +141,8 @@ module PathCoverage
           possible[i][index].nil?
         end
         on = skipped.fetch(false)
-        Region.new(owner:, range:, arm: nil, on:, leaf: index)
+        Region.new(owner:, range:, arm: nil, on:, leaf: index,
+                   leaves: nil)
       end
     end
 
@@ -168,7 +171,7 @@ module PathCoverage
       cells = node[:cells]
       on = cells.each_index.group_by { cells[_1] }.fetch(true, [])
       own = Region.new(owner:, range: arm.extent, arm: arm.kind.to_s,
-                       on:, leaf: nil)
+                       on:, leaf: nil, leaves: arm.leaves)
       [own, *body]
     end
 

@@ -141,9 +141,16 @@ class TidTest < Minitest::Test
     p "#{tid}:#{file}"
   end
 
-  # Prints the message of the error the body raised.
+  # Prints the message of the error the body raised, unless it is
+  # a failed assertion or a skip, which Minitest reports itself.
   def report_error
-    puts $ERROR_INFO.message unless $ERROR_INFO.nil?
+    puts $ERROR_INFO.message if unreported?($ERROR_INFO)
+  end
+
+  # True for an error Minitest does not report itself: one that
+  # is neither nil nor a failed assertion or skip.
+  def unreported?(error)
+    !error.nil? && !error.is_a?(Minitest::Assertion)
   end
 
   # A decision's condition as the manifest finds it, eg
@@ -162,9 +169,10 @@ class TidTest < Minitest::Test
   # One arm of a ternary as the manifest finds it, eg
   # arm(:then, 26...50, both): kind is :then or :else, extent
   # its byte range, and body the condition it holds, nil for a
-  # plain value.
-  def arm(kind, extent, body = nil)
-    PathCoverage::Arm.new(kind:, extent:, body:)
+  # plain value, and leaves Leaving's word for its code, nil for
+  # an arm that does not leave the method.
+  def arm(kind, extent, body = nil, leaves: nil)
+    PathCoverage::Arm.new(kind:, extent:, body:, leaves:)
   end
 
   # Hook for subclasses; runs before each test body.

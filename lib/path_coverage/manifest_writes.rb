@@ -48,7 +48,8 @@ module PathCoverage
       visit_child_nodes(node)
       value = extent_of(node.value)
       @notes[:commands] << value if bare_less?(node.value)
-      arm = Arm.new(kind: :then, extent: value, body: nil)
+      arm = Arm.new(kind: :then, extent: value, body: nil,
+                    leaves: nil)
       Condition.new(
         operator: node.operator, operands: [target_of(node), arm],
         extent: extent_of(node)

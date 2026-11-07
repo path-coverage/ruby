@@ -5,6 +5,7 @@ require_relative 'manifest_choices'
 require_relative 'decision'
 require_relative 'decision_paths'
 require_relative 'decision_tree'
+require_relative 'leaving'
 require_relative 'statement_arms'
 require_relative 'totals'
 
@@ -280,23 +281,23 @@ module PathCoverage
         Decision.at(@path, decision_loc(node))
       end
 
-      TOPS = {
-        call_node: '()', return_node: 'return', def_node: 'def'
-      }.freeze
+      TOPS = { call_node: '()', def_node: 'def' }.freeze
 
       # What statement is as written: a decision's operator, eg if,
       # when decision mode has a decision where it starts, an elsif
       # being elsif, as written, an if or unless with an else
-      # if/else or unless/else; else = for a write, () for a
-      # call, raise for a raise of the method's own, as it leaves
-      # the method, return for a return, def for a def inside it,
-      # value for anything else.
+      # if/else or unless/else; else = for a write, Leaving's word,
+      # return or raise, for a statement that leaves the method,
+      # () for a call, def for a def inside it, value for anything
+      # else.
       def top_of(statement)
         decision = decision_at(statement)
         return 'elsif' if decision && elsif?(statement)
         return with_else(decision.operator, statement) if decision
-        return 'raise' if raise?(statement)
         return '=' if write?(statement)
+
+        word = Leaving.word(statement)
+        return word if word
 
         TOPS.fetch(statement.type, 'value')
       end
@@ -312,12 +313,6 @@ module PathCoverage
       def write?(statement)
         statement.type.end_with?('_write_node') ||
           (statement.type == :call_node && statement.attribute_write?)
-      end
-
-      # True when statement is a call of raise with no receiver.
-      def raise?(statement)
-        statement.type == :call_node && statement.receiver.nil? &&
-          statement.name == :raise
       end
     end
   end

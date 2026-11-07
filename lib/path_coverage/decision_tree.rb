@@ -89,7 +89,7 @@ module PathCoverage
       picked = arm.kind == :then ? then_on : !then_on
       body = arm.body ? node(source, arm.body, outcomes, leaves) : nil
       {
-        arm: arm.kind, text: text_of(source, arm),
+        arm: arm.kind, text: text_of(source, arm), leaves: arm.leaves,
         cells: decided.map { |outcome| outcome == picked }, body:
       }
     end
