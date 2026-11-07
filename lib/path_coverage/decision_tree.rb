@@ -59,15 +59,17 @@ module PathCoverage
       Kinds.of(condition.operator).texted(source, condition, nodes)
     end
 
-    # condition's node from its operands' nodes, its ternary
-    # arms built in order after its predicate, as each arm's
-    # cells follow from the predicate's.
-    def self.arms(source, condition, operands, outcomes, leaves)
-      predicate = operands.first
-      operands = operands.map do |operand|
+    # condition's node from its operands' nodes, its arms built in
+    # order, as each arm's cells follow from those of the operand
+    # that decides it: the last operand before it that is no arm,
+    # eg a ternary's predicate, or x in x or return t.
+    def self.arms(source, condition, built, outcomes, leaves)
+      then_on = THEN_ON[condition.operator]
+      operands = built.each_with_index.map do |operand, index|
         next operand unless operand.is_a?(Arm)
 
-        decided = [predicate[:cells], THEN_ON[condition.operator]]
+        deciding = built.take(index).grep_v(Arm).last
+        decided = [deciding[:cells], then_on]
         arm(source, operand, decided, outcomes, leaves)
       end
       operator = condition.operator

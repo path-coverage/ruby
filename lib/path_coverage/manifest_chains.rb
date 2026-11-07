@@ -46,7 +46,7 @@ module PathCoverage
       safe = calls.select(&:safe_navigation?).reverse
       receivers = safe.map { |call| receiver_of(call) }
       extent = extent_of(node)
-      @notes[:commands] << extent if Manifest.command?(node)
+      @notes[:commands] << extent if Manifest.bare_less?(node)
       operands = value ? [*receivers, extent] : receivers
       Condition.new(operator: SAFE, operands:, extent:)
     end

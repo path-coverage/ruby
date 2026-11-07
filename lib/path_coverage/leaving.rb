@@ -1,3 +1,5 @@
+require_relative 'condition'
+
 module PathCoverage
   # Whether code leaves the method where it stands, decided once,
   # from Prism's nodes, for every part of the gem that asks.
@@ -15,11 +17,21 @@ module PathCoverage
       statement.name.to_s if leaving_call?(statement)
     end
 
+    # The arm a statement that leaves the method is as an operand,
+    # eg return t in x or return t: run when the operand before it
+    # gives the outcome its operator goes on with, never a value,
+    # so never a leaf.
+    def self.arm(statement)
+      loc = statement.location
+      Arm.new(kind: :then, extent: loc.start_offset...loc.end_offset,
+              body: nil, leaves: word(statement))
+    end
+
     # The word of the first of an arm's statements that leaves the
     # method, statements its code; nil for an arm with no
     # statements or none that leaves.
     def self.of(statements)
-      statements && statements.body.filter_map { word(_1) }.first
+      statements && statements.body.map { word(_1) }.compact.first
     end
 
     # True when statement is a call of one of CALLS with no

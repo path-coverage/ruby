@@ -1,5 +1,6 @@
 require 'prism'
 require_relative 'condition'
+require_relative 'leaving'
 require_relative 'manifest_blocks'
 require_relative 'manifest_case'
 require_relative 'manifest_chains'
@@ -37,13 +38,33 @@ module PathCoverage
         decisions: decisions(source, path, ignored, *treated) }
     end
 
+    # True for an expression that is no bare argument, so a
+    # rewrite wrapping it in another call must parenthesise it: a
+    # command call, an and or an or, or a modifier, eg x unless y.
+    def self.bare_less?(node)
+      return true if command?(node) || modifier?(node)
+
+      %i[and_node or_node].include?(node.type) &&
+        %w[and or].include?(node.operator)
+    end
+
     # True for a call to a named method with arguments and no
-    # parentheses, eg `id.include? 'N'`, but not `id.size == 6`;
-    # such a call is no bare argument, so a rewrite wrapping it
-    # in another call must parenthesise it.
+    # parentheses, eg `id.include? 'N'`, but not `id.size == 6`.
     def self.command?(node)
       node.type == :call_node && node.arguments &&
         node.opening_loc.nil? && node.name.match?(/\A[a-z_]/i)
+    end
+
+    # True for a modifier if, unless or rescue, eg x if y: one
+    # with no end keyword, a ternary being no modifier.
+    def self.modifier?(node)
+      case node.type
+      when :rescue_modifier_node then true
+      when :unless_node then node.end_keyword_loc.nil?
+      when :if_node
+        !node.if_keyword_loc.nil? && node.end_keyword_loc.nil?
+      else false
+      end
     end
 
     # Literals and lambdas, whose value is truthy by their form;
@@ -191,20 +212,26 @@ module PathCoverage
 
       # node's operands: a chain of the same operator flattened
       # into one list, the other operator nested as a Condition,
-      # as is a &. chain, its value its last leaf, anything else a
-      # leaf's byte range.
+      # as is a &. chain, its value its last leaf, an operand that
+      # leaves the method an Arm, eg return t in x or return t,
+      # anything else a leaf's byte range.
       def operands_of(node)
-        [node.left, node.right].flat_map do |written|
-          operand = grouped(written)
-          next [leaf(operand)] if ignored?(operand)
-          next operands_of(operand) if operand.type == node.type
-          next [condition_of(operand)] if operator?(operand)
-          if safe_chain?(operand)
-            next [chain_condition(operand, value: true)]
-          end
+        [node.left, node.right].flat_map { operands_in(_1, node) }
+      end
 
-          [leaf(operand)]
+      # The operands written, one side of node, stands for, as
+      # operands_of gives them.
+      def operands_in(written, node)
+        operand = grouped(written)
+        return [leaf(operand)] if ignored?(operand)
+        return [Leaving.arm(operand)] if Leaving.word(operand)
+        return operands_of(operand) if operand.type == node.type
+        return [condition_of(operand)] if operator?(operand)
+        if safe_chain?(operand)
+          return [chain_condition(operand, value: true)]
         end
+
+        [leaf(operand)]
       end
 
       # The byte range of node as written.
@@ -225,7 +252,7 @@ module PathCoverage
         inner = leaf_decisions(operand)
         loc = operand.location
         range = loc.start_offset...loc.end_offset
-        @notes[:commands] << range if Manifest.command?(operand)
+        @notes[:commands] << range if Manifest.bare_less?(operand)
         outcome = Manifest.fixed_outcome(operand) ||
                   given_outcome(operand)
         @notes[:fixed][range] = outcome if outcome

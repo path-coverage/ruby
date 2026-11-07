@@ -3,7 +3,7 @@ require_relative 'condition'
 module PathCoverage
   # The part of the manifest's visitor that builds the decisions of
   # ||= and &&= writes, eg @clock ||= Clock.new. It relies on
-  # its includer's add_decision, bare_less? and extent_of.
+  # its includer's add_decision and extent_of.
   module ManifestWrites
     # Every node type of a ||= or &&= write, by its target: a
     # variable of each kind, a constant, a constant path, an
@@ -47,7 +47,7 @@ module PathCoverage
     def write_condition(node)
       visit_child_nodes(node)
       value = extent_of(node.value)
-      @notes[:commands] << value if bare_less?(node.value)
+      @notes[:commands] << value if Manifest.bare_less?(node.value)
       arm = Arm.new(kind: :then, extent: value, body: nil,
                     leaves: nil)
       Condition.new(

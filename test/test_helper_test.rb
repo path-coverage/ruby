@@ -18,6 +18,19 @@ class TestHelperTest < TidTest
     assert_equal klass.singleton_class, klass.method(:run).owner
   end
 
+  test 'Fb7A80', %w(
+  | of the errors a test's body can raise, only one Minitest does
+  | not report itself goes unreported: a skip or a failed
+  | assertion is Minitest's to report, a RuntimeError is not, and
+  | a body that raised nothing has nothing to report
+  ) do
+    skipped = Minitest::Skip.new('awaiting a fix')
+    failed = Minitest::Assertion.new('Expected: 1  Actual: 2')
+    crashed = RuntimeError.new('no kata Kp9sA2')
+    actual = [skipped, failed, crashed, nil].map { unreported?(_1) }
+    assert_equal [false, false, true, false], actual
+  end
+
   test 'Fb7A10', %w(
   | a running test can read its own tid and description
   ) do |t|

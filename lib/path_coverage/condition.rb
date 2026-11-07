@@ -21,9 +21,12 @@ module PathCoverage
   WRITES = %w[||= &&=].freeze
 
   # The predicate outcome on which each choice takes its then
-  # arm: an unless's is false, as is a ||= write's.
-  THEN_ON = Hash.new(true).merge('unless' => false, '||=' => false)
-                .freeze
+  # arm: an unless's is false, as is a ||= write's, and an || or
+  # or's, whose leaving right side, eg x or return t, runs when
+  # the operand before it is false.
+  THEN_ON = Hash.new(true).merge(
+    'unless' => false, '||=' => false, '||' => false, 'or' => false
+  ).freeze
 
   # The methods that call their block an item at a time until
   # it decides, its last answer deciding the result.

@@ -67,29 +67,8 @@ module PathCoverage
       body = block_expression(block)
       scoped { body.accept(self) }
       range = extent_of(body)
-      @notes[:commands] << range if bare_less?(body)
+      @notes[:commands] << range if Manifest.bare_less?(body)
       range
-    end
-
-    # True for an expression that is no bare argument: a command
-    # call, an and or an or, or a modifier, eg x unless y.
-    def bare_less?(node)
-      return true if Manifest.command?(node) || modifier?(node)
-
-      %i[and_node or_node].include?(node.type) &&
-        %w[and or].include?(node.operator)
-    end
-
-    # True for a modifier if, unless or rescue, eg x if y: one
-    # with no end keyword, a ternary being no modifier.
-    def modifier?(node)
-      case node.type
-      when :rescue_modifier_node then true
-      when :unless_node then node.end_keyword_loc.nil?
-      when :if_node
-        !node.if_keyword_loc.nil? && node.end_keyword_loc.nil?
-      else false
-      end
     end
   end
 end

@@ -1555,6 +1555,78 @@ class KernelTest < TidTest
     assert_equal(%i[join wait], katas.map { gate.state(_1) })
   end
 
+  test '6rTS7d', %w(
+  | Example: kata[:started] or return :waiting, called once with
+  | a started kata and once with one not started
+  | Its return is no leaf, as it never gives a value, so the or
+  | has two paths, both taken, and no gaps. Its fold has a return
+  | row marking the path that leaves the method, the false one.
+  ) do |t|
+    t.write(<<~RUBY, 'gate.rb')
+      module Gate
+        def self.state(kata)
+          kata[:started] or return :waiting
+          :ready
+        end
+      end
+    RUBY
+    t.start
+    gate = t.load('gate.rb')::Gate
+    states = [{ started: true }, { started: false }].map do |kata|
+      gate.state(kata)
+    end
+    assert_equal %i[ready waiting], states
+    assert_output('') { t.report }
+
+    expected = {
+      'gate.rb:3:4' => {
+        'leaves' => [%w(3:4 3:18)],
+        'taken' => [
+          { 'path' => [true], 'count' => 1 },
+          { 'path' => [false], 'count' => 1 }
+        ]
+      }
+    }
+    assert_equal expected, t.json['paths']
+    leaves = of_kind(fold_at(t, 'gate.rb:3'), 'leaves')
+    assert_equal([['return', '', 'leaves']], leaves.map { shown(_1) })
+  end
+
+  test '6rTS7e', %w(
+  | Example: kata[:started] && kata[:open] or return :wait,
+  | called with a started open kata, a started closed one, and
+  | one not started
+  | The && is a decision of its own, nested as the or's first
+  | operand; the or's return is no leaf. So the or has three
+  | paths, each taken once, two of them leaving the method, and
+  | there are no gaps.
+  ) do |t|
+    t.write(<<~RUBY, 'gate.rb')
+      module Gate
+        def self.state(kata)
+          kata[:started] && kata[:open] or return :wait
+          :join
+        end
+      end
+    RUBY
+    t.start
+    gate = t.load('gate.rb')::Gate
+    katas = [
+      { started: true, open: true }, { started: true, open: false },
+      { started: false }
+    ]
+    assert_equal(%i[join wait wait], katas.map { gate.state(_1) })
+    assert_output('') { t.report }
+
+    taken = t.json['paths'].transform_values do |decision|
+      decision['taken'].map { [_1['path'], _1['count']] }
+    end
+    or_paths = [
+      [[true, true], 1], [[true, false], 1], [[false, nil], 1]
+    ]
+    assert_includes taken.values, or_paths
+  end
+
   private
 
   # Example: owner.rb:2 gives the rows of the decision on line 2.

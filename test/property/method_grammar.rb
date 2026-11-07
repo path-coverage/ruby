@@ -45,6 +45,14 @@ class MethodGrammar
   def source
     top = FLAT.merge(NESTING)
     statements = Array.new(2) { statement(top) }
+    snippet(statements.join("\n"))
+  end
+
+  private
+
+  # The module Snippet whose run's parameters are the leaves so
+  # far, its body between t = 0 and t.
+  def snippet(body)
     params = Array.new(@leaves) { "p#{_1}" }.join(', ')
     <<~RUBY
       module Snippet
@@ -52,14 +60,12 @@ class MethodGrammar
 
         def self.run(#{params})
           t = 0
-      #{statements.join("\n")}
+      #{body}
           t
         end
       end
     RUBY
   end
-
-  private
 
   # One statement, its kind drawn from kinds, its pieces filled.
   def statement(kinds)
