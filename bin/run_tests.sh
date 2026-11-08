@@ -104,9 +104,10 @@ run_in_image ruby -Ilib -Itest -e "${LOADER}" -- "$@"
 # The two JSON reports the run wrote into reports/paths, checked
 # against their schemas, then path_coverage's own HTML report,
 # drawn from them.
-docker run --rm \
+schema_check="$(docker run --rm \
   --volume "${ROOT_DIR}/reports/paths:/paths:ro" \
-  "${SCHEMAS}" /paths > /dev/null
+  "${SCHEMAS}" /paths 2>&1)" \
+  || { echo "${schema_check}" >&2; exit 1; }
 docker run --rm \
   --user "$(id -u):$(id -g)" \
   --volume "${ROOT_DIR}/reports/paths:/paths" \

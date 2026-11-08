@@ -46,9 +46,10 @@ docker run --rm \
   "${IMAGE}" \
   sh -c 'rm -rf /site/* && ruby -Ilib demo/run.rb'
 
-docker run --rm \
+schema_check="$(docker run --rm \
   --volume "${ROOT_DIR}/site:/paths:ro" \
-  "${SCHEMAS}" /paths > /dev/null
+  "${SCHEMAS}" /paths 2>&1)" \
+  || { echo "${schema_check}" >&2; exit 1; }
 
 docker run --rm \
   --user "$(id -u):$(id -g)" \
