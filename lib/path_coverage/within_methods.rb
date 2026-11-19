@@ -1,8 +1,12 @@
 require_relative 'card_context'
 require_relative 'card_scopes'
 require_relative 'card_tree'
+require_relative 'card_way_lists'
 require_relative 'card_ways'
+require_relative 'loop_forks'
+require_relative 'method_loops'
 require_relative 'method_statements'
+require_relative 'method_ways'
 require_relative 'source_lines'
 
 module PathCoverage
@@ -38,13 +42,15 @@ module PathCoverage
     # "last" => 3, "rows" => [{ "at" => "2:04", ... }] } }.
     # Each card in every file in files, a def's and a top card's,
     # as its page draws it, for the JSON report, so a reader
-    # finds a card's gap without the page; result a Result,
-    # reached as cards takes it.
-    def self.listed(files, config, result, reached)
+    # finds a card's gap without the page; result a Result;
+    # counted [reached, ways], reached as cards takes it, ways as
+    # a CallTrace counts them, nil when not known.
+    def self.listed(files, config, result, counted)
       files.map do |full_path, parsed|
         path = config.relative(full_path)
         recorded = [result.operands, result.paths]
-        listed_in(path, parsed, result.paths, reached)
+        limited = [*counted, config.path_limit, config.loops?]
+        listed_in(path, parsed, result.paths, limited)
           .merge(listed_tops(path, parsed, recorded))
       end.reduce({}, :merge)
     end
@@ -111,17 +117,94 @@ module PathCoverage
     end
 
     # The cards of the file at path, parsed as Manifest.parse
-    # gives it, as listed gives them.
-    def self.listed_in(path, parsed, paths, reached)
+    # gives it, as listed gives them, each listing its ways too
+    # when counted's ways are known, counted being [reached, ways,
+    # limit, loops], limit the most ways a card lists, loops
+    # whether each loop is a fork.
+    def self.listed_in(path, parsed, paths, (reached, *counted))
       source, decisions = parsed.values_at(:source, :decisions)
+      titles = titles(source, path, decisions)
+      lister = WayLister.new(source, path, decisions, counted)
+      context = [source, decisions, paths, reached]
+      MethodStatements.of(source, path, decisions).to_h do |key, rows|
+        count = lister.count(key, rows)
+        named = [*titles[key], count, reached&.fetch(key, 0)]
+        shown = method_card(key, rows, named, context)
+        [key, shown.merge(lister.lists(key, rows, count))]
+      end
+    end
+
+    # The card of the def at key, its rows, named as card takes
+    # named; context is [source, decisions, paths, reached], as
+    # listed_in has them.
+    def self.method_card(key, rows, named, context)
+      source, decisions, paths, reached = context
+      shown = CardContext.rows(source, decisions, rows, paths,
+                               reached)
+      card(key, named, shown)
+    end
+
+    # { def decision => [its name, its last line] } for each def in
+    # source, at path, as its card is titled.
+    def self.titles(source, path, decisions)
       names = MethodStatements.names(source, path, decisions)
       lasts = MethodStatements.lasts(source, path, decisions)
-      MethodStatements.of(source, path, decisions).to_h do |key, rows|
-        ways = CardWays.card(source, decisions, rows)
-        named = [names[key], lasts[key], ways, reached&.fetch(key, 0)]
-        shown = CardContext.rows(source, decisions, rows, paths,
-                                 reached)
-        [key, card(key, named, shown)]
+      names.to_h { |key, name| [key, [name, lasts[key]]] }
+    end
+
+    # The way lists of each card of a file, as CardWayLists gives
+    # them.
+    class WayLister
+      # The lister of the file at path, source, its decisions as
+      # Manifest.parse gives them; counted [ways, limit]: ways as a
+      # CallTrace counts them, nil when not known, and limit the
+      # most ways a card lists.
+      def initialize(source, path, decisions, (ways, limit, loops))
+        @source = source
+        @decisions = decisions
+        @ways = ways
+        @limit = limit
+        @loops = MethodLoops.of(source, path, decisions)
+        @forks = LoopForks.of(source, path, decisions)
+        @forking = loops
+      end
+
+      # How many ways go through the card of the def at key, its
+      # rows, each loop a fork when loops are.
+      def count(key, rows)
+        CardWays.card(@source, @decisions, rows,
+                      WayAlgebras::Counted, [true, forked(key)])
+      end
+
+      # The way lists of the card of the def at key, its rows, with
+      # count ways through it: none when the ways are not known;
+      # those its calls took and its loops' passes; and, when count
+      # is no more than the limit, its covered, gaps and impossible.
+      def lists(key, rows, count)
+        return {} if @ways.nil?
+
+        walked = CardWayLists.walked(key, @ways, loops(key))
+        return walked if count > @limit
+
+        forked = forked(key)
+        split = MethodWays.split_card(@source, @decisions, rows,
+                                      forked)
+        checked = [split, forked.keys]
+        walked.merge(CardWayLists.checked(key, @ways, checked))
+      end
+
+      private
+
+      # The names of the loops of the def at key: those holding a
+      # row, and those that fork.
+      def loops(key)
+        (@loops[key].values.flatten + @forks.fetch(key).keys).uniq
+      end
+
+      # The loops of the def at key that fork, as
+      # LoopForks gives them; none unless loops are forks.
+      def forked(key)
+        @forking ? @forks.fetch(key) : {}
       end
     end
 

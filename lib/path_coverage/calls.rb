@@ -96,4 +96,10 @@ module PathCoverage
   def self.reach(name)
     @recorder.reach(name)
   end
+
+  # The call rewritten code makes first in each block body holding
+  # a row: a pass of the loop named name.
+  def self.pass(name)
+    @recorder.pass(name)
+  end
 end

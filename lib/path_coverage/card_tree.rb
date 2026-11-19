@@ -1,3 +1,4 @@
+require_relative 'card_forks'
 require_relative 'manifest'
 require_relative 'method_statements'
 require_relative 'decision_paths'
@@ -19,10 +20,8 @@ module PathCoverage
     Region = Data.define(:owner, :range, :arm, :on, :leaf, :leaves)
 
     # The place of a row inside no other row's decision.
-    TOP = {
-      'parent' => nil, 'in' => nil, 'on' => nil,
-      'leaf' => nil, 'gives' => nil
-    }.freeze
+    TOP = { 'parent' => nil, 'in' => nil, 'on' => nil,
+            'leaf' => nil, 'gives' => nil }.freeze
 
     # Example: def f(a); if a then 1 end; end gives the value
     # row 1 its parent, the if, in its then arm, on its path 0.
@@ -47,10 +46,20 @@ module PathCoverage
     # decision holding all of its own decision's code, or, for a
     # row that is no decision, where it starts: a decision
     # starting where its child does, eg an || whose first operand
-    # is an any?, holds that child, and is not held by it.
-    def self.nested(source, decisions, rows)
+    # is an any?, holds that child, and is not held by it. Each of
+    # forks, { loop's name => [its bytes, its body's] }, as
+    # LoopForks gives them, is placed too, as CardForks places it.
+    def self.nested(source, decisions, rows, forks = {})
+      regions = card_regions(source, decisions, rows) +
+                CardForks.regions(forks)
+      places = rows_placed(source, rows, [decisions, regions])
+      CardForks.placed(places, forks, regions)
+    end
+
+    # { "line:column" => its place } for each of rows, a card's,
+    # among regions, as nested places them.
+    def self.rows_placed(source, rows, (decisions, regions))
       starts = line_starts(source)
-      regions = card_regions(source, decisions, rows)
       rows.to_h do |row|
         at = starts[row.line - 1] + row.column
         decision = row.decision ? decisions.fetch(row.decision) : nil
@@ -119,9 +128,7 @@ module PathCoverage
     end
 
     # The region of regions with the fewest bytes; nil for none.
-    def self.smallest(regions)
-      regions.min_by { |region| region.range.size }
-    end
+    def self.smallest(regions) = regions.min_by { _1.range.size }
 
     # The regions of condition, the decision of the row keyed owner:
     # its arms', and its leaves'.
@@ -176,9 +183,10 @@ module PathCoverage
     end
 
     # The "line:column" key of row, from its name.
-    def self.key_of(row)
-      row.name.split(':').last(2).join(':')
-    end
+    def self.key_of(row) = key_at(row.name)
+
+    # The "line:column" key of the row or loop named name.
+    def self.key_at(name) = name.split(':').last(2).join(':')
 
     # The byte offset where each line of source starts, first
     # line first.

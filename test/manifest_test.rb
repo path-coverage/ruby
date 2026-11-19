@@ -880,4 +880,156 @@ class ManifestTest < TidTest
     assert_equal ['&&', [Range, Range]],
                  [decision.operator, decision.operands.map(&:class)]
   end
+
+  test '6asyD1', %w(
+  | Example: ship, an if on express, then an if on log.verbose
+  | between # path: disable and # path: enable, then order
+  | Lines between the comments are not analysed: the if there
+  | is no decision, so ship's only decision is its first if.
+  ) do
+    source = <<~RUBY
+      def ship(order, log)
+        if order[:express]
+          order[:days] = 1
+        end
+        # path: disable
+        # reason: logging is not under test
+        if log.verbose
+          log.lines << order[:id]
+        end
+        # path: enable
+        order
+      end
+    RUBY
+    decisions = PathCoverage::Manifest.decisions(source, 'k.rb')
+    assert_equal ['k.rb:2:2'], decisions.keys
+  end
+
+  test '6asyD2', %w(
+  | Example: ship, a # path: disable comment, its reason, then
+  | an if on log.verbose, with no # path: enable after it
+  | Lines are not analysed only between the two comments, so a
+  | disable with no enable after it is refused, naming its line,
+  | rather than leave every line after it unanalysed.
+  ) do
+    source = <<~RUBY
+      def ship(order, log)
+        # path: disable
+        # reason: logging is not under test
+        if log.verbose
+          log.lines << order[:id]
+        end
+        order
+      end
+    RUBY
+    error = assert_raises(ArgumentError) do
+      PathCoverage::Manifest.decisions(source, 'lib/shipping.rb')
+    end
+    assert_equal 'lib/shipping.rb:2 # path: disable has no ' \
+                 '# path: enable after it', error.message
+  end
+
+  test '6asyD3', %w(
+  | Example: ship, a # path: disable comment straight before an
+  | if on log.verbose, then # path: enable
+  | Every disabled block says why on a # reason: line straight
+  | after its # path: disable, so one without it is refused,
+  | naming its line.
+  ) do
+    source = <<~RUBY
+      def ship(order, log)
+        # path: disable
+        if log.verbose
+          log.lines << order[:id]
+        end
+        # path: enable
+        order
+      end
+    RUBY
+    error = assert_raises(ArgumentError) do
+      PathCoverage::Manifest.decisions(source, 'lib/shipping.rb')
+    end
+    assert_equal 'lib/shipping.rb:2 # path: disable needs a ' \
+                 '# reason: line straight after it', error.message
+  end
+
+  test '6asyD4', %w(
+  | Example: ship, # path: disable and its reason, then an if on
+  | log.verbose whose body holds # path: enable before an if on
+  | order[:express]
+  | A statement is analysed whole or not at all, so one that
+  | starts between the comments and ends after the
+  | # path: enable is refused, naming its line.
+  ) do
+    source = <<~RUBY
+      def ship(order, log)
+        # path: disable
+        # reason: logging is not under test
+        if log.verbose
+          log.lines << order[:id]
+          # path: enable
+          order[:days] = 1 if order[:express]
+        end
+        order
+      end
+    RUBY
+    error = assert_raises(ArgumentError) do
+      PathCoverage::Manifest.decisions(source, 'lib/shipping.rb')
+    end
+    assert_equal 'lib/shipping.rb:4 the statement starting here ' \
+                 'ends after its # path: enable', error.message
+  end
+
+  test '6asyD5', %w(
+  | Example: log, its if on verbose between # path: disable and
+  | # path: enable; and audit, its if on verbose and its if on
+  | quiet there too
+  | A file whose every decision is between the comments has no
+  | decision at all, whether it has one or several.
+  ) do
+    one = <<~RUBY
+      def log(entry, out)
+        # path: disable
+        # reason: logging is not under test
+        out << entry if out.verbose
+        # path: enable
+      end
+    RUBY
+    two = <<~RUBY
+      def audit(entry, out)
+        # path: disable
+        # reason: auditing is not under test
+        out << entry if out.verbose
+        out.clear if out.quiet
+        # path: enable
+      end
+    RUBY
+    found = [one, two].map do |source|
+      PathCoverage::Manifest.decisions(source, 'k.rb')
+    end
+    assert_equal [{}, {}], found
+  end
+
+  test '6asyD6', %w(
+  | Example: a file whose help heredoc holds the text # path:
+  | disable on a line of its own, then fee, an if on member
+  | Only a comment is a marker: the same text inside a string
+  | is not, so the file is analysed as if the string held any
+  | other text.
+  ) do
+    source = <<~RUBY
+      HELP = <<~TEXT
+        # path: disable
+      TEXT
+      def fee(member)
+        return 0 if member
+        9
+      end
+    RUBY
+    plain = source.sub('# path: disable', '# path: dormant')
+    found = [source, plain].map do |each|
+      PathCoverage::Manifest.decisions(each, 'k.rb')
+    end
+    assert_equal found[1], found[0]
+  end
 end

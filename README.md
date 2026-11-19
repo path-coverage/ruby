@@ -59,10 +59,14 @@ PathCoverage.start do
   skip 'source/vendor/**/*.rb'   # except these, though a cover glob matches them
   coverage_dir '/tmp/coverage'   # where path_coverage.json is written
   report :gaps, :summary         # the reporters run at exit (default :gaps);
-                                 # also :post
+                                 # also :ways and :post
   group 'code', 'source/**/*.rb' # each group its own totals
   group 'test', 'test/**/*.rb'
   ignore '&&='                   # operators whose decisions are not measured
+  max_paths 4096                 # list each method's paths up to this many
+                                 # (the default; at most 65536)
+  loops                          # count each loop as a decision: 0 items
+                                 # or 1+ items (off by default)
 end
 ```
 
@@ -210,6 +214,55 @@ A run where a treatment turns out to be wrong is reported:
 source/user.rb:4:9 path taken that a treatment rules out: `user.name` nil
 ```
 
+### Not analysing a block
+
+Sometimes a block of code is not worth testing path by path, for example
+logging. Put `# path: disable` before the block and `# path: enable` after
+it. The lines between them still run, but they are not analysed: any
+decision in them is ignored, and they add no paths to the method they
+are in.
+
+The line straight after `# path: disable` must start with `# reason:` and
+say why the block is not analysed:
+
+```ruby
+def ship(order, log)
+  if order[:express]
+    order[:days] = 1
+  end
+  # path: disable
+  # reason: logging is not under test
+  if log.verbose?
+    log.lines << order[:id]
+  end
+  # path: enable
+  order
+end
+```
+
+Without the `# path: disable` and `# path: enable` comments, `ship()` has
+4 paths: each `if` can be true or false. With them, the second `if` is
+ignored, so `ship()` has 2 paths: `order[:express]` true, and
+`order[:express]` false.
+
+Only a real comment that is the whole of its line is a marker. The same
+text inside a string, eg a heredoc, is just text: it disables nothing,
+and is never refused.
+
+```ruby
+HELP = <<~TEXT
+  # path: disable
+TEXT
+# a heredoc, not a comment: the methods below are still analysed
+```
+
+Each of these is refused, with the file and line it is on:
+
+- a `# path: disable` without a `# reason:` line straight after it
+- a `# path: disable` without a `# path: enable` after it
+- a statement that starts between the two comments and ends after the
+  `# path: enable`
+
 ## Use when you cannot edit the code!
 
 A run whose code cannot be changed, such as a script in a `docker build`
@@ -229,9 +282,8 @@ starts nothing and prints nothing, so an image can set `RUBYOPT` for every
 run and measure only those given a collector.
 
 The gem's `path_coverage_collector` command is that collector. It saves
-each report POSTed to it as a numbered file, and once every run is done
-they render as one report, its two JSON files written to `coverage_dir`
-for html-reporter to draw:
+each report POSTed to it as a numbered file; once every run is done,
+report them as one with `path_coverage_report`, below.
 
 ```sh
 path_coverage_collector 4570 /tmp/paths/runs   # until sent TERM
@@ -246,10 +298,60 @@ path_coverage_collector 4570 /tmp/paths/runs   # until sent TERM
 - On TERM it stops accepting connections, finishes the report in hand,
   and exits 0.
 
-```ruby
-runs = Dir['/tmp/paths/runs/*.json']
-PathCoverage::Render.from_json(config, runs)
+### Reporting saved runs
+
+Once every run is done, report them as one with `path_coverage_report`:
+
+```text
+path_coverage_report [--loops] [--max-paths N] SOURCE_ROOT GLOBS REPORT_DIR RUN_JSON...
 ```
+
+- SOURCE_ROOT  the directory holding the covered source
+- GLOBS        comma-separated globs of the covered files, relative to SOURCE_ROOT
+- REPORT_DIR   the directory it writes its report into
+- RUN_JSON...  one or more saved runs' JSON files, space-separated, eg runs/*.json
+- --loops      count each loop as a decision: 0 items or 1+ items
+- --max-paths  fail each method with more than N paths (default 4096, at most 65536)
+
+With `--loops`, a loop counts as a decision only when its body has a
+statement that runs first on each pass. These loops never do:
+
+```ruby
+x += 1 while x < 9          # a modifier loop: its body is written first
+lines.each { }              # an empty loop
+urls.each do |url|          # a loop whose only statements are rescued
+rescue Timeout::Error
+  retry_later(url)
+end
+```
+
+It exits 0 when every path is taken, and 1 when any is not.
+
+Every path taken:
+
+```text
+$ path_coverage_report /app 'lib/**/*.rb' report runs/*.json
+Paths: 2 / 2 (100.00%)
+Functions over --max-paths=4096: 0
+```
+
+Some paths untested, and a method over --max-paths:
+
+```text
+$ path_coverage_report --max-paths 8 /app 'lib/**/*.rb' report runs/*.json
+lib/fees.rb:2 fee() has 16 paths, more than --max-paths allows.
+Split it into smaller functions.
+lib/orders.rb:2 total() has 1 untested path.
+Add tests that take each of these paths:
+  1. line 5 `order[:paid]` false
+Paths: 1 / 2 (50.00%)
+Functions over --max-paths=8: 1
+```
+
+Each run's JSON names the kinds of decision it measured. A version that
+measures other kinds lists a decision's paths differently, so a run whose
+kinds differ from those of the installed version is refused. So is a run
+made with `ignore` or `treat`, as the command takes neither.
 
 ## What a run reports
 
@@ -409,6 +511,19 @@ flip.rb:5:11 path taken that its method rules out: `member` true
 ```
 
 ### Reporters
+
+- `:ways` prints, for each method with a path through it that no run
+  took, the choices a test must make to take each one, every leaf by its
+  source text; a loop is named by its line and how many items it ran:
+
+```text
+lib/orders.rb:2 total() has 1 untested path.
+Add tests that take each of these paths:
+  1. line 5 `order[:paid]` false
+```
+
+  Every run writes these lines to `path_coverage.ways.txt` in the
+  coverage dir, whichever reporters print, so a later check can show them.
 
 - `:post` sends the JSON report, as an HTTP POST, to the url set by
   `collector 'http://...'`. It is for a run whose own files are thrown

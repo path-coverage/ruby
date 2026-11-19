@@ -1,5 +1,6 @@
 require 'fileutils'
 require 'json'
+require_relative 'card_gaps'
 require_relative 'console_summary'
 require_relative 'json_writer'
 require_relative 'paths_report'
@@ -23,29 +24,57 @@ module PathCoverage
     # { full path => {source:, decisions:} } for each covered file.
     def self.write(operands, files, config, **taken)
       FileUtils.mkdir_p(config.output_dir)
-      decision_paths, outside = taken.values_at(:decision_paths,
-                                                :outside)
-      recorded = Recorded.new(operands, decision_paths, outside)
+      paths = taken.values_at(:decision_paths, :outside)
+      recorded = Recorded.new(operands, *paths)
       reached = taken[:reached]
-      cards = WithinMethods.listed(files, config, recorded, reached)
-      write_json(recorded, files, config, [cards, reached])
+      cards = WithinMethods.listed(files, config, recorded,
+                                   [reached, taken[:ways]])
+      tree = WithinMethods.tree(files, config, recorded)
+      write_json(recorded, files, config, [cards, reached, tree])
+      write_ways(cards, files, config, tree)
       write_source(files, config, recorded.paths, cards)
     end
 
     # Writes recorded as the JSON report at config's json_path:
     # its operands, decision paths, paths a treatment rules out,
     # totals, cards, each def's card, as WithinMethods.listed
-    # gives them, how each card's rows nest, the statements
-    # reached, when known, and config's fingerprint.
-    def self.write_json(recorded, files, config, (cards, reached))
+    # gives them, tree, how each card's rows nest, the statements
+    # reached, when known, and config's fingerprint and limits.
+    def self.write_json(recorded, files, config, listed)
+      cards, reached, tree = listed
       report = PathsReport.of(recorded.paths, files)
-      tree = WithinMethods.tree(files, config, recorded)
       totals = totals(recorded.paths, files, config, reached)
+      limits = { 'loops' => config.loops?,
+                 'max_paths' => config.path_limit }
       parts = { totals:, outside: recorded.outside, cards:, tree:,
-                fingerprint: config.fingerprint }
+                fingerprint: config.fingerprint, limits: }
       parts[:reached] = reached if reached
       path = config.json_path
       JsonWriter.write(recorded.operands, path, report, **parts)
+    end
+
+    # Writes the ways lines, each method's untested paths, as
+    # CardGaps.lines gives them for cards, beside the JSON report,
+    # at ways_path, so a later check, or the :ways reporter, can
+    # show them; tree is how each card's rows nest, as
+    # WithinMethods.tree gives it.
+    def self.write_ways(cards, files, config, tree)
+      parents = tree.flat_map do |path, nested|
+        nested.values.flat_map do |rows|
+          rows.filter_map do |at, place|
+            next unless place['parent']
+
+            ["#{path}:#{at}", "#{path}:#{place['parent']}"]
+          end
+        end
+      end.to_h
+      lines = CardGaps.lines(cards, PathsReport.texts(files), parents)
+      File.write(ways_path(config), lines.map { "#{_1}\n" }.join)
+    end
+
+    # Where the ways lines go, beside the JSON report.
+    def self.ways_path(config)
+      config.json_path.sub(/\.json\z/, '.ways.txt')
     end
 
     # Writes the source report beside the JSON report, from

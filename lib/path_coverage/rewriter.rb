@@ -13,11 +13,22 @@ module PathCoverage
     # offset }, after a reach call that counts its runs. Only
     # text is inserted, never a newline, so backtrace line
     # numbers still match the file on disk.
-    def self.rewrite(source, decisions, reaches = {})
+    def self.rewrite(source, decisions, reaches = {}, passes = {})
       inserts = decisions.flat_map do |decision, condition|
         decision_inserts(decision, condition)
       end
-      apply(source.dup, inserts + reach_inserts(reaches))
+      apply(source.dup, inserts + reach_inserts(reaches) +
+                        pass_inserts(passes))
+    end
+
+    # Example: { "k.rb:4:16" => 60 } puts a pass call at 60.
+    # The inserts that put a pass call, a statement of its own,
+    # first in each loop body in passes, { name => offset }.
+    def self.pass_inserts(passes)
+      rank = [Float::INFINITY, LAYERS.index(:reach)]
+      passes.map do |name, at|
+        [at, "PathCoverage.pass(#{name.inspect}); ", rank]
+      end
     end
 
     # Example: { "k.rb:2:2" => 18 } puts a reach call at 18.

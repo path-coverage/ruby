@@ -32,19 +32,25 @@ module PathCoverage
     # it, the names of the kinds measured, the tools that measured
     # it and their versions, and parts' reached:,
     # as Recorder#reached gives it, even empty, as a run that
-    # reached no statement says so; none when not given; headed
-    # by its schema's URL.
+    # reached no statement says so; none when not given; parts'
+    # limits:, { "loops" =>, "max_paths" => } the cards were
+    # listed with; headed by its schema's URL.
     def self.json(operands, paths = {}, **parts)
       fingerprint = parts.fetch(:fingerprint, {})
       report = { '$schema' => SCHEMA, 'decisions' => operands,
                  **fingerprint }
       report['paths'] = paths unless paths.empty?
-      report.merge!(lists(parts))
-      report['reached'] = parts[:reached] if parts.key?(:reached)
-      report.merge!(kept(parts))
+      report.merge!(lists(parts), counted(parts), kept(parts))
       report['kinds'] = Kinds.names
       report['measured_by'] = MeasuredBy.versions
       JSON.pretty_generate(report)
+    end
+
+    # { "reached" =>, "loops" =>, "max_paths" => } of parts'
+    # reached:, when given, and limits:, when given.
+    def self.counted(parts)
+      reached = parts.slice(:reached).transform_keys(&:to_s)
+      reached.merge(parts.fetch(:limits, {}))
     end
 
     # The keys of parts written as they are, when not empty.

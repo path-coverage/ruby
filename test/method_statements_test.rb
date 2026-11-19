@@ -835,6 +835,29 @@ class MethodStatementsTest < TidTest
     assert_equal expected, actual
   end
 
+  test 'St3eD1', %w(
+  | Example: ship, an if on express, then a return if cancelled
+  | between # path: disable and # path: enable, then order
+  | Lines between the comments are not analysed: neither the
+  | modifier if nor the return there is a row, so ship's only
+  | row is its first if.
+  ) do
+    source = <<~RUBY
+      def ship(order)
+        if order[:express]
+          order[:days] = 1
+        end
+        # path: disable
+        # reason: cancelling is not under test
+        return order if order[:cancelled]
+        # path: enable
+        order
+      end
+    RUBY
+    tops = statements(source)['k.rb:1:0'].map { [_1.top, _1.line] }
+    assert_equal [['if', 2]], tops
+  end
+
   private
 
   # { def decision => its statements' rows } for source, as if it

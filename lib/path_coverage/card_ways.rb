@@ -16,7 +16,8 @@ module PathCoverage
   # on that path one after another; and a row that is the whole of
   # a leaf counts only those of its paths that give the leaf the
   # outcome the path has, so no impossible way is counted where
-  # gives knows it. A block's body counts once.
+  # gives knows it. A block's body counts once, unless the block
+  # forks, as CardForks folds it.
   # Each way also notes the outcome it gives each leaf that
   # StableLeaves finds, by its local's name, and two ways joined
   # one after the other that give one name both outcomes are no
@@ -25,6 +26,8 @@ module PathCoverage
   # by default; Labelled gives the paths taken on any of them, and
   # Listed lists them.
   class CardWays
+    include CardForks
+
     # Example: { "k.rb:1:0" => 3 } for def f(a, b), return 0 if a,
     # then a ?: of b: 1 way leaves, 2 go on.
     # { def decision => its ways, in algebra } for each def in
@@ -39,26 +42,33 @@ module PathCoverage
 
     # The ways through a card of rows in source, in algebra,
     # decisions being { decision => Condition }, as
-    # Manifest.decisions gives them.
+    # Manifest.decisions gives them; folding is [stable, forks]:
+    # with stable false, those no call can take too, as no leaf is
+    # then assigned; each loop of forks, as LoopForks gives them,
+    # a fork, labelled [its key, 0] for 0 items, [its key, 1] for
+    # 1+ items, then its body's rows, walked once.
     def self.card(source, decisions, rows,
-                  algebra = WayAlgebras::Counted)
-      places = CardTree.nested(source, decisions, rows)
-      new(source, rows, places, decisions, algebra).total
+                  algebra = WayAlgebras::Counted,
+                  folding = [true, {}])
+      stable, forks = folding
+      places = CardTree.nested(source, decisions, rows, forks)
+      names = stable ? StableLeaves.of(source, decisions, rows) : {}
+      new(source, rows, places, decisions, [algebra, names]).total
     end
 
     # The fold of rows, a card's in source, placed as places has
-    # them, each decision row's Condition among decisions, its ways
-    # in algebra, each step of it a tally of them, as
-    # WayAlgebras::Tallied has them, assigning the leaves
-    # StableLeaves finds.
-    def initialize(source, rows, places, decisions, algebra)
+    # them, each decision row's Condition among decisions; folding
+    # is [algebra, names]: its ways in algebra, each step of it a
+    # tally of them, as WayAlgebras::Tallied has them, assigning
+    # the leaves names has, as StableLeaves finds them.
+    def initialize(source, rows, places, decisions, (algebra, names))
       @source = source
       @rows = rows.to_h { |row| [CardTree.key_of(row), row] }
       @places = places
       @decisions = decisions
       @ways = WayAlgebras::Tallied.new(algebra)
       @children = places.keys.group_by { places[_1]['parent'] }
-      @names = StableLeaves.of(source, decisions, rows)
+      @names = names
     end
 
     # The ways through the card, in its algebra: its top rows'
@@ -84,6 +94,8 @@ module PathCoverage
     # pairs; any other row is a return or a raise, as no other is
     # a row, so leaves, at its one path.
     def pair_of(key)
+      return fork_pair(key) unless @rows.key?(key)
+
       row = @rows[key]
       leaves = [@ways.zero, @ways.unit([key, 0])]
       return leaves if row.decision.nil?
@@ -152,18 +164,12 @@ module PathCoverage
       gives = place['gives']
       return pair_of(child) if gives.nil?
 
-      fits = [nil, outcome_of(outcomes, place)]
+      fits = [nil, outcomes[place['leaf']]]
       none = [@ways.zero, @ways.zero]
       pairs = gives.each_index.map do |path|
         fits.include?(gives[path]) ? pair_on(child, path) : none
       end
       added(pairs)
-    end
-
-    # The outcome on a parent's path, outcomes, of the leaf place
-    # names.
-    def outcome_of(outcomes, place)
-      outcomes[place['leaf']]
     end
 
     # The indices of the paths of the decision row keyed key that take

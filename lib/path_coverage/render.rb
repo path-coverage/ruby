@@ -33,17 +33,14 @@ module PathCoverage
     # Runs each reporter chosen in config, from operands, files,
     # and recorded, as run has them.
     def self.reporters(operands, files, config, recorded)
-      decision_paths = recorded[:decision_paths]
-      chosen = config.reporters
-      if chosen.include?(:gaps)
-        gaps(operands, files, config, recorded)
-      end
-      if chosen.include?(:summary)
-        summary(files, config, decision_paths, recorded[:reached])
-      end
-      return unless chosen.include?(:post)
-
-      post(operands, files, config, decision_paths)
+      paths, reached = recorded.values_at(:decision_paths, :reached)
+      runs = {
+        gaps: -> { gaps(operands, files, config, recorded) },
+        summary: -> { summary(files, config, paths, reached) },
+        ways: -> { print File.read(JsonReports.ways_path(config)) },
+        post: -> { post(operands, files, config, paths) }
+      }
+      runs.slice(*config.reporters).each_value(&:call)
     end
 
     # Runs the :post reporter: operands, and the paths report of

@@ -2,6 +2,7 @@ require 'json'
 require_relative 'kinds'
 require_relative 'measured_by'
 require_relative 'merge'
+require_relative 'ways_report'
 
 module PathCoverage
   # Reads back the JSON reports JsonWriter writes, merging the
@@ -20,14 +21,41 @@ module PathCoverage
 
     # The paths taken of the JSON reports at paths, as
     # Render.run takes them: decision_paths:, each decision's possible
-    # paths, outside:, those a treatment rules out, and reached:,
-    # each statement's reaches, each merged.
+    # paths, outside:, those a treatment rules out, reached:,
+    # each statement's reaches, and ways:, each method's calls'
+    # ways and each loop's passes', each merged.
     def self.taken(paths)
       decision_paths = Merge.paths(paths.map do |path|
         paths_of(path)
       end)
       outside = merged(paths, 'outside')
-      { decision_paths:, outside:, reached: reached(paths) }
+      { decision_paths:, outside:, reached: reached(paths),
+        ways: ways(paths) }
+    end
+
+    # The ways of the JSON reports at paths, as WaysReport.ways
+    # reads them, each unit's way's counts summed; nil when none
+    # lists any, eg reports the :post reporter sent, so a render
+    # cannot say which ways were taken.
+    def self.ways(paths)
+      runs = paths.map do |path|
+        report = JSON.parse(File.read(path))
+        listed_ways?(report) ? WaysReport.ways(report) : nil
+      end.compact
+      return nil if runs.empty?
+
+      runs.reduce do |all, run|
+        all.merge(run) do |_, ways, more|
+          ways.merge(more) { |_, a, b| a + b }
+        end
+      end
+    end
+
+    # True when report, a JSON report, lists its cards' ways: one a
+    # run wrote, which names the max_paths its cards were listed
+    # with; not one the :post reporter sent, which has no cards.
+    def self.listed_ways?(report)
+      report.key?('max_paths')
     end
 
     # Example: { "k.rb:2:2" => 2 } and { "k.rb:2:2" => 1 } give

@@ -1,6 +1,7 @@
 require_relative 'calls'
 require_relative 'configuration'
 require_relative 'manifest'
+require_relative 'method_loops'
 require_relative 'recorder'
 require_relative 'render'
 require_relative 'result'
@@ -84,15 +85,53 @@ module PathCoverage
   end
 
   # The compiled, rewritten code of path, or nil for a path
-  # config does not cover, which Ruby then loads as normal.
+  # config does not cover, which Ruby then loads as normal. Each
+  # call of a method in it is traced, as its way is recorded.
   def self.instrumented(path, config)
     return unless config.covers?(path)
 
     parsed = @parsed[path] = Manifest.parse(path, config)
+    args = [parsed[:source], config.relative(path),
+            parsed[:decisions]]
+    loops = MethodLoops.of(*args)
+    rewritten = rewritten(path, parsed, config, loops)
+    iseq = RubyVM::InstructionSequence
+    traced(iseq.compile(rewritten, path, path),
+           [loops, MethodLoops.repeats(*args)])
+  end
+
+  # The source of parsed, the file at path, rewritten: each of its
+  # decisions recorded, each statement reach counted, and each
+  # pass of each of loops, { entry => loops }, noted.
+  def self.rewritten(path, parsed, config, loops)
     source = parsed[:source]
     reaches = WithinMethods.reaches(path, parsed, config)
-    rewritten = Rewriter.rewrite(source, parsed[:decisions], reaches)
-    RubyVM::InstructionSequence.compile(rewritten, path, path)
+    passes = MethodLoops.passes(source, config.relative(path), loops)
+    Rewriter.rewrite(source, parsed[:decisions], reaches, passes)
+  end
+
+  # compiled, after noting each of its methods' loops and repeats,
+  # [{ entry => loops }, { entry => repeats }], as MethodLoops
+  # gives them, on the recorder's trace, and tracing each call of
+  # them, and only of them, on the trace of whichever start is
+  # current as it runs. Code with no method has no call to
+  # trace, and TracePoint refuses to trace it.
+  def self.traced(compiled, (loops, repeats))
+    return compiled if loops.empty?
+
+    loops.each do |entry, held|
+      @recorder.trace.know(entry, held, repeats[entry])
+    end
+    hook = method(:on_call_event)
+    TracePoint.new(:call, :return, &hook).enable(target: compiled)
+    compiled
+  end
+
+  # Notes point, a TracePoint's :call or :return of a covered
+  # method, on the current start's trace.
+  def self.on_call_event(point)
+    trace = @recorder.trace
+    point.event == :call ? trace.call : trace.return
   end
 
   # Writes the JSON reports, then runs the chosen reporters, for
@@ -103,8 +142,10 @@ module PathCoverage
     decisions = merged_decisions(files)
     result = Result.new(decisions, @recorder.counts,
                         @recorder.decision_paths)
+    reached = @recorder.reached
+    ways = @recorder.trace.ways
     Render.run(result.operands, files, config,
-               **result.taken, reached: @recorder.reached)
+               **result.taken, reached:, ways:)
   end
 
   # { full path => {source:, decisions:} } for every covered file:
