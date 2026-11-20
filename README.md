@@ -356,14 +356,22 @@ cannot be closed is the lesser error than hiding one that can.
 ### Methods
 
 Each method has a flow, named by the `path:line:column` of its `def`,
-with a row for each statement that shapes its paths: each decision, and
-each `return` or `raise`, which ends a path. Any other statement, eg
+with a row for each statement that shapes its paths: each decision, each
+`return` or `raise`, which ends a path, and each `next`, `break` or
+`retry`, which ends a pass of its loop. Any other statement, eg
 `x = 1`, runs exactly when what holds it does, so is no row. A decision's
 row counts its paths; a `return` or `raise` row is one path, taken
 when it is reached. A method's total adds up its rows. Its `calls`
 count how many times it was called, so a method never called is a gap,
 even one with no rows. A file's code outside any method gets a flow
 of its own.
+
+A `begin` or `def` with `rescue` clauses forks its flow: its body
+completes, or one of its rescues runs. A rescue can run after any part
+of its body, as a raise can come from any call, so which exception was
+raised is not tracked. A `rescue` modifier, `x rescue y`, forks the
+same way, with one rescue. With `loops`, each loop forks too: 0 items,
+or 1+ items, its body walked once.
 
 The JSON report's `flows` hold each flow's rows, its `ways` and its
 `calls`, and its `tree` says how those rows nest.
@@ -396,7 +404,9 @@ flip.rb:5:11 path taken that its method rules out: `member` true
 
 - `:ways` prints, for each method with a path through it that no run
   took, the choices a test must make to take each one, every leaf by its
-  source text; a loop is named by its line and how many items it ran:
+  source text; a loop is named by its line and how many items it ran,
+  and a rescue by its line and whether its body completed or which
+  rescue ran:
 
 ```text
 lib/orders.rb:2 total() has 1 untested path.
@@ -480,8 +490,8 @@ Decisions covered now: `&&`, `||`, `and`, `or`, the ternary `?:`,
 with a subject, and the block methods `any?` `all?` `none?` `find`
 `detect` `find_index` `take_while` `select` `filter` `reject`
 `partition` `count` `filter_map`, the writes `||=` and `&&=`, and `&.`
-safe-navigation chains. Method paths cover every decision at a method's
-top level.
+safe-navigation chains. Method paths cover every decision in a method,
+nested ones included, and its `rescue` clauses and modifiers.
 
 Next:
 
@@ -490,28 +500,21 @@ Next:
     with blocks of more than one expression
   - `fetch(k, default)`, `dig`, `Hash#[]` with a default: present vs default
   - `x || default` in value context: nil vs not nil
-  - `x rescue y` modifier: raised vs not raised
   - `case` with no subject, and `case`/`in` patterns
   - regex matches: nil vs MatchData
 - `treat 'methods_of', as: :truthy`, so each call to it counts as a
   leaf that is only truthy, as `Foo.new` is, and a run where it returns
   nil or false is reported. Later, treatments could come from the
   project's RBS signatures (`sig/*.rbs`) too.
-- exceptions the code itself names: a `begin` or `def` with `rescue`
-  clauses as a decision, like a `case`, whose paths are no raise and each
-  clause that rescued, eg `rescue IOError` never taken. Branch coverage
-  ignores `rescue`, and tests reach these paths with real input. A raise
-  that nothing names, from any call, stays out, as every leaf would gain
-  a third outcome that only fault injection could take.
 - an evaluation that raised part way through a decision, eg
   `ok?(id) && fetch(id)` where `fetch` raises, reported as a path that
   raised rather than dropped as unfinished.
 - complexity maximums, reported and gated, since the possible paths
   count how much there is to test, not only how much was tested. A
   file's total measures its size, so each is a maximum over smaller
-  parts:
+  parts. `max_paths` already gates the paths through one method; still
+  to come:
   - paths in one decision, eg 6 for a `select` block
-  - paths through one method's decisions, eg 2 top-level ifs give 4
   - paths within each decision, summed over every decision in one
     method, nested ones included, eg decisions of 2, 3 and 15 paths
     sum to 20. Every method has one, and it grows as the method gains
