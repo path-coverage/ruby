@@ -42,28 +42,37 @@ class MethodGrammar
   # leaves can repeat.
   TOPS = { false => 2, true => 3 }.freeze
 
+  # The rescue a rescued method ends with, catching its raises.
+  RESCUE = "rescue Stop\n-1".freeze
+
   # Example: MethodGrammar.new(7).source, a method of seed 7;
-  # MethodGrammar.new(7, reuse: true), one whose leaves can repeat.
-  def initialize(seed, reuse: false)
+  # MethodGrammar.new(7, reuse: true), one whose leaves can repeat;
+  # MethodGrammar.new(7, rescued: true), one whose raises its own
+  # rescue catches.
+  def initialize(seed, reuse: false, rescued: false)
     @random = Random.new(seed)
     @leaves = 0
     @reuse = reuse
+    @rescued = rescued
   end
 
   # The source of a module Snippet holding Stop, the error its
   # raises raise, and run, whose parameters are its leaves, two
-  # top-level statements, three with reuse, between t = 0 and its
-  # value, t.
+  # top-level statements, three with reuse, after t = 0. Its value
+  # is t; but rescued, half the time it is its last statement's,
+  # which can leave, and a rescue of Stop gives -1.
   def source
     top = FLAT.merge(NESTING)
     statements = Array.new(TOPS.fetch(@reuse)) { statement(top) }
+    statements << 't' unless @rescued && @random.rand(2).zero?
+    statements << RESCUE if @rescued
     snippet(statements.join("\n"))
   end
 
   private
 
   # The module Snippet whose run's parameters are the leaves so
-  # far, its body between t = 0 and t.
+  # far, its body after t = 0.
   def snippet(body)
     params = Array.new(@leaves) { "p#{_1}" }.join(', ')
     <<~RUBY
@@ -73,7 +82,6 @@ class MethodGrammar
         def self.run(#{params})
           t = 0
       #{body}
-          t
         end
       end
     RUBY

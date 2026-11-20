@@ -12,15 +12,6 @@ require_relative 'source_lines'
 module PathCoverage
   # What is measured within each method of a covered file.
   module WithinMethods
-    # Where each statement of the covered file at path, parsed
-    # as Manifest.parse gives it, that is no decision is reached,
-    # as MethodStatements.reaches gives them.
-    def self.reaches(path, parsed, config)
-      source, decisions = parsed.values_at(:source, :decisions)
-      relative = config.relative(path)
-      MethodStatements.reaches(source, relative, decisions)
-    end
-
     # Example: { "k.rb:0:0" => [1, 2], "k.rb:1:0" => [2, 4] }.
     # Each def's card total, [taken, size], in every file in
     # files, { full path => {source:, decisions:} }, from paths, as
@@ -166,14 +157,17 @@ module PathCoverage
         @limit = limit
         @loops = MethodLoops.of(source, path, decisions)
         @forks = LoopForks.of(source, path, decisions)
+        @rescues = RescueForks.of(source, path)
         @forking = loops
       end
 
       # How many ways go through the card of the def at key, its
-      # rows, each loop a fork when loops are.
+      # rows, each loop a fork when loops are, and its rescue a
+      # fork.
       def count(key, rows)
+        folding = [true, forked(key), @rescues.fetch(key)]
         CardWays.card(@source, @decisions, rows,
-                      WayAlgebras::Counted, [true, forked(key)])
+                      WayAlgebras::Counted, folding)
       end
 
       # The way lists of the card of the def at key, its rows, with
@@ -188,7 +182,7 @@ module PathCoverage
 
         forked = forked(key)
         split = MethodWays.split_card(@source, @decisions, rows,
-                                      forked)
+                                      forked, @rescues.fetch(key))
         checked = [split, forked.keys]
         walked.merge(CardWayLists.checked(key, @ways, checked))
       end

@@ -52,6 +52,20 @@ module PathCoverage
       nil
     end
 
+    # Notes the rescue fork named name completed, a step of the
+    # call under way; returns value unchanged.
+    def completed(name, value)
+      @trace.decided(name, ['completed'])
+      value
+    end
+
+    # Notes the rescue numbered number of the rescue fork named
+    # name ran, a step of the call under way.
+    def rescued(name, number)
+      @trace.decided(name, ["rescue #{number}"])
+      nil
+    end
+
     # The stack of decision's evaluations under way in the current
     # thread (fiber), innermost last, so another thread's never
     # mix with its.

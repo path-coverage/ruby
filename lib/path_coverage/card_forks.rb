@@ -5,7 +5,7 @@ module PathCoverage
   # decision is, by its bytes; its body is a region of it run on
   # its path 1, at least one item, so holds its rows; its path 0
   # is no item. Its module functions place it, for CardTree; its
-  # instance method folds it, for CardWays, which includes it.
+  # instance methods fold it, for CardWays, which includes it.
   module CardForks
     # The region of each loop of forks: its body, run on its path
     # 1.
@@ -35,10 +35,21 @@ module PathCoverage
     # going on, or at least one, then the rows of its body one
     # after another, walked once.
     def fork_pair(key)
-      pairs = running(key, 1).map { pair_of(_1) }
+      triples = running(key, 1).map { pair_of(_1) }
       own = @ways.unit([key, 1])
-      some = sequence(pairs).map { @ways.times(own, _1) }
-      added([[@ways.unit([key, 0]), @ways.zero], some])
+      some = sequence(triples).map { @ways.times(own, _1) }
+      added([[@ways.unit([key, 0]), @ways.zero, @ways.zero], some])
     end
+
+    # triples, [on, returned, raised], added up, each part on its
+    # own; no ways for no triples.
+    def added(triples)
+      triples.reduce(nothing) do |sum, triple|
+        sum.zip(triple).map { @ways.plus(*_1) }
+      end
+    end
+
+    # The triple of no ways.
+    def nothing = [@ways.zero, @ways.zero, @ways.zero]
   end
 end

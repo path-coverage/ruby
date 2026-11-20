@@ -84,6 +84,30 @@ class CardGapsTest < TidTest
     assert_equal expected, PathCoverage::CardGaps.lines(cards, {}, {})
   end
 
+  test 'Cg7a03', %w(
+  | Example: price, a def parsing text as an Integer with a rescue
+  | of ArgumentError, never called
+  | A rescue's step is named by its line and its path: its body
+  | completing, or which of its rescues ran.
+  ) do
+    gaps = ['completed', 'rescue 1'].map do |path|
+      [{ 'at' => '4:02', 'path' => [path] }]
+    end
+    cards = {
+      'lib/price.rb:2:2' => {
+        'name' => 'of', 'rows' => [], 'ways' => 2, 'taken' => [],
+        'gaps' => gaps, 'impossible_taken' => []
+      }
+    }
+    expected = [
+      'lib/price.rb:2 of() has 2 untested paths.',
+      'Add tests that take each of these paths:',
+      '  1. line 4 rescue: body completes',
+      '  2. line 4 rescue: rescue 1 runs'
+    ]
+    assert_equal expected, PathCoverage::CardGaps.lines(cards, {}, {})
+  end
+
   private
 
   # A card of fee listing gaps as its untested paths.

@@ -102,4 +102,17 @@ module PathCoverage
   def self.pass(name)
     @recorder.pass(name)
   end
+
+  # The call rewritten code makes around the last statement of a
+  # body with a rescue: the fork named name completed, the body
+  # running to its end; returns value unchanged.
+  def self.completed(name, value)
+    @recorder.completed(name, value)
+  end
+
+  # The call rewritten code makes first in the body of the rescue
+  # numbered number of the rescue fork named name: that rescue ran.
+  def self.rescued(name, number)
+    @recorder.rescued(name, number)
+  end
 end

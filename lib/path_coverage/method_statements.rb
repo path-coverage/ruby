@@ -53,6 +53,16 @@ module PathCoverage
       collect(source, path, decisions).reaches
     end
 
+    # Example: { "k.rb:1:0" => 14 } for a def whose body starts at
+    # byte 14.
+    # Where a call can count the calls of each def in source, by
+    # the def's own name, where it is entered on every call: its
+    # byte offset, or, for an endless def, its body's byte range,
+    # to be wrapped.
+    def self.entries(source, path, decisions = nil)
+      collect(source, path, decisions).entries
+    end
+
     # A Collector that has visited each def in source, with
     # decisions, or, for nil, those of no settings.
     def self.collect(source, path, decisions)
@@ -152,6 +162,7 @@ module PathCoverage
         @names = {}
         @lasts = {}
         @reaches = {}
+        @entries = {}
         super()
       end
 
@@ -159,8 +170,10 @@ module PathCoverage
       # names and last lines, { def decision => name } and
       # { def decision => line }; where each row that is no
       # decision is reached, as MethodStatements.reaches has it;
-      # and the decisions it was given, { decision => Condition }.
-      attr_reader :methods, :names, :lasts, :reaches, :decisions
+      # where each def is entered, as MethodStatements.entries has
+      # it; and the decisions it was given, { decision => Condition }.
+      attr_reader :methods, :names, :lasts, :reaches, :entries,
+                  :decisions
 
       # Notes node's name, its last line, its body statements as
       # its rows, those in its decisions' arms too, but only those
@@ -182,7 +195,7 @@ module PathCoverage
       def note_def(decision, node)
         @names[decision] = node.name
         @lasts[decision] = node.location.end_line
-        @reaches[decision] = entry_at(node)
+        @entries[decision] = entry_at(node)
       end
 
       # Notes where each of tops that is no decision, a return or a

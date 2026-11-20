@@ -109,6 +109,30 @@ class CallTraceTest < TidTest
     assert_equal expected, trace.ways
   end
 
+  test 'Ct7r05', %w(
+  | Example: total, which returns a lambda holding an if on paid;
+  | later, which calls that lambda after total has returned
+  | A step of a method with no call of its own under way, eg of a
+  | lambda it made, run while another method's call is the only
+  | one under way, goes nowhere: neither call's way takes it.
+  ) do
+    trace = PathCoverage::CallTrace.new
+    total = 'k.rb:1:0'
+    later = 'k.rb:8:0'
+    paid = 'k.rb:3:4'
+    trace.know(total, { paid => [] })
+    trace.know(later, { 'k.rb:9:2' => [] })
+    trace.call
+    trace.reach(total)
+    trace.return
+    trace.call
+    trace.reach(later)
+    trace.decided(paid, [true])
+    trace.return
+    expected = { total => { [] => 1 }, later => { [] => 1 } }
+    assert_equal expected, trace.ways
+  end
+
   private
 
   # Runs depth on a node with one leaf child, as trace sees it:

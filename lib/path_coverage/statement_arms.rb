@@ -40,9 +40,20 @@ module PathCoverage
       body = node.body
       return node.end_keyword_loc.start_offset if body.nil?
 
-      loc = body.location
+      loc = entered(body).location
       start = loc.start_offset
       node.equal_loc ? start...loc.end_offset : start
+    end
+
+    # The node body, a def's, is entered at on every call: body
+    # itself, or, for a body with a rescue or an ensure, whose
+    # begin starts at the def, its statements, or, when it has
+    # none, its first rescue, else its ensure.
+    def entered(body)
+      return body unless body.type == :begin_node
+
+      [body.statements, body.rescue_clause, body.ensure_clause]
+        .compact.first
     end
 
     # Example: return a ? 1 : 2 if x gives the ?:.

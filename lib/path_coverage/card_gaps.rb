@@ -1,4 +1,5 @@
 require_relative 'gaps'
+require_relative 'method_ways'
 
 module PathCoverage
   # The terminal worklist of the untested paths through each
@@ -111,14 +112,24 @@ module PathCoverage
       private
 
       # One step's choice, after its line: a decision's leaves'
-      # outcomes, or a loop's items.
+      # outcomes, or a fork's path, a loop's or a rescue's.
       def choice(step)
         line = step['at'].split(':').first
         decision = @decisions[step['at']]
         path = step['path']
-        return "line #{line} loop: #{path.first}" if decision.nil?
+        return "line #{line} #{forked(path.first)}" if decision.nil?
 
         "line #{line} #{Gaps.steps(path, @texts[decision])}"
+      end
+
+      # A fork's path, labelled as MethodWays labels it: a loop's
+      # items, as FORKS has them; else a rescue's, its body
+      # completing or which of its rescues runs.
+      def forked(label)
+        return "loop: #{label}" if MethodWays::FORKS.include?(label)
+        return 'rescue: body completes' if label == 'completed'
+
+        "rescue: #{label} runs"
       end
     end
   end

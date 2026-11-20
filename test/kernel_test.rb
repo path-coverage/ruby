@@ -1677,6 +1677,133 @@ class KernelTest < TidTest
     assert_equal expected, t.json['cards']
   end
 
+  test '6rTSr1', %w(
+  | Example: module Price holding of, a def parsing text as an
+  | Integer, with a rescue of ArgumentError giving 0; called once
+  | with '12'
+  | The rescue forks the card: 2 ways, the body completing, which
+  | the call took, or the rescue running, a gap. Each is a step at
+  | the rescue, its path completed or the rescue's number.
+  ) do |t|
+    t.write(<<~RUBY)
+      module Price
+        def self.of(text)
+          Integer(text)
+        rescue ArgumentError
+          0
+        end
+      end
+    RUBY
+    t.start { report }
+    t.load::Price.of('12')
+    t.report
+    completed, ran = ['completed', 'rescue 1'].map do |path|
+      [{ 'at' => '4:02', 'path' => [path] }]
+    end
+    expected = {
+      "#{t.file}:2:2" => {
+        'name' => 'of', 'first' => 2, 'last' => 6, 'ways' => 2,
+        'calls' => 1, 'rows' => [],
+        'taken' => [{ 'way' => completed, 'count' => 1 }],
+        'passes' => {},
+        'covered' => [{ 'way' => completed, 'count' => 1 }],
+        'gaps' => [ran], 'impossible' => [],
+        'impossible_taken' => []
+      }
+    }
+    assert_equal expected, t.json['cards']
+  end
+
+  test '6rTSr2', %w(
+  | Example: module Price holding of, a def parsing text as an
+  | Integer, with a rescue of ArgumentError giving 0; called once
+  | with 'x'
+  | A call whose rescue runs takes the fork's path of that
+  | rescue, here rescue 1, its step at the rescue; the body
+  | completing is the gap.
+  ) do |t|
+    t.write(<<~RUBY)
+      module Price
+        def self.of(text)
+          Integer(text)
+        rescue ArgumentError
+          0
+        end
+      end
+    RUBY
+    t.start { report }
+    t.load::Price.of('x')
+    t.report
+    completed, ran = ['completed', 'rescue 1'].map do |path|
+      [{ 'at' => '4:02', 'path' => [path] }]
+    end
+    card = t.json['cards']["#{t.file}:2:2"]
+    taken = card.slice('taken', 'covered', 'gaps')
+    expected = {
+      'taken' => [{ 'way' => ran, 'count' => 1 }],
+      'covered' => [{ 'way' => ran, 'count' => 1 }],
+      'gaps' => [completed]
+    }
+    assert_equal expected, taken
+  end
+
+  test '6rTSr3', %w(
+  | Example: module Log holding quiet, a def whose body and whose
+  | rescue of IOError are both empty; called once
+  | An empty body completes, and an empty rescue still forks, so
+  | the call takes completed, the rescue the gap.
+  ) do |t|
+    t.write(<<~RUBY)
+      module Log
+        def self.quiet
+        rescue IOError
+        end
+      end
+    RUBY
+    t.start { report }
+    t.load::Log.quiet
+    t.report
+    completed, ran = ['completed', 'rescue 1'].map do |path|
+      [{ 'at' => '3:02', 'path' => [path] }]
+    end
+    card = t.json['cards']["#{t.file}:2:2"]
+    expected = {
+      'ways' => 2,
+      'taken' => [{ 'way' => completed, 'count' => 1 }],
+      'gaps' => [ran]
+    }
+    assert_equal expected, card.slice('ways', 'taken', 'gaps')
+  end
+
+  test '6rTSr4', %w(
+  | Example: module Price holding of, a def returning text parsed
+  | as an Integer, with a rescue of ArgumentError giving 0; called
+  | once with '12'
+  | A body whose last statement leaves never completes, so has no
+  | completed path to note: its ways are the return, which the
+  | call took, and the rescue, the gap.
+  ) do |t|
+    t.write(<<~RUBY)
+      module Price
+        def self.of(text)
+          return Integer(text)
+        rescue ArgumentError
+          0
+        end
+      end
+    RUBY
+    t.start { report }
+    t.load::Price.of('12')
+    t.report
+    card = t.json['cards']["#{t.file}:2:2"]
+    expected = {
+      'ways' => 2,
+      'taken' => [{ 'way' => [{ 'at' => '3:04' }], 'count' => 1 }],
+      'gaps' => [[{ 'at' => '4:02', 'path' => ['rescue 1'] }]]
+    }
+    assert_equal expected, card.slice('ways', 'taken', 'gaps')
+  end
+
   test '6rTS6k', %w(
   | Example: module Rate holding a ?: outside any method, with
   | no RATE set

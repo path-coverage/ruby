@@ -4,6 +4,7 @@ require_relative 'manifest'
 require_relative 'method_loops'
 require_relative 'recorder'
 require_relative 'render'
+require_relative 'rescue_forks'
 require_relative 'result'
 require_relative 'rewriter'
 require_relative 'within_methods'
@@ -94,20 +95,40 @@ module PathCoverage
     args = [parsed[:source], config.relative(path),
             parsed[:decisions]]
     loops = MethodLoops.of(*args)
-    rewritten = rewritten(path, parsed, config, loops)
+    rescues = RescueForks.found(*args.first(2))
+    rewritten = rewritten(args, [loops, rescues])
     iseq = RubyVM::InstructionSequence
     traced(iseq.compile(rewritten, path, path),
-           [loops, MethodLoops.repeats(*args)])
+           known(args, loops, rescues.forks))
   end
 
-  # The source of parsed, the file at path, rewritten: each of its
-  # decisions recorded, each statement reach counted, and each
-  # pass of each of loops, { entry => loops }, noted.
-  def self.rewritten(path, parsed, config, loops)
-    source = parsed[:source]
-    reaches = WithinMethods.reaches(path, parsed, config)
-    passes = MethodLoops.passes(source, config.relative(path), loops)
-    Rewriter.rewrite(source, parsed[:decisions], reaches, passes)
+  # [loops, repeats] of the file of args, [source, path,
+  # decisions], as traced takes them: loops, { entry => { row's
+  # name => the loops holding it } }, as MethodLoops gives them,
+  # with each def's rescue forks, as RescueForks gives them, among
+  # its names, in no loop, so their steps are its calls'.
+  def self.known(args, loops, forks)
+    owned = loops.to_h do |entry, held|
+      [entry, held.merge(forks.fetch(entry).keys.to_h { [_1, []] })]
+    end
+    [owned, MethodLoops.repeats(*args)]
+  end
+
+  # source rewritten, the file at relative path, decisions as
+  # Manifest gives them: each of its decisions recorded, each
+  # statement reach counted, each pass of each of loops, { entry
+  # => loops }, noted, each def's entry counted, before any
+  # statement's reach there, and each rescue's running and its
+  # body's completing noted, as rescues, RescueForks.found's,
+  # finds them.
+  def self.rewritten((source, relative, decisions), (loops, rescues))
+    found = MethodStatements.collect(source, relative, decisions)
+    passes = MethodLoops.passes(source, relative, loops)
+    marks = { reaches: found.reaches, passes:,
+              entries: found.entries,
+              completions: rescues.completions,
+              rescues: rescues.starts }
+    Rewriter.rewrite(source, decisions, marks)
   end
 
   # compiled, after noting each of its methods' loops and repeats,

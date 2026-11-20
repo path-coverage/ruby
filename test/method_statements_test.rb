@@ -302,7 +302,9 @@ class MethodStatementsTest < TidTest
       end
     RUBY
     reaches = PathCoverage::MethodStatements.reaches(source, 'k.rb')
-    assert_equal({ 'k.rb:1:0' => 18, 'k.rb:3:4' => 40 }, reaches)
+    assert_equal({ 'k.rb:3:4' => 40 }, reaches)
+    entries = PathCoverage::MethodStatements.entries(source, 'k.rb')
+    assert_equal({ 'k.rb:1:0' => 18 }, entries)
   end
 
   test 'St3e16', %w(
@@ -317,8 +319,9 @@ class MethodStatementsTest < TidTest
       def nope = raise('no')
     RUBY
     reaches = PathCoverage::MethodStatements.reaches(source, 'k.rb')
-    expected = { 'k.rb:1:0' => 11...22, 'k.rb:1:11' => 11...22 }
-    assert_equal expected, reaches
+    assert_equal({ 'k.rb:1:11' => 11...22 }, reaches)
+    entries = PathCoverage::MethodStatements.entries(source, 'k.rb')
+    assert_equal({ 'k.rb:1:0' => 11...22 }, entries)
   end
 
   test 'St3e36', %w(
@@ -336,12 +339,56 @@ class MethodStatementsTest < TidTest
       def none; end
       def one = 2
     RUBY
-    reaches = PathCoverage::MethodStatements.reaches(source, 'k.rb')
-    entries = reaches.slice('k.rb:1:0', 'k.rb:4:0', 'k.rb:5:0')
+    entries = PathCoverage::MethodStatements.entries(source, 'k.rb')
     expected = {
       'k.rb:1:0' => 14, 'k.rb:4:0' => 34, 'k.rb:5:0' => 48...49
     }
     assert_equal expected, entries
+  end
+
+  test 'St3e38', %w(
+  | Example: price, a def with a rescue; total, a def with an
+  | ensure; quiet, a def with an empty body and a rescue
+  | A def whose body has a rescue or an ensure is entered inside
+  | it, on every call: before its first statement, or, for an
+  | empty body, before its first rescue.
+  ) do
+    source = <<~RUBY
+      def price(text)
+        Integer(text)
+      rescue ArgumentError
+        0
+      end
+      def total
+        1
+      ensure
+        log
+      end
+      def quiet
+      rescue
+        nil
+      end
+    RUBY
+    entries = PathCoverage::MethodStatements.entries(source, 'k.rb')
+    expected = {
+      'k.rb:1:0' => 18, 'k.rb:6:0' => 73, 'k.rb:11:0' => 102
+    }
+    assert_equal expected, entries
+  end
+
+  test 'St3e39', %w(
+  | Example: flush, a def with an empty body and an ensure
+  | A def whose body is empty but for an ensure is entered on
+  | every call before its ensure.
+  ) do
+    source = <<~RUBY
+      def flush
+      ensure
+        close
+      end
+    RUBY
+    entries = PathCoverage::MethodStatements.entries(source, 'k.rb')
+    assert_equal({ 'k.rb:1:0' => 10 }, entries)
   end
 
   test 'St3e37', %w(

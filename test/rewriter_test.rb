@@ -398,7 +398,7 @@ class RewriterTest < TidTest
       ''
     ].join("\n")
     rewriter = PathCoverage::Rewriter
-    assert_equal expected, rewriter.rewrite(source, {}, reaches)
+    assert_equal expected, rewriter.rewrite(source, {}, { reaches: })
   end
 
   test '6D1Kr2', %w(
@@ -410,6 +410,31 @@ class RewriterTest < TidTest
     reaches = { 'k.rb:1:11' => 11...12 }
     expected = "def zero = (PathCoverage.reach(\"k.rb:1:11\"); 0)\n"
     rewriter = PathCoverage::Rewriter
-    assert_equal expected, rewriter.rewrite(source, {}, reaches)
+    assert_equal expected, rewriter.rewrite(source, {}, { reaches: })
+  end
+
+  test '6D1Kr3', %w(
+  | Example: nope, a def whose first statement is a raise
+  | Its entry and its raise are reached at the same place. The
+  | entry's reach call comes first, outermost, so the call's way
+  | starts before the raise is a step of it.
+  ) do
+    source = <<~RUBY
+      def nope
+        raise 'no'
+      end
+    RUBY
+    reaches = { 'k.rb:2:2' => 11 }
+    entries = { 'k.rb:1:0' => 11 }
+    expected = [
+      'def nope',
+      '  PathCoverage.reach("k.rb:1:0"); ' \
+      'PathCoverage.reach("k.rb:2:2"); raise \'no\'',
+      'end',
+      ''
+    ].join("\n")
+    rewriter = PathCoverage::Rewriter
+    actual = rewriter.rewrite(source, {}, { reaches:, entries: })
+    assert_equal expected, actual
   end
 end

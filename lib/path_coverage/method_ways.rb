@@ -5,6 +5,7 @@ require_relative 'decision_paths'
 require_relative 'manifest'
 require_relative 'loop_forks'
 require_relative 'method_statements'
+require_relative 'rescue_forks'
 require_relative 'way_algebras'
 
 module PathCoverage
@@ -28,18 +29,22 @@ module PathCoverage
       decisions = Manifest.decisions(source, path)
       cards = MethodStatements.of(source, path, decisions)
       forks = LoopForks.of(source, path, decisions)
+      rescues = RescueForks.of(source, path)
       cards.to_h do |key, rows|
         forked = loops ? forks.fetch(key) : {}
-        [key, split_card(source, decisions, rows, forked)]
+        [key, split_card(source, decisions, rows, forked,
+                         rescues.fetch(key))]
       end
     end
 
     # [possible, impossible] of the card of rows in source, as
-    # split gives them, each loop of forks a fork; a way giving no
-    # items to a loop declared never empty is impossible.
-    def self.split_card(source, decisions, rows, forks = {})
+    # split gives them, each loop of forks a fork, and each rescue
+    # fork of rescues, as RescueForks gives a def's; a way giving
+    # no items to a loop declared never empty is impossible.
+    def self.split_card(source, decisions, rows, forks = {},
+                        rescues = {})
       possible, all = [true, false].map do |stable|
-        listed(source, decisions, rows, [stable, forks])
+        listed(source, decisions, rows, [stable, forks, rescues])
       end
       lines = never_empty(source)
       by = possible.group_by { empties?(_1, lines) }
@@ -71,20 +76,41 @@ module PathCoverage
     # The steps of a loop's fork, by its path: no pass, or some.
     FORKS = ['0 items', '1+ items'].freeze
 
-    # The ways through the card of rows, as steps, those no call
-    # can take too unless stable, each loop of forks a fork.
-    def self.listed(source, decisions, rows, (stable, forks))
+    # The ways through the card of rows, as steps; folding is
+    # [stable, forks, rescues]: those no call can take too unless
+    # stable, each loop of forks a fork, and each rescue fork of
+    # rescues.
+    def self.listed(source, decisions, rows, folding)
       ways = CardWays.card(source, decisions, rows,
-                           WayAlgebras::Listed, [stable, forks])
+                           WayAlgebras::Listed, folding)
       steps = rows.to_h { [CardTree.key_of(_1), _1] }
-      loops = forks.keys.to_h { [CardTree.key_at(_1), _1] }
+      named = fork_names(folding)
       ways.map do |way|
         way.map do |key, index|
-          next [loops[key], [FORKS[index]]] if loops.key?(key)
+          next fork_step(named[key], index) if named.key?(key)
 
           step(steps, decisions, key, index)
         end
       end
+    end
+
+    # { key => [kind, name] }, by key, of each loop of folding's
+    # forks, of kind :loop, and each fork of its rescues, of kind
+    # :rescue; folding is [stable, forks, rescues].
+    def self.fork_names((_, forks, rescues))
+      loops = forks.keys.to_h { [CardTree.key_at(_1), [:loop, _1]] }
+      loops.merge(rescues.keys.to_h do |name|
+        [CardTree.key_at(name), [:rescue, name]]
+      end)
+    end
+
+    # The step of the fork of kind named name on its path at index:
+    # a loop's no item or some; a rescue fork's completed, its body
+    # running to its end, or the number of the rescue that ran.
+    def self.fork_step((kind, name), index)
+      return [name, [FORKS[index]]] if kind == :loop
+
+      [name, [index.zero? ? 'completed' : "rescue #{index}"]]
     end
 
     # The ways, as of lists them, that way, a call's, as its trace
