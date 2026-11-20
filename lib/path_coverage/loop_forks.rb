@@ -45,7 +45,7 @@ module PathCoverage
       return if body.nil? || LoopNodes.modifier?(loop)
       return unless LoopNodes.first_statement(body)
 
-      [Decision.at(path, loop.location),
+      [Decision.at(path, LoopNodes.at(loop)),
        [range(loop.location), range(body.location)]]
     end
 

@@ -148,4 +148,68 @@ class MethodLoopsTest < TidTest
     held = { 'k.rb:2:2' => [], 'k.rb:2:25' => ['k.rb:2:2'] }
     assert_equal [{ 'k.rb:1:0' => held }, {}], [loops, passes]
   end
+
+  test 'Mp7q06', %w(
+  | Example: number and again, defs parsing the first of texts,
+  | each with a rescue of ArgumentError that retries unless texts
+  | are used up; then the same with none, an empty def, and
+  | plain, a def with no rescue, between them
+  | A def whose own rescue retries restarts its frame on a retry,
+  | so it is noted by the line it starts on. A def with no body,
+  | or no rescue, is not.
+  ) do
+    number = <<~RUBY
+      def number(texts)
+        Integer(texts.shift)
+      rescue ArgumentError
+        retry unless texts.empty?
+        0
+      end
+    RUBY
+    again = number.sub('number', 'again')
+    between = "def none; end\ndef plain(text)\n  Integer(text)\nend\n"
+    sources = [number + again, number + between + again]
+    restarts = sources.map do |source|
+      PathCoverage::MethodLoops.restarts(source)
+    end
+    assert_equal [Set[1, 7], Set[1, 11]], restarts
+  end
+
+  test 'Mp7q07', %w(
+  | Example: fetch, a def whose begin gets a url, with a rescue
+  | holding a begin of its own that logs it, with a rescue that
+  | retries; then ship, a def whose begin sends an order, with a
+  | rescue holding a plain begin that logs it, then a retry
+  | A begin whose rescue retries is a loop. A retry in a begin's
+  | own rescue is that begin's, not one holding it. A begin with
+  | no rescue takes no retry.
+  ) do
+    source = <<~RUBY
+      def fetch(url)
+        begin
+          get(url)
+        rescue IOError
+          begin
+            log(url)
+          rescue
+            retry
+          end
+        end
+      end
+      def ship(order)
+        begin
+          order.send
+        rescue IOError
+          begin
+            order.log
+          end
+          retry
+        end
+      end
+    RUBY
+    defs = PathCoverage::LoopNodes.defs(Prism.parse(source).value)
+    loops = defs.flat_map { PathCoverage::LoopNodes.loops_in(_1.body) }
+    lines = loops.map { _1.location.start_line }
+    assert_equal [5, 13], lines
+  end
 end

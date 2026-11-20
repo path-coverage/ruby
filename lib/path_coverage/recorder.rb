@@ -52,15 +52,15 @@ module PathCoverage
       nil
     end
 
-    # Notes the rescue fork named name completed, a step of the
-    # call under way; returns value unchanged.
+    # Notes that the rescue fork named name completed, as a step
+    # of the call under way. Returns value unchanged.
     def completed(name, value)
       @trace.decided(name, ['completed'])
       value
     end
 
-    # Notes the rescue numbered number of the rescue fork named
-    # name ran, a step of the call under way.
+    # Notes that the rescue numbered number of the rescue fork
+    # named name ran, as a step of the call under way.
     def rescued(name, number)
       @trace.decided(name, ["rescue #{number}"])
       nil

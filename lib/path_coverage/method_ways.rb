@@ -31,20 +31,20 @@ module PathCoverage
       forks = LoopForks.of(source, path, decisions)
       rescues = RescueForks.of(source, path)
       cards.to_h do |key, rows|
-        forked = loops ? forks.fetch(key) : {}
-        [key, split_card(source, decisions, rows, forked,
-                         rescues.fetch(key))]
+        scopes = [forks.fetch(key), rescues.fetch(key), loops]
+        [key, split_card(source, decisions, rows, scopes)]
       end
     end
 
     # [possible, impossible] of the card of rows in source, as
-    # split gives them, each loop of forks a fork, and each rescue
-    # fork of rescues, as RescueForks gives a def's; a way giving
-    # no items to a loop declared never empty is impossible.
-    def self.split_card(source, decisions, rows, forks = {},
-                        rescues = {})
+    # split gives them. scopes is [forks, rescues, forking]. Each
+    # loop of forks, as LoopForks gives a def's, is a scope, and a
+    # fork when forking. Each rescue fork of rescues, as
+    # RescueForks gives a def's, forks the card. A way giving no
+    # items to a loop declared never empty is impossible.
+    def self.split_card(source, decisions, rows, scopes)
       possible, all = [true, false].map do |stable|
-        listed(source, decisions, rows, [stable, forks, rescues])
+        listed(source, decisions, rows, [stable, *scopes])
       end
       lines = never_empty(source)
       by = possible.group_by { empties?(_1, lines) }
@@ -76,27 +76,28 @@ module PathCoverage
     # The steps of a loop's fork, by its path: no pass, or some.
     FORKS = ['0 items', '1+ items'].freeze
 
-    # The ways through the card of rows, as steps; folding is
-    # [stable, forks, rescues]: those no call can take too unless
-    # stable, each loop of forks a fork, and each rescue fork of
-    # rescues.
+    # The ways through the card of rows, as steps. Each way's steps
+    # are in the order their rows are written. folding is [stable,
+    # forks, rescues, forking]. Unless stable, the ways include
+    # those no call can take. Each loop in forks is a scope, and
+    # also a fork when forking. Each rescue in rescues is a fork.
     def self.listed(source, decisions, rows, folding)
       ways = CardWays.card(source, decisions, rows,
                            WayAlgebras::Listed, folding)
       steps = rows.to_h { [CardTree.key_of(_1), _1] }
       named = fork_names(folding)
       ways.map do |way|
-        way.map do |key, index|
+        ordered(way.map do |key, index|
           next fork_step(named[key], index) if named.key?(key)
 
           step(steps, decisions, key, index)
-        end
+        end)
       end
     end
 
-    # { key => [kind, name] }, by key, of each loop of folding's
-    # forks, of kind :loop, and each fork of its rescues, of kind
-    # :rescue; folding is [stable, forks, rescues].
+    # { key => [kind, name] } of each fork, by key. folding is
+    # [stable, forks, rescues, forking]. Each loop of its forks is
+    # of kind :loop. Each fork of its rescues is of kind :rescue.
     def self.fork_names((_, forks, rescues))
       loops = forks.keys.to_h { [CardTree.key_at(_1), [:loop, _1]] }
       loops.merge(rescues.keys.to_h do |name|
@@ -104,9 +105,10 @@ module PathCoverage
       end)
     end
 
-    # The step of the fork of kind named name on its path at index:
-    # a loop's no item or some; a rescue fork's completed, its body
-    # running to its end, or the number of the rescue that ran.
+    # The step of the fork of kind named name on its path at index.
+    # A loop's path is no item or some. A rescue fork's path is
+    # completed, its body running to its end, or the number of the
+    # rescue that ran.
     def self.fork_step((kind, name), index)
       return [name, [FORKS[index]]] if kind == :loop
 

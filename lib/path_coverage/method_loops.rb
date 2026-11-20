@@ -5,6 +5,7 @@ require_relative 'loop_forks'
 require_relative 'loop_nodes'
 require_relative 'manifest'
 require_relative 'method_statements'
+require_relative 'rescue_forks'
 
 module PathCoverage
   # The loops of each method: the blocks, lambdas, whiles, untils
@@ -14,19 +15,61 @@ module PathCoverage
   # first run's, as Walk's repeats have them.
   module MethodLoops
     # { def decision => { name => the loops holding it, outermost
-    #   first } } for each def in source, at path: each of its
-    # rows, as MethodStatements gives them, and each loop holding
-    # one or forking, as LoopForks finds them, by name, as Decision
-    # names where it starts.
+    #   first } } for each def in source, at path. It holds each of
+    # its rows, as MethodStatements gives them, and each of its
+    # rescue forks, as RescueForks gives them. It also holds each
+    # loop holding one of those, or forking, as LoopForks finds
+    # them. Each is by name, as Decision names where it starts.
     def self.of(source, path, decisions = nil)
       decisions ||= Manifest.decisions(source, path)
-      rows = MethodStatements.of(source, path, decisions)
+      spots = spots_in(source, path, decisions)
       forks = LoopForks.of(source, path, decisions)
       starts = CardTree.line_starts(source)
       LoopNodes.defs(Prism.parse(source).value).to_h do |node|
         decision = Decision.of(path, node)
         loops = [named(node, path), forks[decision].keys]
-        [decision, holding(rows[decision], loops, starts)]
+        [decision, holding(spots.fetch(decision), loops, starts)]
+      end
+    end
+
+    # A spot a loop can hold, named where it is, like a row.
+    Spot = Data.define(:name, :line, :column)
+
+    # The lines of the defs in source whose body's rescue retries.
+    # A retry there restarts the method's frame, so Ruby reports a
+    # call of it again, with no return of the first.
+    def self.restarts(source)
+      defs = LoopNodes.defs(Prism.parse(source).value)
+      defs.filter_map do |node|
+        node.location.start_line if restarting?(node.body)
+      end.to_set
+    end
+
+    # True for body, a def's, when a retry restarts it: a begin of
+    # the def's own whose rescue retries. An empty body is nil.
+    def self.restarting?(body)
+      return false if body.nil?
+
+      LoopNodes.implicit?(body) && LoopNodes.loop?(body)
+    end
+
+    # { def decision => its spots } for each def in source, at
+    # path. Its spots are its rows, as MethodStatements gives them,
+    # and the Spot of each of its rescue forks.
+    def self.spots_in(source, path, decisions)
+      rows = MethodStatements.of(source, path, decisions)
+      rescues = RescueForks.of(source, path)
+      rows.to_h do |decision, held|
+        [decision, held + spots_of(rescues.fetch(decision))]
+      end
+    end
+
+    # The Spot of each rescue fork of forks, a def's, as
+    # RescueForks gives them.
+    def self.spots_of(forks)
+      forks.keys.map do |name|
+        line, column = name.split(':').last(2).map(&:to_i)
+        Spot.new(name:, line:, column:)
       end
     end
 
@@ -44,7 +87,7 @@ module PathCoverage
     # [name, offset] of node, a loop, where its pass call goes,
     # when it is among held and its body has a statement; else nil.
     def self.pass_at(node, path, held)
-      name = Decision.at(path, node.location)
+      name = Decision.at(path, LoopNodes.at(node))
       return unless held.include?(name) && !LoopNodes.modifier?(node)
 
       first = LoopNodes.first_statement(LoopNodes.body_of(node))
@@ -59,7 +102,7 @@ module PathCoverage
       LoopNodes.loops_in(node.body).filter_map do |loop|
         keyword = LoopNodes::KEYWORDS.include?(loop.type)
         held = keyword ? loop.statements : loop
-        [Decision.at(path, loop.location), held.location] if held
+        [Decision.at(path, LoopNodes.at(loop)), held.location] if held
       end
     end
 
@@ -92,7 +135,8 @@ module PathCoverage
       LoopNodes.loops_in(node).filter_map do |loop|
         next unless %i[while_node until_node].include?(loop.type)
 
-        [Decision.at(path, loop.location), loop.predicate.location]
+        name = Decision.at(path, LoopNodes.at(loop))
+        [name, loop.predicate.location]
       end
     end
 

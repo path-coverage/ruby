@@ -1,4 +1,5 @@
 require_relative 'card_forks'
+require_relative 'card_rescues'
 require_relative 'manifest'
 require_relative 'method_statements'
 require_relative 'decision_paths'
@@ -48,12 +49,15 @@ module PathCoverage
     # starting where its child does, eg an || whose first operand
     # is an any?, holds that child, and is not held by it. Each of
     # forks, { loop's name => [its bytes, its body's] }, as
-    # LoopForks gives them, is placed too, as CardForks places it.
-    def self.nested(source, decisions, rows, forks = {})
+    # LoopForks gives them, is placed too. So is each of rescues,
+    # { fork's name => [its rescues, its bytes, its body's, [each
+    # rescue's body's]] }, as RescueForks gives them. scopes is
+    # [forks, rescues].
+    def self.nested(source, decisions, rows, scopes = [{}, {}])
       regions = card_regions(source, decisions, rows) +
-                CardForks.regions(forks)
+                CardForks.regions(*scopes)
       places = rows_placed(source, rows, [decisions, regions])
-      CardForks.placed(places, forks, regions)
+      CardForks.placed(places, scopes, regions)
     end
 
     # { "line:column" => its place } for each of rows, a card's,

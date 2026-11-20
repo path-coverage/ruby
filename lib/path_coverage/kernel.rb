@@ -98,61 +98,61 @@ module PathCoverage
     rescues = RescueForks.found(*args.first(2))
     rewritten = rewritten(args, [loops, rescues])
     iseq = RubyVM::InstructionSequence
-    traced(iseq.compile(rewritten, path, path),
-           known(args, loops, rescues.forks))
+    traced(iseq.compile(rewritten, path, path), known(args, loops))
   end
 
-  # [loops, repeats] of the file of args, [source, path,
-  # decisions], as traced takes them: loops, { entry => { row's
-  # name => the loops holding it } }, as MethodLoops gives them,
-  # with each def's rescue forks, as RescueForks gives them, among
-  # its names, in no loop, so their steps are its calls'.
-  def self.known(args, loops, forks)
-    owned = loops.to_h do |entry, held|
-      [entry, held.merge(forks.fetch(entry).keys.to_h { [_1, []] })]
-    end
-    [owned, MethodLoops.repeats(*args)]
+  # [loops, repeats, restarts] of the file of args, [source, path,
+  # decisions], as traced takes them, loops as MethodLoops gives
+  # them.
+  def self.known(args, loops)
+    [loops, MethodLoops.repeats(*args), MethodLoops.restarts(args[0])]
   end
 
-  # source rewritten, the file at relative path, decisions as
-  # Manifest gives them: each of its decisions recorded, each
-  # statement reach counted, each pass of each of loops, { entry
-  # => loops }, noted, each def's entry counted, before any
-  # statement's reach there, and each rescue's running and its
-  # body's completing noted, as rescues, RescueForks.found's,
-  # finds them.
+  # source rewritten, the file at relative path, with decisions
+  # as Manifest gives them. Each decision is recorded. Each
+  # statement's reach is counted. Each pass of each of loops,
+  # { entry => loops }, is noted. Each def's entry is counted,
+  # before any statement's reach there. Each rescue running, and
+  # each body completing, is noted where rescues, as
+  # RescueForks.found gives them, finds them.
   def self.rewritten((source, relative, decisions), (loops, rescues))
     found = MethodStatements.collect(source, relative, decisions)
     passes = MethodLoops.passes(source, relative, loops)
     marks = { reaches: found.reaches, passes:,
               entries: found.entries,
               completions: rescues.completions,
-              rescues: rescues.starts }
+              rescues: rescues.starts, values: rescues.values }
     Rewriter.rewrite(source, decisions, marks)
   end
 
   # compiled, after noting each of its methods' loops and repeats,
   # [{ entry => loops }, { entry => repeats }], as MethodLoops
-  # gives them, on the recorder's trace, and tracing each call of
-  # them, and only of them, on the trace of whichever start is
-  # current as it runs. Code with no method has no call to
-  # trace, and TracePoint refuses to trace it.
-  def self.traced(compiled, (loops, repeats))
+  # gives them, on the recorder's trace. Each call of them, and
+  # only of them, is traced on the trace of whichever start is
+  # current as it runs. restarts is the lines of the defs a retry
+  # restarts, as MethodLoops gives them. Code with no method has
+  # no call to trace, and TracePoint refuses to trace it.
+  def self.traced(compiled, (loops, repeats, restarts))
     return compiled if loops.empty?
 
     loops.each do |entry, held|
       @recorder.trace.know(entry, held, repeats[entry])
     end
-    hook = method(:on_call_event)
+    hook = ->(point) { on_call_event(point, restarts) }
     TracePoint.new(:call, :return, &hook).enable(target: compiled)
     compiled
   end
 
   # Notes point, a TracePoint's :call or :return of a covered
-  # method, on the current start's trace.
-  def self.on_call_event(point)
+  # method, on the current start's trace. A call of a def a retry
+  # restarts, its line in restarts, is noted with its frame's
+  # depth, so a restart is not taken for a new call.
+  def self.on_call_event(point, restarts)
     trace = @recorder.trace
-    point.event == :call ? trace.call : trace.return
+    return trace.return if point.event == :return
+    return trace.call unless restarts.include?(point.lineno)
+
+    trace.restartable_call(caller_locations.size)
   end
 
   # Writes the JSON reports, then runs the chosen reporters, for

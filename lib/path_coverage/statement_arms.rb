@@ -23,11 +23,13 @@ module PathCoverage
       clause&.type == :else_node ? "#{operator}/else" : operator
     end
 
-    # The tops of statements that end a path, leaving the method.
-    LEAVING = %w[return raise].freeze
+    # The tops of statements that end a path. A return or a raise
+    # leaves the method. A next, a break or a retry leaves its pass
+    # or its loop.
+    LEAVING = %w[return raise next break retry].freeze
 
     # True for a row that shapes its method's paths: a decision, or a
-    # return or a raise, which ends a path. Any other, eg x = 1,
+    # statement in LEAVING, which ends a path. Any other, eg x = 1,
     # runs exactly where what holds it does, so is no row.
     def shapes?(node)
       decision?(node) || LEAVING.include?(top_of(node))
@@ -45,10 +47,11 @@ module PathCoverage
       node.equal_loc ? start...loc.end_offset : start
     end
 
-    # The node body, a def's, is entered at on every call: body
-    # itself, or, for a body with a rescue or an ensure, whose
-    # begin starts at the def, its statements, or, when it has
-    # none, its first rescue, else its ensure.
+    # The node where body, a def's, is entered on every call.
+    # Usually that is body itself. A body with a rescue or an
+    # ensure has a begin that starts at the def. Its statements
+    # are entered instead. With no statements, its first rescue
+    # is, or else its ensure.
     def entered(body)
       return body unless body.type == :begin_node
 

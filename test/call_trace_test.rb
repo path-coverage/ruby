@@ -133,6 +133,36 @@ class CallTraceTest < TidTest
     assert_equal expected, trace.ways
   end
 
+  test 'Ct7r06', %w(
+  | Example: number, a def whose rescue retries; called, its
+  | rescue runs, it retries, then calls itself, which completes,
+  | then it completes too
+  | A call a retry can restart is noted with its frame's depth. A
+  | call at the depth of the call under way is that call
+  | restarting: it starts no call, and the entry it reaches again
+  | starts no way. A call one deeper is a call of its own.
+  ) do
+    trace = PathCoverage::CallTrace.new
+    number = 'k.rb:1:0'
+    rescued = 'k.rb:3:0'
+    trace.know(number, { rescued => [] })
+    [
+      [:restartable_call, 4], [:reach, number],
+      [:decided, rescued, ['rescue 1']],
+      [:restartable_call, 4], [:reach, number],
+      [:restartable_call, 5], [:reach, number],
+      [:decided, rescued, ['completed']], [:return],
+      [:decided, rescued, ['completed']], [:return]
+    ].each { |event| trace.public_send(*event) }
+    completed = [rescued, ['completed']]
+    expected = {
+      number => {
+        [completed] => 1, [[rescued, ['rescue 1']], completed] => 1
+      }
+    }
+    assert_equal expected, trace.ways
+  end
+
   private
 
   # Runs depth on a node with one leaf child, as trace sees it:

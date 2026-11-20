@@ -1,13 +1,16 @@
 module PathCoverage
-  # How ways leave a card, for CardWays, which includes it: a
-  # return or a throw returns, which no rescue catches; a raise or
-  # a fail raises, which a rescue can.
+  # How ways leave a card. CardWays includes it. A return or a
+  # throw returns, and no rescue catches it. A raise or a fail
+  # raises, and a rescue can catch it. A next, a break or a retry
+  # ends its pass, and the way goes on after its loop.
   module CardLeaving
-    # The words of the statements that leave by raising.
-    RAISES = %w[raise fail].freeze
+    # Where the ways that leave by each word go, as an index into a
+    # fold's parts, [on, returned, raised, passed].
+    PARTS = { 'return' => 1, 'throw' => 1, 'raise' => 2, 'fail' => 2,
+              'next' => 3, 'break' => 3, 'retry' => 3 }.freeze
 
-    # { path index => word } of the paths of the decision row keyed
-    # key that take an arm whose code leaves, by the word it leaves
+    # { path index => word } for the decision row keyed key. It
+    # holds each path whose arm leaves, with the word it leaves
     # by, eg return or raise.
     def leaving(key)
       decision = @decisions.fetch(@rows[key].decision)
@@ -17,9 +20,9 @@ module PathCoverage
       end.to_h
     end
 
-    # The triple of ways, [on, returned, raised], as they are
-    # for word nil; else all of them leaving, those that go on by
-    # word, eg return or raise.
+    # The parts of ways, [on, returned, raised, passed]. With word
+    # nil they are unchanged. Otherwise every way leaves, and those
+    # that went on leave by word.
     def leaving_by((on, *out), word)
       return [on, *out] if word.nil?
 
@@ -27,13 +30,11 @@ module PathCoverage
       [@ways.zero, *all]
     end
 
-    # The triple of ways, leaving by word: raised for a raise or a
-    # fail, which a rescue can catch; else returned, eg a return or
-    # a throw, which none can.
+    # The parts holding ways, put where word sends them, as PARTS
+    # says. Every other part is empty.
     def left(word, ways)
-      return [@ways.zero, @ways.zero, ways] if RAISES.include?(word)
-
-      [@ways.zero, ways, @ways.zero]
+      part = PARTS.fetch(word)
+      (0..3).map { |index| index == part ? ways : @ways.zero }
     end
   end
 end

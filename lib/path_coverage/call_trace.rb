@@ -13,6 +13,7 @@ module PathCoverage
       @owners = {}
       @ways = {}
       @stack_key = :"path_coverage_calls_#{object_id}"
+      @depths_key = :"path_coverage_depths_#{object_id}"
     end
 
     # { unit's name => { way => count } } of every way ended so
@@ -33,15 +34,28 @@ module PathCoverage
     # reaches its entry.
     def call
       stack.push(nil)
+      depths.push(nil)
     end
 
-    # Notes the statement named name reached: a method's entry
-    # starts its call's way, unless no call is under way to take
-    # it, as when the call began before this trace did; any other
-    # row is a step of the innermost call of the method holding it.
+    # Starts a call of a covered method a retry can restart, its
+    # frame at depth. A call at the depth of the call under way is
+    # that call restarting, so it starts nothing.
+    def restartable_call(depth)
+      return if depths.last == depth
+
+      stack.push(nil)
+      depths.push(depth)
+    end
+
+    # Notes the statement named name reached. A method's entry
+    # starts its call's way. It does not when no call is under way
+    # to take it, as when the call began before this trace did. Nor
+    # does it when the call's way has started already, as when a
+    # retry runs the body again. Any other row is a step of the
+    # innermost call of the method holding it.
     def reach(name)
       if @entries.key?(name)
-        enter(name) unless stack.empty?
+        enter(name) unless stack.empty? || stack.last
       else
         innermost(@owners[name])&.step([name])
       end
@@ -61,6 +75,7 @@ module PathCoverage
 
     # Ends the innermost call under way, counting its way.
     def return
+      depths.pop
       stack.pop&.finish
     end
 
@@ -77,6 +92,12 @@ module PathCoverage
     # each the Walk of its way, or nil before it reaches its entry.
     def stack
       Thread.current[@stack_key] ||= []
+    end
+
+    # The frame depth of each call under way in the current thread,
+    # as stack holds them. It is nil for a call no retry restarts.
+    def depths
+      Thread.current[@depths_key] ||= []
     end
 
     # The Walk of the innermost call under way of the method

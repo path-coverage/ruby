@@ -55,9 +55,9 @@ module PathCoverage
 
     # Example: { "k.rb:1:0" => 14 } for a def whose body starts at
     # byte 14.
-    # Where a call can count the calls of each def in source, by
-    # the def's own name, where it is entered on every call: its
-    # byte offset, or, for an endless def, its body's byte range,
+    # Where each def in source is entered on every call, by the
+    # def's own name, so its calls can be counted there. Each is a
+    # byte offset. For an endless def it is its body's byte range,
     # to be wrapped.
     def self.entries(source, path, decisions = nil)
       collect(source, path, decisions).entries

@@ -45,25 +45,53 @@ class MethodGrammar
   # The rescue a rescued method ends with, catching its raises.
   RESCUE = "rescue Stop\n-1".freeze
 
-  # Example: MethodGrammar.new(7).source, a method of seed 7;
-  # MethodGrammar.new(7, reuse: true), one whose leaves can repeat;
-  # MethodGrammar.new(7, rescued: true), one whose raises its own
-  # rescue catches.
-  def initialize(seed, reuse: false, rescued: false)
+  # The loop a looped method starts with. Its body is a statement
+  # that can end its pass, then a flat one.
+  LOOPS = { loop: "[0, 1].each do\n%<pass>s\n%<then>s\nend" }.freeze
+
+  # The first statement of a loop's body. It ends the pass with
+  # next, the loop with break, or the method with a leave, each
+  # only on a leaf, so the statement after it can run.
+  PASS = { skip: 'next if %<leaf>s', stop: 'break if %<leaf>s',
+           modifier: FLAT.fetch(:modifier) }.freeze
+
+  # The rescues a nested method starts with. A begin with a rescue
+  # of its own, a rescue modifier, or a begin whose rescue retries
+  # once. Each body can raise Stop, which its rescue catches.
+  NESTED = {
+    begun: "begin\n%<body>s\nrescue Stop\nt -= 1\nend",
+    modified: '(%<leave>s if %<leaf>s) rescue t -= 1',
+    retried: "tries = 0\nbegin\n%<body>s\nrescue Stop\ntries += 1\n" \
+             "retry if tries < 2\nend"
+  }.freeze
+
+  # Example: MethodGrammar.new(7).source is a method of seed 7.
+  # With reuse: true its leaves can repeat. With rescued: true its
+  # own rescue catches its raises. With looped: true its first
+  # statement is a loop. With nested: true its first statement is
+  # one of NESTED.
+  def initialize(seed, reuse: false, rescued: false, looped: false,
+                 nested: false)
     @random = Random.new(seed)
     @leaves = 0
     @reuse = reuse
     @rescued = rescued
+    @looped = looped
+    @nested = nested
   end
 
   # The source of a module Snippet holding Stop, the error its
-  # raises raise, and run, whose parameters are its leaves, two
-  # top-level statements, three with reuse, after t = 0. Its value
-  # is t; but rescued, half the time it is its last statement's,
-  # which can leave, and a rescue of Stop gives -1.
+  # raises raise, and run. run's parameters are its leaves. It has
+  # two top-level statements, three with reuse, after t = 0, and
+  # a loop first when looped, or one of NESTED first when nested.
+  # Its value is t. Rescued, half the
+  # time its value is its last statement's instead, which can
+  # leave, and a rescue of Stop gives -1.
   def source
     top = FLAT.merge(NESTING)
     statements = Array.new(TOPS.fetch(@reuse)) { statement(top) }
+    statements.unshift(statement(LOOPS)) if @looped
+    statements.unshift(statement(NESTED)) if @nested
     statements << 't' unless @rescued && @random.rand(2).zero?
     statements << RESCUE if @rescued
     snippet(statements.join("\n"))
@@ -132,4 +160,14 @@ class MethodGrammar
 
   # The body of an if's else arm.
   def other_piece = body_piece
+
+  # The first statement of a loop's body.
+  def pass_piece
+    statement(PASS)
+  end
+
+  # The second statement of a loop's body.
+  def then_piece
+    statement(FLAT)
+  end
 end

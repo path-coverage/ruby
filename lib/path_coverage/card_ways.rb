@@ -48,29 +48,34 @@ module PathCoverage
 
     # The ways through a card of rows in source, in algebra,
     # decisions being { decision => Condition }, as
-    # Manifest.decisions gives them; folding is [stable, forks]:
-    # with stable false, those no call can take too, as no leaf is
-    # then assigned; each loop of forks, as LoopForks gives them,
-    # a fork, labelled [its key, 0] for 0 items, [its key, 1] for
-    # 1+ items, then its body's rows, walked once.
+    # Manifest.decisions gives them. folding is [stable, forks,
+    # rescues, forking]. With stable false, the ways include those
+    # no call can take, as no leaf is then assigned. Each loop of
+    # forks, as LoopForks gives them, is a scope that a next or a
+    # break ends a pass of. When forking, each loop is a fork too,
+    # labelled [its key, 0] for 0 items and [its key, 1] for 1+
+    # items, then its body's rows, walked once. Each rescue fork of
+    # rescues, a def's, forks the card.
     def self.card(source, decisions, rows,
                   algebra = WayAlgebras::Counted,
-                  folding = [true, {}, {}])
-      stable, forks, rescues = folding
-      places = CardTree.nested(source, decisions, rows, forks)
+                  folding = [true, {}, {}, false])
+      stable, forks, rescues, forking = folding
+      places = CardTree.nested(source, decisions, rows,
+                               [forks, rescues])
       names = stable ? StableLeaves.of(source, decisions, rows) : {}
       new(source, rows, places, decisions,
-          [algebra, names, rescues]).total
+          [algebra, names, rescues, forking]).total
     end
 
     # The fold of rows, a card's in source, placed as places has
-    # them, each decision row's Condition among decisions; folding
-    # is [algebra, names, rescues]: its ways in algebra, each step
-    # of it a tally of them, as WayAlgebras::Tallied has them,
-    # assigning the leaves names has, as StableLeaves finds them,
-    # its rescue forks as RescueForks gives a def's.
+    # them. Each decision row's Condition is in decisions. folding
+    # is [algebra, names, rescues, forking]. Its ways are in
+    # algebra, and each step of it tallies them, as
+    # WayAlgebras::Tallied does. names assigns leaves, as
+    # StableLeaves finds them. rescues are the def's rescue forks,
+    # as RescueForks gives them. forking says whether loops fork.
     def initialize(source, rows, places, decisions,
-                   (algebra, names, rescues))
+                   (algebra, names, rescues, forking))
       @source = source
       @rows = rows.to_h { |row| [CardTree.key_of(row), row] }
       @places = places
@@ -78,58 +83,59 @@ module PathCoverage
       @ways = WayAlgebras::Tallied.new(algebra)
       @children = places.keys.group_by { places[_1]['parent'] }
       @names = names
-      @rescues = rescues
+      @rescues = CardRescues.counts(rescues)
+      @forking = forking
     end
 
-    # The ways through the card, in its algebra: its top rows'
-    # triples, one after another, forked by its rescue, those that
-    # go on and those that leave, whatever their assignments.
+    # The ways through the card, in its algebra. Its top rows run
+    # one after another. Every way counts, whether it goes on or
+    # leaves, whatever its assignments.
     def total
       tops = @children.fetch(nil, []).map { |key| pair_of(key) }
-      all = rescued(sequence(tops))
+      all = sequence(tops)
       @ways.total(all.reduce { |sum, ways| @ways.plus(sum, ways) })
     end
 
-    # The triple of rows one after another, from their triples:
-    # the ways that go on through them all, and those that return,
-    # and those that raise, at one of them, having gone on through
-    # every one before it.
-    def sequence(triples)
-      start = [@ways.one, @ways.zero, @ways.zero]
-      triples.reduce(start) do |(on, *out), (more, *leave)|
+    # The parts of rows run one after another, from each row's
+    # parts. The ways that go on pass through every row. A way
+    # that leaves at one row has gone on through each row before
+    # it.
+    def sequence(many)
+      start = [@ways.one, *nothing.drop(1)]
+      many.reduce(start) do |(on, *out), (more, *leave)|
         through = leave.map { @ways.times(on, _1) }
         [@ways.times(on, more),
          *out.zip(through).map { @ways.plus(*_1) }]
       end
     end
 
-    # The triple of the row keyed key: a decision's adds up its
-    # paths' triples; any other row is a return or a raise, as no
-    # other is a row, so leaves, by its word, at its one path.
+    # The parts of the row keyed key. A decision adds up its
+    # paths' parts. Any other row is a statement that leaves, eg
+    # a return or a next, so it leaves by its word on its one path.
     def pair_of(key)
+      return rescue_pair(key) if @rescues.key?(key)
       return fork_pair(key) unless @rows.key?(key)
 
       row = @rows[key]
       return left(row.top, @ways.unit([key, 0])) if row.decision.nil?
 
-      triples = possible(row.decision).each_index.map do |path|
+      many = possible(row.decision).each_index.map do |path|
         pair_on(key, path)
       end
-      added(triples)
+      added(many)
     end
 
-    # The triple of the decision row keyed key on its path at
-    # index path: that path taken, then the rows it runs on that
-    # path, one after another, each given that path's outcomes;
-    # every way of it leaving, by the arm's word, when the path
-    # takes an arm that leaves.
+    # The parts of the decision row keyed key on its path at index
+    # path. The path is taken, then the rows it runs one after
+    # another, each given that path's outcomes. When the path's arm
+    # leaves, every way of it leaves, by the arm's word.
     def pair_on(key, path)
       outcomes = possible(@rows[key].decision)[path]
-      triples = running(key, path).map do |child|
+      many = running(key, path).map do |child|
         child_pair(child, outcomes)
       end
       own = own(key, path, outcomes)
-      ways = sequence(triples).map { @ways.times(own, _1) }
+      ways = sequence(many).map { @ways.times(own, _1) }
       leaving_by(ways, leaving(key)[path])
     end
 
@@ -166,17 +172,17 @@ module PathCoverage
       runs.fetch(true, [])
     end
 
-    # The pair of the row keyed child, its parent's path having
-    # outcomes: all of its own, for a row that gives nothing; else
-    # those of only its paths that give its leaf the outcome that
-    # path has, or that give what is not known.
+    # The parts of the row keyed child. outcomes is its parent's
+    # path's outcomes. A row that gives nothing keeps all its
+    # paths. Otherwise only the paths that fit outcomes count, as
+    # CardFitting decides.
     def child_pair(child, outcomes)
       return pair_of(child) if @places[child]['gives'].nil?
 
-      triples = each_fitting(child, outcomes, nothing) do |path|
+      many = each_fitting(child, outcomes, nothing) do |path|
         pair_on(child, path)
       end
-      added(triples)
+      added(many)
     end
 
     # The possible paths of the decision named decision.

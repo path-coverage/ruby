@@ -325,4 +325,143 @@ class MethodWaysTest < TidTest
     ways = PathCoverage::MethodWays.of(source, 'k.rb')['k.rb:1:0']
     assert_equal expected.to_set, ways.to_set
   end
+
+  test 'Mw7a13', %w(
+  | Example: edited, a def whose each block skips a file no longer
+  | current with next, then returns the name of a file whose
+  | content changed; loops are not decisions
+  | A next is a row, like a return, and ends its pass: no row
+  | after it in its block runs on that pass, so no way goes on
+  | from it to the if on content.
+  ) do
+    source = <<~RUBY
+      def edited(previous, current)
+        names = current.keys
+        previous.each do |name, content|
+          unless names.include?(name)
+            next
+          end
+          if content != current[name]
+            return name
+          end
+        end
+        nil
+      end
+    RUBY
+    known = 'k.rb:4:4'
+    changed = 'k.rb:7:4'
+    expected = [
+      [[known, [false]], ['k.rb:5:6']],
+      [[known, [true]], [changed, [false]]],
+      [[known, [true]], [changed, [true]], ['k.rb:8:6']]
+    ]
+    ways = PathCoverage::MethodWays.of(source, 'k.rb')['k.rb:1:0']
+    assert_equal expected.to_set, ways.to_set
+  end
+
+  test 'Mw7a14', %w(
+  | Example: total, a def summing the price of each paid order in
+  | an each block, with a rescue of TypeError giving 0; loops are
+  | not decisions
+  | A loop that does not fork is still a scope a cut can fall
+  | inside. A cut inside its body before the if on paid has run
+  | is a prefix of no steps, as is a cut before the loop.
+  ) do
+    source = <<~RUBY
+      def total(orders)
+        sum = 0
+        orders.each do |order|
+          sum += order.price if order.paid?
+        end
+        sum
+      rescue TypeError
+        0
+      end
+    RUBY
+    paid = 'k.rb:4:23'
+    body = [[[paid, [true]]], [[paid, [false]]]]
+    rescued = 'k.rb:7:0'
+    completed = body.map { [*_1, [rescued, ['completed']]] }
+    ran = [[], *body].map { [*_1, [rescued, ['rescue 1']]] }
+    ways = PathCoverage::MethodWays.of(source, 'k.rb')['k.rb:1:0']
+    assert_equal (completed + ran).to_set, ways.to_set
+  end
+
+  test 'Mw7a15', %w(
+  | Example: price, a def whose begin parses text as an Integer,
+  | with a rescue of ArgumentError giving 0, then adds 1; the if
+  | on big after it doubles a big one
+  | A begin with a rescue forks wherever it is, not only as a
+  | def's body: its body completes or its rescue runs, and the
+  | rows after it run either way.
+  ) do
+    source = <<~RUBY
+      def price(text)
+        value = begin
+          Integer(text)
+        rescue ArgumentError
+          0
+        end
+        value *= 2 if value > 9
+        value + 1
+      end
+    RUBY
+    rescued = 'k.rb:4:2'
+    big = 'k.rb:7:13'
+    pairs = ['completed', 'rescue 1'].product([true, false])
+    expected = pairs.map do |path, outcome|
+      [[rescued, [path]], [big, [outcome]]]
+    end
+    ways = PathCoverage::MethodWays.of(source, 'k.rb')['k.rb:1:0']
+    assert_equal expected.to_set, ways.to_set
+  end
+
+  test 'Mw7a16', %w(
+  | Example: ship, a def whose begin packs an order, with a rescue
+  | of IOError repacking it, then sends it, with a rescue of
+  | ArgumentError cancelling it
+  | A fork inside a body with a rescue is a row of that body. Each
+  | of its ways can complete the body or run the outer rescue, and
+  | so can no step at all.
+  ) do
+    source = <<~RUBY
+      def ship(order)
+        begin
+          order.pack
+        rescue IOError
+          order.repack
+        end
+        order.send_now
+      rescue ArgumentError
+        order.cancel
+      end
+    RUBY
+    inner = 'k.rb:4:2'
+    outer = 'k.rb:8:0'
+    body = [[[inner, ['completed']]], [[inner, ['rescue 1']]]]
+    completed = body.map { [*_1, [outer, ['completed']]] }
+    ran = [[], *body].map { [*_1, [outer, ['rescue 1']]] }
+    ways = PathCoverage::MethodWays.of(source, 'k.rb')['k.rb:1:0']
+    assert_equal (completed + ran).to_set, ways.to_set
+  end
+
+  test 'Mw7a17', %w(
+  | Example: a begin requiring json, with a rescue of LoadError,
+  | outside any def, then ship, a def sending an order
+  | A begin with a rescue outside every def forks no card: only
+  | a def's begins do.
+  ) do
+    source = <<~RUBY
+      begin
+        require 'json'
+      rescue LoadError
+        nil
+      end
+      def ship(order)
+        order.send_now
+      end
+    RUBY
+    ways = PathCoverage::MethodWays.of(source, 'k.rb')
+    assert_equal({ 'k.rb:6:0' => [[]] }, ways)
+  end
 end

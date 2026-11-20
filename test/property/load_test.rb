@@ -128,7 +128,115 @@ class PropertyLoadTest < TidTest
     assert_equal SEEDS.to_h { [_1, []] }, missing
   end
 
+  test 'Pq3L16', %w(
+  | Every method MethodGrammar generates looped from SEEDS, whose
+  | loop's passes can end with next or break, loads under path
+  | coverage and, on every combination of its parameters, returns
+  | or raises exactly as it does when Ruby loads it plainly.
+  ) do |t|
+    sources = looped_sources
+    sources.each { |seed, source| t.write(source, "n#{seed}.rb") }
+    t.start
+    plain = sources.transform_values { outcomes(plainly(_1)) }
+    covered = sources.to_h do |seed, _|
+      [seed, outcomes(t.load("n#{seed}.rb")::Snippet)]
+    end
+    assert_equal plain, covered
+  end
+
+  test 'Pq3L17', %w(
+  | For every method MethodGrammar generates looped from SEEDS,
+  | and for that method broken by dropping its last end, path
+  | coverage's whole rewrite parses exactly when the source does.
+  ) do
+    sources = looped_sources.values.flat_map do |source|
+      [source, source.sub(/end\s*\z/, '')]
+    end
+    expected = sources.map { parses?(_1) }
+    actual = sources.map { parses?(whole_rewrite_of(_1)) }
+    assert_equal expected, actual
+  end
+
+  test 'Pq3L18', %w(
+  | For every method MethodGrammar generates looped from SEEDS,
+  | the ways its calls witness over every combination of its
+  | parameters are exactly the ways MethodWays lists. No way
+  | taken is missing, and no way listed is never taken, so a
+  | next or a break ends its pass where the card says it does.
+  ) do |t|
+    sources = looped_sources
+    sources.each { |seed, source| t.write(source, "m#{seed}.rb") }
+    t.start
+    mismatched = sources.to_h do |seed, source|
+      name = "m#{seed}.rb"
+      taken = witnessed_ways(t, name)
+      listed = listed_set(source, name)
+      [seed, [(taken - listed).to_a, (listed - taken).to_a]]
+    end
+    assert_equal SEEDS.to_h { [_1, [[], []]] }, mismatched
+  end
+
+  test 'Pq3L19', %w(
+  | Every method MethodGrammar generates nested from SEEDS, which
+  | starts with a begin and its rescue, a rescue modifier, or a
+  | begin whose rescue retries, loads under path coverage and, on
+  | every combination of its parameters, returns or raises exactly
+  | as it does when Ruby loads it plainly.
+  ) do |t|
+    sources = nested_sources
+    sources.each { |seed, source| t.write(source, "b#{seed}.rb") }
+    t.start
+    plain = sources.transform_values { outcomes(plainly(_1)) }
+    covered = sources.to_h do |seed, _|
+      [seed, outcomes(t.load("b#{seed}.rb")::Snippet)]
+    end
+    assert_equal plain, covered
+  end
+
+  test 'Pq3L20', %w(
+  | For every method MethodGrammar generates nested from SEEDS,
+  | and for that method broken by dropping its last end, path
+  | coverage's whole rewrite parses exactly when the source does.
+  ) do
+    sources = nested_sources.values.flat_map do |source|
+      [source, source.sub(/end\s*\z/, '')]
+    end
+    expected = sources.map { parses?(_1) }
+    actual = sources.map { parses?(whole_rewrite_of(_1)) }
+    assert_equal expected, actual
+  end
+
+  test 'Pq3L21', %w(
+  | Every way a call witnesses, over every combination of the
+  | parameters of every method MethodGrammar generates nested from
+  | SEEDS, is one MethodWays lists. Only the raises written in the
+  | method can raise, so many listed rescue ways are never taken;
+  | none is asserted taken.
+  ) do |t|
+    sources = nested_sources
+    sources.each { |seed, source| t.write(source, "c#{seed}.rb") }
+    t.start
+    missing = sources.to_h do |seed, source|
+      name = "c#{seed}.rb"
+      taken = witnessed_ways(t, name)
+      [seed, (taken - listed_set(source, name)).to_a]
+    end
+    assert_equal SEEDS.to_h { [_1, []] }, missing
+  end
+
   private
+
+  # { seed => source } of the method MethodGrammar generates nested
+  # from each of SEEDS.
+  def nested_sources
+    SEEDS.to_h { [_1, MethodGrammar.new(_1, nested: true).source] }
+  end
+
+  # { seed => source } of the method MethodGrammar generates looped
+  # from each of SEEDS.
+  def looped_sources
+    SEEDS.to_h { [_1, MethodGrammar.new(_1, looped: true).source] }
+  end
 
   # The ways Snippet's run, in the file name loaded under fixture's
   # run, witnesses over every combination of its parameters, as its

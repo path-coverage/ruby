@@ -162,12 +162,11 @@ module PathCoverage
       end
 
       # How many ways go through the card of the def at key, its
-      # rows, each loop a fork when loops are, and its rescue a
-      # fork.
+      # rows. Each loop is a scope, and a fork when loops are. Its
+      # rescue is a fork.
       def count(key, rows)
-        folding = [true, forked(key), @rescues.fetch(key)]
         CardWays.card(@source, @decisions, rows,
-                      WayAlgebras::Counted, folding)
+                      WayAlgebras::Counted, [true, *scopes(key)])
       end
 
       # The way lists of the card of the def at key, its rows, with
@@ -180,14 +179,21 @@ module PathCoverage
         walked = CardWayLists.walked(key, @ways, loops(key))
         return walked if count > @limit
 
-        forked = forked(key)
         split = MethodWays.split_card(@source, @decisions, rows,
-                                      forked, @rescues.fetch(key))
-        checked = [split, forked.keys]
+                                      scopes(key))
+        checked = [split, forked(key).keys]
         walked.merge(CardWayLists.checked(key, @ways, checked))
       end
 
       private
+
+      # [forks, rescues, forking] of the def at key, as
+      # MethodWays.split_card takes them. forks is each of its
+      # loops, as LoopForks gives them. rescues is its rescue
+      # forks. forking says whether its loops fork.
+      def scopes(key)
+        [@forks.fetch(key), @rescues.fetch(key), @forking]
+      end
 
       # The names of the loops of the def at key: those holding a
       # row, and those that fork.

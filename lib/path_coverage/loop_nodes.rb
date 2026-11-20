@@ -1,7 +1,8 @@
 module PathCoverage
-  # The loops in a method's Prism tree: its blocks, lambdas,
-  # whiles, untils and fors, each run 0 or more times, and their
-  # bodies, as MethodLoops and LoopForks take them.
+  # The loops in a method's Prism tree, as MethodLoops and
+  # LoopForks take them. Its blocks, lambdas, whiles, untils and
+  # fors each run 0 or more times. So does each begin whose rescue
+  # retries, each attempt a pass.
   module LoopNodes
     # The types of node that are loops written with a keyword,
     # their body their statements.
@@ -21,13 +22,48 @@ module PathCoverage
     def self.loops_in(node)
       return [] if node.nil? || node.type == :def_node
 
-      own = LOOPS.include?(node.type) ? [node] : []
+      own = loop?(node) ? [node] : []
       own + node.compact_child_nodes.flat_map { loops_in(_1) }
     end
 
+    # True for node when it is a loop: one of LOOPS, or a begin
+    # whose rescue retries.
+    def self.loop?(node)
+      return true if LOOPS.include?(node.type)
+
+      node.type == :begin_node && retries?(node.rescue_clause)
+    end
+
+    # True when node, a rescue, or what it holds, retries. A begin
+    # inside it with a rescue of its own takes its own retries.
+    def self.retries?(node)
+      return false if node.nil?
+      return true if node.type == :retry_node
+      return false if node.type == :begin_node && node.rescue_clause
+
+      node.compact_child_nodes.any? { retries?(_1) }
+    end
+
+    # The location a loop is named by. A begin that starts at its
+    # def, as a def's body with a rescue does, is named by its end,
+    # the def's end. Its start is the def's own name, and no row
+    # starts at an end. Any other loop is named by its whole.
+    def self.at(loop)
+      implicit?(loop) ? loop.end_keyword_loc : loop.location
+    end
+
+    # True for a begin with no begin keyword, which starts at its
+    # def.
+    def self.implicit?(loop)
+      loop.type == :begin_node && loop.begin_keyword_loc.nil?
+    end
+
     # The body of loop: a block's or lambda's body, a keyword
-    # loop's statements; nil for an empty one.
+    # loop's statements; nil for an empty one. A begin is its own
+    # body, its rescues included, as a retry runs it again.
     def self.body_of(loop)
+      return loop if loop.type == :begin_node
+
       KEYWORDS.include?(loop.type) ? loop.statements : loop.body
     end
 

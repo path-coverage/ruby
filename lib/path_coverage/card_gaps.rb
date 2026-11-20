@@ -111,8 +111,9 @@ module PathCoverage
 
       private
 
-      # One step's choice, after its line: a decision's leaves'
-      # outcomes, or a fork's path, a loop's or a rescue's.
+      # One step's choice, after its line. For a decision it is its
+      # leaves' outcomes. For a fork, a loop or a rescue, it is its
+      # path.
       def choice(step)
         line = step['at'].split(':').first
         decision = @decisions[step['at']]
@@ -122,9 +123,9 @@ module PathCoverage
         "line #{line} #{Gaps.steps(path, @texts[decision])}"
       end
 
-      # A fork's path, labelled as MethodWays labels it: a loop's
-      # items, as FORKS has them; else a rescue's, its body
-      # completing or which of its rescues runs.
+      # A fork's path, from its label, as MethodWays labels it. A
+      # label in FORKS is a loop's items. Any other is a rescue's:
+      # its body completing, or which of its rescues runs.
       def forked(label)
         return "loop: #{label}" if MethodWays::FORKS.include?(label)
         return 'rescue: body completes' if label == 'completed'

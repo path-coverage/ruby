@@ -444,11 +444,56 @@ class KernelTest < TidTest
     t.start
     trace = PathCoverage.recorder.trace
     trace.know('shipping.rb:2:2', {})
-    point = Struct.new(:event)
-    PathCoverage.on_call_event(point.new(:call))
+    point = Struct.new(:event, :lineno)
+    PathCoverage.on_call_event(point.new(:call, 2), Set[])
     trace.reach('shipping.rb:2:2')
-    PathCoverage.on_call_event(point.new(:return))
+    PathCoverage.on_call_event(point.new(:return, 2), Set[])
     assert_equal({ 'shipping.rb:2:2' => { [] => 1 } }, trace.ways)
+  end
+
+  test '6rTSr8', %w(
+  | Example: a :call of number, a covered method a retry restarts,
+  | then the :call its retry makes, then one :return
+  | A :call of a def on a line of restarts is noted with its
+  | frame's depth. The retry's :call comes from the same depth,
+  | so it starts no call, and the one :return ends the one call.
+  ) do |t|
+    t.start
+    trace = PathCoverage.recorder.trace
+    trace.know('parse.rb:2:2', {})
+    point = Struct.new(:event, :lineno)
+    call = point.new(:call, 2)
+    2.times { PathCoverage.on_call_event(call, Set[2]) }
+    trace.reach('parse.rb:2:2')
+    PathCoverage.on_call_event(point.new(:return, 2), Set[2])
+    assert_equal({ 'parse.rb:2:2' => { [] => 1 } }, trace.ways)
+  end
+
+  test '6rTSr9', %w(
+  | Example: module Price holding of, a def parsing text as an
+  | Integer with a rescue modifier giving 0; called with 12 and
+  | with x
+  | A rescue modifier forks like a rescue: its expression
+  | completes, or its rescue runs. Each call takes one way, so
+  | both are covered.
+  ) do |t|
+    t.write(<<~RUBY)
+      module Price
+        def self.of(text)
+          Integer(text) rescue 0
+        end
+      end
+    RUBY
+    t.start { report }
+    price = t.load::Price
+    %w(12 x).each { price.of(_1) }
+    t.report
+    card = t.json['cards']["#{t.file}:2:2"]
+    expected = [['completed'], ['rescue 1']].to_set do |path|
+      [{ 'at' => '3:18', 'path' => path }]
+    end
+    covered = card['covered'].to_set { _1['way'] }
+    assert_equal [expected, []], [covered, card['gaps']]
   end
 
   test '6rTS43', %w(
@@ -1802,6 +1847,109 @@ class KernelTest < TidTest
       'gaps' => [[{ 'at' => '4:02', 'path' => ['rescue 1'] }]]
     }
     assert_equal expected, card.slice('ways', 'taken', 'gaps')
+  end
+
+  test '6rTSr5', %w(
+  | Example: module Prices holding of, a def mapping texts with a
+  | block that parses each as an Integer, with a rescue of
+  | ArgumentError giving 0; called once with '12' and 'x'
+  | A rescue in a block forks each pass of the block. One pass
+  | completes and the other runs the rescue, so both ways are
+  | covered, as steps of the block's passes.
+  ) do |t|
+    t.write(<<~RUBY)
+      module Prices
+        def self.of(texts)
+          texts.map do |text|
+            Integer(text)
+          rescue ArgumentError
+            0
+          end
+        end
+      end
+    RUBY
+    t.start { report }
+    t.load::Prices.of(%w(12 x))
+    t.report
+    card = t.json['cards']["#{t.file}:2:2"]
+    covered = card['covered'].map { _1['way'] }
+    expected = ['completed', 'rescue 1'].map do |path|
+      [{ 'at' => '5:04', 'path' => [path] }]
+    end
+    assert_equal [expected.to_set, []], [covered.to_set, card['gaps']]
+  end
+
+  test '6rTSr6', %w(
+  | Example: module Parse holding first, a def whose begin parses
+  | texts[tries] as an Integer, with a rescue of ArgumentError
+  | that retries while texts remain, else gives 0; called with
+  | x then 12, with x alone, and with 12 alone
+  | A begin whose rescue retries is a loop, each attempt a pass.
+  | A retry ends its pass, so each attempt's way is its own, and
+  | all three are covered.
+  ) do |t|
+    t.write(<<~RUBY)
+      module Parse
+        def self.first(texts)
+          tries = 0
+          begin
+            Integer(texts[tries])
+          rescue ArgumentError
+            tries += 1
+            retry if tries < texts.size
+            0
+          end
+        end
+      end
+    RUBY
+    t.start { report }
+    parse = t.load::Parse
+    [%w(x 12), %w(x), %w(12)].each { parse.first(_1) }
+    t.report
+    card = t.json['cards']["#{t.file}:2:2"]
+    rescued = { 'at' => '6:04', 'path' => ['rescue 1'] }
+    expected = Set[
+      [{ 'at' => '6:04', 'path' => ['completed'] }],
+      [rescued, { 'at' => '8:12', 'path' => [true] }],
+      [rescued, { 'at' => '8:12', 'path' => [false] }]
+    ]
+    covered = card['covered'].to_set { _1['way'] }
+    assert_equal [expected, []], [covered, card['gaps']]
+  end
+
+  test '6rTSr7', %w(
+  | Example: module Parse holding number, a def parsing the first
+  | of texts as an Integer, with a rescue of ArgumentError that
+  | retries unless texts are used up, else gives 0; called with
+  | x then 12, with x alone, and with 5 alone
+  | A def whose rescue retries is a loop too, each attempt a pass.
+  | A retry runs the body again, so its entry is reached again,
+  | yet the call goes on as one call, and all three ways are
+  | covered.
+  ) do |t|
+    t.write(<<~RUBY)
+      module Parse
+        def self.number(texts)
+          Integer(texts.shift)
+        rescue ArgumentError
+          retry unless texts.empty?
+          0
+        end
+      end
+    RUBY
+    t.start { report }
+    parse = t.load::Parse
+    [%w(x 12), %w(x), %w(5)].each { parse.number(_1) }
+    t.report
+    card = t.json['cards']["#{t.file}:2:2"]
+    rescued = { 'at' => '4:02', 'path' => ['rescue 1'] }
+    expected = Set[
+      [{ 'at' => '4:02', 'path' => ['completed'] }],
+      [rescued, { 'at' => '5:10', 'path' => [true] }],
+      [rescued, { 'at' => '5:10', 'path' => [false] }]
+    ]
+    covered = card['covered'].to_set { _1['way'] }
+    assert_equal [expected, []], [covered, card['gaps']]
   end
 
   test '6rTS6k', %w(
