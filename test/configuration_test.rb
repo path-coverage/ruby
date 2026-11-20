@@ -17,7 +17,7 @@ class ConfigurationTest < TidTest
       'unknown setting covr in PathCoverage.start',
       'the settings are: ' \
       'collector, cover, coverage_dir, group, ignore, ' \
-      'report, root, skip, treat'
+      'loops, max_paths, report, root, skip, treat'
     ].join("\n")
     assert_equal expected, error.message
   end
@@ -122,7 +122,7 @@ class ConfigurationTest < TidTest
     end
     expected = [
       'unknown reporter html in PathCoverage.start',
-      'the reporters are: gaps, post, summary'
+      'the reporters are: gaps, post, summary, ways'
     ].join("\n")
     assert_equal expected, error.message
   end
@@ -150,7 +150,7 @@ class ConfigurationTest < TidTest
       'unknown setting measure in PathCoverage.start',
       'the settings are: ' \
       'collector, cover, coverage_dir, group, ignore, ' \
-      'report, root, skip, treat'
+      'loops, max_paths, report, root, skip, treat'
     ].join("\n")
     assert_equal expected, error.message
   end
@@ -235,5 +235,38 @@ class ConfigurationTest < TidTest
       'the treatments are: present, nonempty'
     ].join("\n")
     assert_equal expected, error.message
+  end
+
+  test 'A9MJD1', %w(
+  | Example: max_paths 65537
+  | 65536 paths keep analysing each method's paths to about 2
+  | seconds and 120 MB of JSON, so a larger max_paths is refused.
+  ) do
+    error = assert_raises(PathCoverage::ConfigurationError) do
+      PathCoverage::Configuration.new do
+        root '/app'
+        max_paths 65_537
+      end
+    end
+    expected = 'max paths 65537 is more than 65536, the cap that ' \
+               "keeps analysing each method's paths to about 2 " \
+               'seconds and 120 MB of JSON'
+    assert_equal expected, error.message
+  end
+
+  test 'A9MJD2', %w(
+  | Example: a start block naming neither max_paths nor loops,
+  | then one naming max_paths 8 and loops
+  | By default a method with more than 4096 paths fails and a
+  | loop is no decision; max_paths and loops change each.
+  ) do
+    plain = PathCoverage::Configuration.new { root '/app' }
+    given = PathCoverage::Configuration.new do
+      root '/app'
+      max_paths 8
+      loops
+    end
+    limits = [plain, given].map { [_1.path_limit, _1.loops?] }
+    assert_equal [[4096, false], [8, true]], limits
   end
 end

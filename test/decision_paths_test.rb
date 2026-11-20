@@ -233,7 +233,7 @@ class DecisionPathsTest < TidTest
   | The any? is a decision of its own, the &&'s first leaf its
   | value, true or false, so c is evaluated only where that
   | leaf is true. Which of the any?'s paths give true is its
-  | card tree's gives.
+  | flow tree's gives.
   ) do
     source = "def k(ids, c) = ids.any? { |i| i.odd? } && c\n"
     decisions = PathCoverage::Manifest.decisions(source, 'k.rb')

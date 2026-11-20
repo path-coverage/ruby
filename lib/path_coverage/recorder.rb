@@ -1,3 +1,4 @@
+require_relative 'call_trace'
 require_relative 'condition'
 require_relative 'recorder_blocks'
 require_relative 'recorder_cases'
@@ -26,15 +27,42 @@ module PathCoverage
       end
       @reached = Hash.new(0)
       @trails_key = :"path_coverage_trails_#{object_id}"
+      @trace = CallTrace.new
     end
 
     # { name => runs } of each statement reached so far, by its
     # name, eg { "k.rb:2:2" => 2 }; none never reached.
     attr_reader :reached
 
-    # Counts a run of the statement named name.
+    # The ways each call of a covered method has taken so far.
+    attr_reader :trace
+
+    # Counts a run of the statement named name, a step of its
+    # call's way.
     def reach(name)
       @reached[name] += 1
+      @trace.reach(name)
+      nil
+    end
+
+    # Notes a pass of the loop named name, a block called with
+    # one more item.
+    def pass(name)
+      @trace.pass(name)
+      nil
+    end
+
+    # Notes that the rescue fork named name completed, as a step
+    # of the call under way. Returns value unchanged.
+    def completed(name, value)
+      @trace.decided(name, ['completed'])
+      value
+    end
+
+    # Notes that the rescue numbered number of the rescue fork
+    # named name ran, as a step of the call under way.
+    def rescued(name, number)
+      @trace.decided(name, ["rescue #{number}"])
       nil
     end
 
@@ -64,13 +92,20 @@ module PathCoverage
     # decision still entered above trail, as one that raised
     # leaves, took trail's later outcomes, so trail's path is
     # not counted; the stack is cleared down to trail either
-    # way.
+    # way. A counted path is a step of its call's way.
     def leave(trail, value)
       stack = trails(trail.decision)
       clean = stack.last.equal?(trail)
       nil until stack.empty? || stack.pop.equal?(trail)
-      @decision_paths[trail.decision][trail.outcomes] += 1 if clean
+      decided(trail) if clean
       value
+    end
+
+    # Counts trail's path, its decision's, and steps its call's
+    # way with it.
+    def decided(trail)
+      @decision_paths[trail.decision][trail.outcomes] += 1
+      @trace.decided(trail.decision, trail.outcomes)
     end
 
     # The truthy and falsy counts of every operand recorded so

@@ -1,11 +1,12 @@
 require_relative '../test_helper'
 require_relative 'method_grammar'
-require 'path_coverage/card_ways'
+require 'path_coverage/paths_ways'
 require 'path_coverage/way_algebras'
 require 'path_coverage/decision_paths'
 require 'path_coverage/kernel'
 require 'path_coverage/manifest'
 require 'path_coverage/method_statements'
+require 'path_coverage/method_ways'
 require 'path_coverage/rewriter'
 require 'prism'
 
@@ -49,7 +50,7 @@ class PropertyLoadTest < TidTest
   test 'Pq3L12', %w(
   | Every method MethodGrammar generates with reuse from SEEDS,
   | its leaves often repeating a parameter, has as its possible
-  | ways, as CardWays lists them, exactly the ways its calls take
+  | ways, as PathsWays lists them, exactly the ways its calls take
   | over every combination of its parameters, each way the path
   | it takes at every row it reaches. No way taken is missing,
   | so none is ever ruled out wrongly; and no way listed is
@@ -73,13 +74,209 @@ class PropertyLoadTest < TidTest
     assert_equal none, impossible
   end
 
+  test 'Pq3L13', %w(
+  | Every method MethodGrammar generates rescued from SEEDS, its
+  | raises caught by its own rescue, loads under path coverage
+  | and, on every combination of its parameters, returns or raises
+  | exactly as it does when Ruby loads it plainly.
+  ) do |t|
+    sources = SEEDS.to_h do |seed|
+      [seed, MethodGrammar.new(seed, rescued: true).source]
+    end
+    sources.each { |seed, source| t.write(source, "q#{seed}.rb") }
+    t.start
+    plain = sources.transform_values { outcomes(plainly(_1)) }
+    covered = sources.to_h do |seed, _|
+      [seed, outcomes(t.load("q#{seed}.rb")::Snippet)]
+    end
+    assert_equal plain, covered
+  end
+
+  test 'Pq3L14', %w(
+  | For every method MethodGrammar generates rescued from SEEDS,
+  | and for that method broken by dropping its last end, path
+  | coverage's whole rewrite, its reaches, entries and rescue
+  | marks too, parses exactly when the source does.
+  ) do
+    sources = SEEDS.flat_map do |seed|
+      source = MethodGrammar.new(seed, rescued: true).source
+      [source, source.sub(/end\s*\z/, '')]
+    end
+    expected = sources.map { parses?(_1) }
+    actual = sources.map { parses?(whole_rewrite_of(_1)) }
+    assert_equal expected, actual
+  end
+
+  test 'Pq3L15', %w(
+  | Every way a call witnesses, over every combination of the
+  | parameters of every method MethodGrammar generates rescued
+  | from SEEDS, as its call trace records it, is one MethodWays
+  | lists, so no call takes a way the flow does not count. Only
+  | the raises written in the method can raise, so many listed
+  | rescue ways are never taken; none is asserted taken.
+  ) do |t|
+    sources = SEEDS.to_h do |seed|
+      [seed, MethodGrammar.new(seed, rescued: true).source]
+    end
+    sources.each { |seed, source| t.write(source, "w#{seed}.rb") }
+    t.start
+    missing = sources.to_h do |seed, source|
+      name = "w#{seed}.rb"
+      taken = witnessed_ways(t, name)
+      [seed, (taken - listed_set(source, name)).to_a]
+    end
+    assert_equal SEEDS.to_h { [_1, []] }, missing
+  end
+
+  test 'Pq3L16', %w(
+  | Every method MethodGrammar generates looped from SEEDS, whose
+  | loop's passes can end with next or break, loads under path
+  | coverage and, on every combination of its parameters, returns
+  | or raises exactly as it does when Ruby loads it plainly.
+  ) do |t|
+    sources = looped_sources
+    sources.each { |seed, source| t.write(source, "n#{seed}.rb") }
+    t.start
+    plain = sources.transform_values { outcomes(plainly(_1)) }
+    covered = sources.to_h do |seed, _|
+      [seed, outcomes(t.load("n#{seed}.rb")::Snippet)]
+    end
+    assert_equal plain, covered
+  end
+
+  test 'Pq3L17', %w(
+  | For every method MethodGrammar generates looped from SEEDS,
+  | and for that method broken by dropping its last end, path
+  | coverage's whole rewrite parses exactly when the source does.
+  ) do
+    sources = looped_sources.values.flat_map do |source|
+      [source, source.sub(/end\s*\z/, '')]
+    end
+    expected = sources.map { parses?(_1) }
+    actual = sources.map { parses?(whole_rewrite_of(_1)) }
+    assert_equal expected, actual
+  end
+
+  test 'Pq3L18', %w(
+  | For every method MethodGrammar generates looped from SEEDS,
+  | the ways its calls witness over every combination of its
+  | parameters are exactly the ways MethodWays lists. No way
+  | taken is missing, and no way listed is never taken, so a
+  | next or a break ends its pass where the flow says it does.
+  ) do |t|
+    sources = looped_sources
+    sources.each { |seed, source| t.write(source, "m#{seed}.rb") }
+    t.start
+    mismatched = sources.to_h do |seed, source|
+      name = "m#{seed}.rb"
+      taken = witnessed_ways(t, name)
+      listed = listed_set(source, name)
+      [seed, [(taken - listed).to_a, (listed - taken).to_a]]
+    end
+    assert_equal SEEDS.to_h { [_1, [[], []]] }, mismatched
+  end
+
+  test 'Pq3L19', %w(
+  | Every method MethodGrammar generates nested from SEEDS, which
+  | starts with a begin and its rescue, a rescue modifier, or a
+  | begin whose rescue retries, loads under path coverage and, on
+  | every combination of its parameters, returns or raises exactly
+  | as it does when Ruby loads it plainly.
+  ) do |t|
+    sources = nested_sources
+    sources.each { |seed, source| t.write(source, "b#{seed}.rb") }
+    t.start
+    plain = sources.transform_values { outcomes(plainly(_1)) }
+    covered = sources.to_h do |seed, _|
+      [seed, outcomes(t.load("b#{seed}.rb")::Snippet)]
+    end
+    assert_equal plain, covered
+  end
+
+  test 'Pq3L20', %w(
+  | For every method MethodGrammar generates nested from SEEDS,
+  | and for that method broken by dropping its last end, path
+  | coverage's whole rewrite parses exactly when the source does.
+  ) do
+    sources = nested_sources.values.flat_map do |source|
+      [source, source.sub(/end\s*\z/, '')]
+    end
+    expected = sources.map { parses?(_1) }
+    actual = sources.map { parses?(whole_rewrite_of(_1)) }
+    assert_equal expected, actual
+  end
+
+  test 'Pq3L21', %w(
+  | Every way a call witnesses, over every combination of the
+  | parameters of every method MethodGrammar generates nested from
+  | SEEDS, is one MethodWays lists. Only the raises written in the
+  | method can raise, so many listed rescue ways are never taken;
+  | none is asserted taken.
+  ) do |t|
+    sources = nested_sources
+    sources.each { |seed, source| t.write(source, "c#{seed}.rb") }
+    t.start
+    missing = sources.to_h do |seed, source|
+      name = "c#{seed}.rb"
+      taken = witnessed_ways(t, name)
+      [seed, (taken - listed_set(source, name)).to_a]
+    end
+    assert_equal SEEDS.to_h { [_1, []] }, missing
+  end
+
   private
 
-  # The ways CardWays lists through the one card of source, the
+  # { seed => source } of the method MethodGrammar generates nested
+  # from each of SEEDS.
+  def nested_sources
+    SEEDS.to_h { [_1, MethodGrammar.new(_1, nested: true).source] }
+  end
+
+  # { seed => source } of the method MethodGrammar generates looped
+  # from each of SEEDS.
+  def looped_sources
+    SEEDS.to_h { [_1, MethodGrammar.new(_1, looped: true).source] }
+  end
+
+  # The ways Snippet's run, in the file name loaded under fixture's
+  # run, witnesses over every combination of its parameters, as its
+  # call trace records them and MethodWays.witnessed inlines them.
+  def witnessed_ways(fixture, name)
+    snippet = fixture.load(name)::Snippet
+    arity = snippet.method(:run).arity
+    [true, false].repeated_permutation(arity).each do |args|
+      call(snippet, args)
+    end
+    ways = PathCoverage.recorder.trace.ways.fetch("#{name}:4:2", {})
+    ways.keys.to_set { PathCoverage::MethodWays.witnessed(_1) }
+        .reduce(Set[], :|)
+  end
+
+  # The ways MethodWays lists for Snippet's run in source, the
+  # file name, each ordered as a call's would be.
+  def listed_set(source, name)
+    listed = PathCoverage::MethodWays.of(source, name)
+    listed.fetch("#{name}:4:2").to_set do |way|
+      PathCoverage::MethodWays.ordered(way)
+    end
+  end
+
+  # Path coverage's whole rewrite of source, as the kernel makes
+  # it when source loads: its decisions, reaches, entries and
+  # rescue marks.
+  def whole_rewrite_of(source)
+    decisions = PathCoverage::Manifest.decisions(source, 'k.rb')
+    args = [source, 'k.rb', decisions]
+    loops = PathCoverage::MethodLoops.of(*args)
+    rescues = PathCoverage::RescueForks.found(source, 'k.rb')
+    PathCoverage.rewritten(args, [loops, rescues])
+  end
+
+  # The ways PathsWays lists through the one flow of source, the
   # file name, each way's labels in order, and the ways in order.
   def listed_ways(source, name)
     listed = PathCoverage::WayAlgebras::Listed
-    ways = PathCoverage::CardWays.of(source, name, listed)
+    ways = PathCoverage::PathsWays.of(source, name, listed)
     ways.values.first.map(&:sort).uniq.sort
   end
 

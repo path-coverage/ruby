@@ -24,21 +24,21 @@ class TotalsTest < TidTest
   end
 
   test 'Tq7m20', %w(
-  | Example: fee, its card 4 of its 6 paths taken, and price,
+  | Example: fee, its flow 4 of its 6 paths taken, and price,
   | 17 of its 21
   | The combined total is [taken, possible] over every method's
-  | card, its size its possible paths.
+  | flow, its size its possible paths.
   | So it is [21, 27].
   ) do
-    cards = {
+    flows = {
       'source/fee.rb:2:2' => [4, 6], 'source/shop.rb:18:2' => [17, 21]
     }
-    assert_equal [21, 27], PathCoverage::Totals.combined(cards)
+    assert_equal [21, 27], PathCoverage::Totals.combined(flows)
   end
 
   test 'Tq7m30', %w(
   | Example: a file with no def
-  | It has no cards, so its combined total is [0, 0].
+  | It has no flows, so its combined total is [0, 0].
   ) do
     assert_equal [0, 0], PathCoverage::Totals.combined({})
   end

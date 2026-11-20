@@ -6,7 +6,7 @@ require_relative 'kinds'
 
 module PathCoverage
   # The tree of a decision, from DecisionTree.of, as its row's
-  # fold in a card shows it: a grid whose columns are the
+  # fold in a flow shows it: a grid whose columns are the
   # decision's paths, as page data holds its rows, each a kind,
   # a branch, a label, where its code is and a cell per path.
   module FoldRows
@@ -81,7 +81,7 @@ module PathCoverage
       FoldCells.values(arm[:cells], FoldCells::TAKEN)
     end
 
-    # The operands of condition a card's fold shows: a ?:'s arms,
+    # The operands of condition a flow's fold shows: a ?:'s arms,
     # as its arms are part of its one expression; for any other,
     # eg an if, a ||= or a case, no arm, as which arm a path takes
     # follows from its leaves, but each arm's body, eg a when's

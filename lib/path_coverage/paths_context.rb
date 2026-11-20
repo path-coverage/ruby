@@ -1,34 +1,34 @@
-require_relative 'card_tree'
-require_relative 'card_ways'
+require_relative 'paths_tree'
+require_relative 'paths_ways'
 require_relative 'method_statements'
 require_relative 'way_algebras'
 
 module PathCoverage
-  # The paths of each def's card rows that its method can take:
-  # those on some way through the card, as CardWays folds it,
+  # The paths of each def's flow rows that its method can take:
+  # those on some way through the flow, as PathsWays folds it,
   # and any taken that it rules out, which are counted, never
   # dropped, and reported. Paths combined count these, where paths
   # alone count each decision's paths on its own.
   # paths is as Result#paths gives it, and reached as
   # Recorder#reached does, nil when not known.
-  module CardContext
+  module PathsContext
     # Example: { "k.rb:1:0" => [2, 3] } for ship, its first row's
     # 2 paths both taken, its second's 1 path, of 2, that its
     # method can take, not taken.
-    # Each def's card total in source, [taken, size], its rows'
+    # Each def's flow total in source, [taken, size], its rows'
     # taken as MethodStatements.taken gives them, a row not known
     # counting as not taken, and its size their paths as rows
     # gives them.
     def self.totals(source, path, paths, reached, decisions)
-      cards = MethodStatements.of(source, path, decisions)
-      cards.transform_values do |rows|
+      flows = MethodStatements.of(source, path, decisions)
+      flows.transform_values do |rows|
         shown = rows(source, decisions, rows, paths, reached)
         seen = shown.filter_map(&:last).sum
         [seen, MethodStatements.size(shown.map { _1.first.paths })]
       end
     end
 
-    # [row, taken] for each of rows, a card's in source: row with
+    # [row, taken] for each of rows, a flow's in source: row with
     # as its paths how many of them its method can take or took,
     # as of gives them, and taken as MethodStatements.taken gives
     # it.
@@ -43,15 +43,15 @@ module PathCoverage
     # Example: [[[1], [1]], [[0, 1], [0]]] for return 0 if a, then
     # a ?: of b, called once with a false and b true.
     # [the indices of its paths its method can take, those taken]
-    # for each of rows, a card's in source: those on some way
-    # through the card, as WayAlgebras::Labelled folds them; and
+    # for each of rows, a flow's in source: those on some way
+    # through the flow, as WayAlgebras::Labelled folds them; and
     # those taken, a return's or a raise's one path index 0.
     def self.of(source, decisions, rows, paths, reached)
       labelled = WayAlgebras::Labelled
-      labels = CardWays.card(source, decisions, rows, labelled)
+      labels = PathsWays.flow(source, decisions, rows, labelled)
       by_key = labels.group_by(&:first)
       rows.map do |row|
-        can = by_key.fetch(CardTree.key_of(row), []).map(&:last)
+        can = by_key.fetch(PathsTree.key_of(row), []).map(&:last)
         [can, taken_paths(row, paths, reached)]
       end
     end
@@ -77,14 +77,14 @@ module PathCoverage
       files.flat_map do |full_path, parsed|
         source, decisions = parsed.values_at(:source, :decisions)
         path = config.relative(full_path)
-        cards = MethodStatements.of(source, path, decisions)
-        cards.values.flat_map do |rows|
+        flows = MethodStatements.of(source, path, decisions)
+        flows.values.flat_map do |rows|
           ruled_in(source, decisions, rows, paths, reached)
         end
       end
     end
 
-    # [name, path] for each path of rows, a card's in source, taken
+    # [name, path] for each path of rows, a flow's in source, taken
     # though its method rules it out: a decision's name and the
     # path, as paths has it; a return's or a raise's and nil.
     def self.ruled_in(source, decisions, rows, paths, reached)

@@ -134,7 +134,7 @@ class FoldRowsTest < TidTest
   | Example: if x == a && y == b alpha else beta end
   | An if's fold shows its predicate's leaves, but no row for
   | its arms: which arm a path takes follows from those leaves,
-  | and the code in an arm is a card row of its own.
+  | and the code in an arm is a flow row of its own.
   ) do
     both = {
       operator: '&&', cells: [false, true, false],

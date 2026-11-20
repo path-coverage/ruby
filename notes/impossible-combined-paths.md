@@ -12,9 +12,9 @@ multiplied count, with nothing taken. So an impossible way shows
 in two figures: `ways`, and a row path that no way through its
 method can take, which `combined` counted as a gap.
 
-Both now come from one fold, `CardWays`, over one of
+Both now come from one fold, `PathsWays`, over one of
 `WayAlgebras`: `Counted` gives `ways`, `Labelled` the row paths on
-some possible way (`CardContext`, which `combined`, the card rows'
+some possible way (`PathsContext`, which `combined`, the card rows'
 `paths` and html-reporter's per-file figure all use), and
 `Listed` the ways themselves, for the oracle. `Tallied` keeps
 each way's assignment of stable leaves, and joining two ways that

@@ -12,9 +12,10 @@ Gem::Specification.new do |s|
   s.license = 'BSD-2-Clause'
   s.homepage = 'https://github.com/path-coverage/ruby'
   s.files = Dir['lib/**/*'].select { |f| File.file?(f) } +
-            %w[README.md LICENSE.md exe/path_coverage_collector]
+            %w[README.md LICENSE.md exe/path_coverage_collector
+               exe/path_coverage_report]
   s.bindir = 'exe'
-  s.executables = ['path_coverage_collector']
+  s.executables = %w[path_coverage_collector path_coverage_report]
   # String#bytesplice arrived in Ruby 3.2.
   s.required_ruby_version = '>= 3.2'
   s.add_dependency 'prism', '~> 1.0'

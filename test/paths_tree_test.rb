@@ -1,12 +1,12 @@
 require_relative 'test_helper'
-require 'path_coverage/card_tree'
-require 'path_coverage/card_ways'
+require 'path_coverage/paths_tree'
+require 'path_coverage/paths_ways'
 
-class CardTreeTest < TidTest
+class PathsTreeTest < TidTest
   test 'Ct8e01', %w(
   | Example: pick, an if of a && b holding an if of b, each arm
   | of which returns
-  | Each row of pick's card names its parent, the decision whose
+  | Each row of pick's flow names its parent, the decision whose
   | arm it is in, that arm, and on, the parent's possible paths
   | it runs on, by their index: the inner if runs only on the
   | outer's one path that takes its then arm. A row at the top
@@ -96,7 +96,7 @@ class CardTreeTest < TidTest
   test 'Ct8e08', %w(
   | Example: fee, an if holding a ?: of an &&; two, two ?:s one
   | after another; led?, an || of an any? whose block is an &&
-  | The ways through a card fold its tree: rows one after
+  | The ways through a flow fold its tree: rows one after
   | another multiply, and a decision adds up its paths, each times
   | the ways of the rows it runs on that path; a row that is the
   | whole of a leaf counts only its paths that give the leaf the
@@ -123,7 +123,7 @@ class CardTreeTest < TidTest
       end
     RUBY
     expected = { 'k.rb:1:0' => 4, 'k.rb:8:0' => 4, 'k.rb:13:0' => 12 }
-    assert_equal expected, PathCoverage::CardWays.of(source, 'k.rb')
+    assert_equal expected, PathCoverage::PathsWays.of(source, 'k.rb')
   end
 
   test 'Ct8e09', %w(
@@ -157,12 +157,12 @@ class CardTreeTest < TidTest
     RUBY
     defs = %w(k.rb:1:0 k.rb:5:0 k.rb:9:0 k.rb:15:0)
     expected = defs.to_h { [_1, 3] }
-    assert_equal expected, PathCoverage::CardWays.of(source, 'k.rb')
+    assert_equal expected, PathCoverage::PathsWays.of(source, 'k.rb')
   end
 
   test 'Ct8e10', %w(
   | Example: guard, a return modifier on a, then a ?: on b
-  | Folded in WayAlgebras::Listed, a card gives its ways
+  | Folded in WayAlgebras::Listed, a flow gives its ways
   | themselves, each the [row, path] it takes at every row it
   | reaches, path the index of the row's possible path: the way
   | that returns at the modifier, and the two that go on to each
@@ -211,7 +211,7 @@ class CardTreeTest < TidTest
       end
     RUBY
     expected = { 'k.rb:1:0' => 3, 'k.rb:8:0' => 4, 'k.rb:9:0' => 3 }
-    assert_equal expected, PathCoverage::CardWays.of(source, 'k.rb')
+    assert_equal expected, PathCoverage::PathsWays.of(source, 'k.rb')
   end
 
   test 'Ct8e12', %w(
@@ -253,7 +253,7 @@ class CardTreeTest < TidTest
       'k.rb:1:0' => 3, 'k.rb:6:0' => 3, 'k.rb:10:0' => 3,
       'k.rb:14:0' => 3, 'k.rb:19:0' => 8
     }
-    assert_equal expected, PathCoverage::CardWays.of(source, 'k.rb')
+    assert_equal expected, PathCoverage::PathsWays.of(source, 'k.rb')
   end
 
   test 'Ct8e07', %w(
@@ -303,7 +303,7 @@ class CardTreeTest < TidTest
   | Example: every Ruby file of the gem's lib and test, and of
   | its demo's source
   | Every row placed in a parent is placed in a row of its own
-  | card, on some of that parent's possible paths and on none
+  | flow, on some of that parent's possible paths and on none
   | it does not have: no row hangs from nothing, or runs on no
   | path at all. And no row is its own ancestor: following
   | parents from any row reaches the top.
@@ -319,36 +319,36 @@ class CardTreeTest < TidTest
 
   private
 
-  # The ways through source's one card, its def's on line 1, as
+  # The ways through source's one flow, its def's on line 1, as
   # if source were k.rb, as WayAlgebras::Listed folds them, each
   # way's labels in order, and the ways in order.
   def listed(source)
     listed = PathCoverage::WayAlgebras::Listed
-    ways = PathCoverage::CardWays.of(source, 'k.rb', listed)
+    ways = PathCoverage::PathsWays.of(source, 'k.rb', listed)
     ways['k.rb:1:0'].map(&:sort).sort
   end
 
   # [parent, in, on, leaf, gives] of each row of source's one
-  # card, its def's on line 1, as if source were k.rb.
+  # flow, its def's on line 1, as if source were k.rb.
   def places(source)
-    rows = PathCoverage::CardTree.of(source, 'k.rb')['k.rb:1:0']
+    rows = PathCoverage::PathsTree.of(source, 'k.rb')['k.rb:1:0']
     rows.transform_values do |place|
       place.values_at('parent', 'in', 'on', 'leaf', 'gives')
     end
   end
 
-  # The misfits, as misfits gives them, of every card of source,
+  # The misfits, as misfits gives them, of every flow of source,
   # as if it were k.rb.
   def misplaced_in(source)
     decisions = PathCoverage::Manifest.decisions(source, 'k.rb')
-    tree = PathCoverage::CardTree.of(source, 'k.rb', decisions)
+    tree = PathCoverage::PathsTree.of(source, 'k.rb', decisions)
     tree.values.flat_map do |rows|
-      inner = rows.values - [PathCoverage::CardTree::TOP]
+      inner = rows.values - [PathCoverage::PathsTree::TOP]
       misfits(rows.keys, inner, decisions) + looped(rows)
     end
   end
 
-  # The key each row of rows, a card's places, reaches after as
+  # The key each row of rows, a flow's places, reaches after as
   # many steps up its parents as rows has rows: none, unless some
   # row is its own ancestor, as every other walk reaches the top.
   def looped(rows)
@@ -358,7 +358,7 @@ class CardTreeTest < TidTest
     reached.compact
   end
 
-  # Each parent of inner, the places of a card's rows that have
+  # Each parent of inner, the places of a flow's rows that have
   # one, that is none of keys, its rows' keys; true for each
   # place on no path; and each path a place is on that its
   # parent, among decisions, does not have.

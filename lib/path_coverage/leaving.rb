@@ -1,21 +1,29 @@
 require_relative 'condition'
 
 module PathCoverage
-  # Whether code leaves the method where it stands, decided once,
-  # from Prism's nodes, for every part of the gem that asks.
+  # Whether code leaves where it stands, the method, or, for a next
+  # or a break, its pass or its loop, decided once, from Prism's
+  # nodes, for every part of the gem that asks.
   module Leaving
     # The methods whose call, with no receiver, leaves the method:
     # raise, fail, its other name, and throw, for its catch.
     CALLS = %i[raise fail throw].freeze
 
-    # 'return' for a return, the method's name for a call of one of
-    # CALLS with no receiver, eg 'fail'; nil for a statement that
-    # does not leave the method.
+    # The word a statement leaves by, or nil when it leaves
+    # nothing. A return, a next, a break and a retry give their
+    # keyword. A next, a break or a retry leaves only its pass or
+    # its loop. A call of one of CALLS with no receiver gives the
+    # method's name, eg 'fail'.
     def self.word(statement)
-      return 'return' if statement.type == :return_node
+      return WORDS[statement.type] if WORDS.key?(statement.type)
 
       statement.name.to_s if leaving_call?(statement)
     end
+
+    # The words of the statements that leave by their keyword, by
+    # their node's type.
+    WORDS = { return_node: 'return', next_node: 'next',
+              break_node: 'break', retry_node: 'retry' }.freeze
 
     # The arm a statement that leaves the method is as an operand,
     # eg return t in x or return t: run when the operand before it

@@ -12,12 +12,12 @@ module PathCoverage
       [every.count { |each| each[:count].positive? }, every.size]
     end
 
-    # Example: cards [4, 6] and [17, 21] give [21, 27].
-    # Paths combined through each method: cards is { def decision =>
-    # [taken, size] }, each method's card's paths taken of its
+    # Example: flows [4, 6] and [17, 21] give [21, 27].
+    # Paths combined through each method: flows is { def decision =>
+    # [taken, size] }, each method's flow's paths taken of its
     # size, its rows' paths added up.
-    def self.combined(cards)
-      cards.values.reduce([0, 0]) do |(taken, possible), (more, of)|
+    def self.combined(flows)
+      flows.values.reduce([0, 0]) do |(taken, possible), (more, of)|
         [taken + more, possible + of]
       end
     end

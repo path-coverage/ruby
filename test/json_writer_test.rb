@@ -35,7 +35,7 @@ class JsonWriterTest < TidTest
     path = "#{t.dir}/path_coverage.json"
     PathCoverage::JsonWriter.write(operands, path)
     expected = {
-      '$schema' => 'https://path-coverage.github.io/schemas/v1/' \
+      '$schema' => 'https://path-coverage.github.io/schemas/v2/' \
                    'path_coverage.schema.json',
       'decisions' => {
         'k.rb:2:2' => [

@@ -1,3 +1,4 @@
+require_relative 'configuration_limits'
 require_relative 'configuration_paths'
 
 module PathCoverage
@@ -6,14 +7,15 @@ module PathCoverage
 
   # The settings given in a PathCoverage.start block.
   class Configuration
+    include ConfigurationLimits
     include ConfigurationPaths
 
     GLOB_FLAGS = File::FNM_PATHNAME | File::FNM_EXTGLOB
     SETTINGS = %w[
-      collector cover coverage_dir group ignore report root
-      skip treat
+      collector cover coverage_dir group ignore loops max_paths
+      report root skip treat
     ].freeze
-    REPORTERS = %w[gaps post summary].freeze
+    REPORTERS = %w[gaps post summary ways].freeze
 
     # Evaluates the settings block against a new configuration.
     def initialize(&)
@@ -23,6 +25,7 @@ module PathCoverage
       @reporters = [:gaps]
       @ignored = []
       @treats = []
+      default_limits
       instance_eval(&)
     end
 

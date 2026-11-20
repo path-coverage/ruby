@@ -1,0 +1,4 @@
+#!/usr/bin/env ruby
+require 'path_coverage/runs_report'
+
+exit PathCoverage::RunsReport.main(ARGV)

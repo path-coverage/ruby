@@ -5,6 +5,7 @@ require_relative 'manifest_blocks'
 require_relative 'manifest_case'
 require_relative 'manifest_chains'
 require_relative 'manifest_choices'
+require_relative 'manifest_disabled'
 require_relative 'manifest_folding'
 require_relative 'manifest_ignoring'
 require_relative 'manifest_writes'
@@ -19,13 +20,18 @@ module PathCoverage
     # them named by an operator in ignored; a call to a method
     # named in present, as a &.'s receiver, is never nil, and a
     # call to one named in nonempty, eg any?, is true exactly
-    # when its receiver has items.
+    # when its receiver has items. None is on a line not
+    # analysed, as ManifestDisabled.lines gives them.
     def self.decisions(source, path, ignored = [], present = [],
                        nonempty = [])
       collector = ConditionSites.new(path, ignored,
                                      [present, nonempty])
-      Prism.parse(source).value.accept(collector)
-      collector.decisions
+      parsed = Prism.parse(source)
+      parsed.value.accept(collector)
+      disabled = ManifestDisabled.lines(source, parsed, path)
+      collector.decisions.reject do |name, _|
+        disabled.include?(name.split(':')[-2].to_i)
+      end
     end
 
     # The source and decisions of the covered file at full_path.

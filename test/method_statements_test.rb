@@ -1,7 +1,7 @@
 require_relative 'test_helper'
-require 'path_coverage/card_ways'
+require 'path_coverage/paths_ways'
 require 'path_coverage/method_statements'
-require 'path_coverage/card_context'
+require 'path_coverage/paths_context'
 
 class MethodStatementsTest < TidTest
   test 'St3e01', %w(
@@ -176,7 +176,7 @@ class MethodStatementsTest < TidTest
     paths = statements(source)['k.rb:1:0'].map(&:paths)
     assert_equal [8, 16], [
       PathCoverage::MethodStatements.size(paths),
-      PathCoverage::CardWays.of(source, 'k.rb')['k.rb:1:0']
+      PathCoverage::PathsWays.of(source, 'k.rb')['k.rb:1:0']
     ]
   end
 
@@ -271,7 +271,7 @@ class MethodStatementsTest < TidTest
 
   test 'St3e14', %w(
   | Example: a class with initialize and ship
-  | Each def's name, by its decision, for its card's title.
+  | Each def's name, by its decision, for its flow's title.
   ) do
     source = <<~RUBY
       class Shop
@@ -302,7 +302,9 @@ class MethodStatementsTest < TidTest
       end
     RUBY
     reaches = PathCoverage::MethodStatements.reaches(source, 'k.rb')
-    assert_equal({ 'k.rb:1:0' => 18, 'k.rb:3:4' => 40 }, reaches)
+    assert_equal({ 'k.rb:3:4' => 40 }, reaches)
+    entries = PathCoverage::MethodStatements.entries(source, 'k.rb')
+    assert_equal({ 'k.rb:1:0' => 18 }, entries)
   end
 
   test 'St3e16', %w(
@@ -317,14 +319,15 @@ class MethodStatementsTest < TidTest
       def nope = raise('no')
     RUBY
     reaches = PathCoverage::MethodStatements.reaches(source, 'k.rb')
-    expected = { 'k.rb:1:0' => 11...22, 'k.rb:1:11' => 11...22 }
-    assert_equal expected, reaches
+    assert_equal({ 'k.rb:1:11' => 11...22 }, reaches)
+    entries = PathCoverage::MethodStatements.entries(source, 'k.rb')
+    assert_equal({ 'k.rb:1:0' => 11...22 }, entries)
   end
 
   test 'St3e36', %w(
   | Example: ship, a def of one write; none, a def with an empty
   | body; one, an endless def
-  | Each def is reached too, named by its own decision, so its card
+  | Each def is reached too, named by its own decision, so its flow
   | can say how many times it was called: before its first
   | statement; before its end, for an empty body; and, for an
   | endless def, by its body's byte range, as its row is.
@@ -336,12 +339,56 @@ class MethodStatementsTest < TidTest
       def none; end
       def one = 2
     RUBY
-    reaches = PathCoverage::MethodStatements.reaches(source, 'k.rb')
-    entries = reaches.slice('k.rb:1:0', 'k.rb:4:0', 'k.rb:5:0')
+    entries = PathCoverage::MethodStatements.entries(source, 'k.rb')
     expected = {
       'k.rb:1:0' => 14, 'k.rb:4:0' => 34, 'k.rb:5:0' => 48...49
     }
     assert_equal expected, entries
+  end
+
+  test 'St3e38', %w(
+  | Example: price, a def with a rescue; total, a def with an
+  | ensure; quiet, a def with an empty body and a rescue
+  | A def whose body has a rescue or an ensure is entered inside
+  | it, on every call: before its first statement, or, for an
+  | empty body, before its first rescue.
+  ) do
+    source = <<~RUBY
+      def price(text)
+        Integer(text)
+      rescue ArgumentError
+        0
+      end
+      def total
+        1
+      ensure
+        log
+      end
+      def quiet
+      rescue
+        nil
+      end
+    RUBY
+    entries = PathCoverage::MethodStatements.entries(source, 'k.rb')
+    expected = {
+      'k.rb:1:0' => 18, 'k.rb:6:0' => 73, 'k.rb:11:0' => 102
+    }
+    assert_equal expected, entries
+  end
+
+  test 'St3e39', %w(
+  | Example: flush, a def with an empty body and an ensure
+  | A def whose body is empty but for an ensure is entered on
+  | every call before its ensure.
+  ) do
+    source = <<~RUBY
+      def flush
+      ensure
+        close
+      end
+    RUBY
+    entries = PathCoverage::MethodStatements.entries(source, 'k.rb')
+    assert_equal({ 'k.rb:1:0' => 10 }, entries)
   end
 
   test 'St3e37', %w(
@@ -394,7 +441,7 @@ class MethodStatementsTest < TidTest
   test 'St3e18', %w(
   | Example: ship, an if whose then returns, then a call, its
   | then taken once, so the return reached
-  | Its card's total is [taken, size]: [2, 3].
+  | Its flow's total is [taken, size]: [2, 3].
   | Without reaches, its return is not known, so it counts as
   | not taken: [1, 3], never more than it ran.
   ) do
@@ -412,7 +459,7 @@ class MethodStatementsTest < TidTest
       ]
     }
     decisions = PathCoverage::Manifest.decisions(source, 'k.rb')
-    context = PathCoverage::CardContext
+    context = PathCoverage::PathsContext
     totals = [{ 'k.rb:3:4' => 1 }, nil].map do |reached|
       context.totals(source, 'k.rb', paths, reached, decisions)
     end
@@ -441,7 +488,7 @@ class MethodStatementsTest < TidTest
   test 'St3e20', %w(
   | Example: a class with initialize, on one line, and ship,
   | over three
-  | Each def's last line, by its decision, where its card ends.
+  | Each def's last line, by its decision, where its flow ends.
   ) do
     source = <<~RUBY
       class Shop
@@ -464,7 +511,7 @@ class MethodStatementsTest < TidTest
   | nothing.
   | It is not looked through, as its body runs only when
   | discount is called: discount's ?: is a row of discount's
-  | card alone.
+  | flow alone.
   ) do
     source = <<~RUBY
       def install(rates)
@@ -713,9 +760,9 @@ class MethodStatementsTest < TidTest
   test 'St3e30', %w(
   | Example: every Ruby file of the gem's lib and test, and of
   | its demo's source
-  | Every decision decision mode finds in a file is on some card,
+  | Every decision decision mode finds in a file is on some flow,
   | a row of a def that holds it, or is outside every def,
-  | where its own line opens its tree: no decision is on no card.
+  | where its own line opens its tree: no decision is on no flow.
   ) do
     root = File.expand_path('..', __dir__)
     globs = %w(lib/**/*.rb test/*.rb demo/source/*.rb)
@@ -769,7 +816,7 @@ class MethodStatementsTest < TidTest
 
   test 'St3e32', %w(
   | Example: memo, @m ||= a && b, in a run ignoring ||=
-  | A card's rows are of the decisions the run has, as given: here
+  | A flow's rows are of the decisions the run has, as given: here
   | the ||= is no decision, so the write is looked through, and its
   | row is the && inside it.
   ) do
@@ -789,9 +836,9 @@ class MethodStatementsTest < TidTest
   test 'St3e33', %w(
   | Example: rate, a ?: at the top level, its then taken, and
   | fee, a def of a ?:
-  | The decisions on no card, those outside every def, total
+  | The decisions on no flow, those outside every def, total
   | [taken, possible] of their own: rate's 1 of 2. fee's ?:
-  | is on fee's card, so is not among them.
+  | is on fee's flow, so is not among them.
   ) do
     source = <<~RUBY
       RATE = ENV.key?('RATE') ? 2 : 1
@@ -810,10 +857,10 @@ class MethodStatementsTest < TidTest
   test 'St3e34', %w(
   | Example: fee, two ?:s on one top-level line, an elsif at
   | the top level, and big?, a def of an &&
-  | Each decision on no card, outside every def, is a row of its
-  | own, for its line's card: where it is named, its operator,
+  | Each decision on no flow, outside every def, is a row of its
+  | own, for its line's flow: where it is named, its operator,
   | an elsif's elsif, and its paths, in the order written.
-  | big?'s && is on big?'s card, so is not among them.
+  | big?'s && is on big?'s flow, so is not among them.
   ) do
     source = <<~RUBY
       FEE = (ENV['BIG'] ? 10 : 0) + (ENV['VIP'] ? 5 : 0)
@@ -835,6 +882,29 @@ class MethodStatementsTest < TidTest
     assert_equal expected, actual
   end
 
+  test 'St3eD1', %w(
+  | Example: ship, an if on express, then a return if cancelled
+  | between # path: disable and # path: enable, then order
+  | Lines between the comments are not analysed: neither the
+  | modifier if nor the return there is a row, so ship's only
+  | row is its first if.
+  ) do
+    source = <<~RUBY
+      def ship(order)
+        if order[:express]
+          order[:days] = 1
+        end
+        # path: disable
+        # reason: cancelling is not under test
+        return order if order[:cancelled]
+        # path: enable
+        order
+      end
+    RUBY
+    tops = statements(source)['k.rb:1:0'].map { [_1.top, _1.line] }
+    assert_equal [['if', 2]], tops
+  end
+
   private
 
   # { def decision => its statements' rows } for source, as if it
@@ -844,7 +914,7 @@ class MethodStatementsTest < TidTest
   end
 
   # The decisions decision mode finds in source that are on no
-  # card: those on a line inside a def, from its def line to its
+  # flow: those on a line inside a def, from its def line to its
   # last, but no row's decision.
   def unseen_decisions(source)
     rows = statements(source).values.flatten.filter_map(&:decision)

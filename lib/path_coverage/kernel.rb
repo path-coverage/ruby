@@ -1,8 +1,10 @@
 require_relative 'calls'
 require_relative 'configuration'
 require_relative 'manifest'
+require_relative 'method_loops'
 require_relative 'recorder'
 require_relative 'render'
+require_relative 'rescue_forks'
 require_relative 'result'
 require_relative 'rewriter'
 require_relative 'within_methods'
@@ -84,15 +86,73 @@ module PathCoverage
   end
 
   # The compiled, rewritten code of path, or nil for a path
-  # config does not cover, which Ruby then loads as normal.
+  # config does not cover, which Ruby then loads as normal. Each
+  # call of a method in it is traced, as its way is recorded.
   def self.instrumented(path, config)
     return unless config.covers?(path)
 
     parsed = @parsed[path] = Manifest.parse(path, config)
-    source = parsed[:source]
-    reaches = WithinMethods.reaches(path, parsed, config)
-    rewritten = Rewriter.rewrite(source, parsed[:decisions], reaches)
-    RubyVM::InstructionSequence.compile(rewritten, path, path)
+    args = [parsed[:source], config.relative(path),
+            parsed[:decisions]]
+    loops = MethodLoops.of(*args)
+    rescues = RescueForks.found(*args.first(2))
+    rewritten = rewritten(args, [loops, rescues])
+    iseq = RubyVM::InstructionSequence
+    traced(iseq.compile(rewritten, path, path), known(args, loops))
+  end
+
+  # [loops, repeats, restarts] of the file of args, [source, path,
+  # decisions], as traced takes them, loops as MethodLoops gives
+  # them.
+  def self.known(args, loops)
+    [loops, MethodLoops.repeats(*args), MethodLoops.restarts(args[0])]
+  end
+
+  # source rewritten, the file at relative path, with decisions
+  # as Manifest gives them. Each decision is recorded. Each
+  # statement's reach is counted. Each pass of each of loops,
+  # { entry => loops }, is noted. Each def's entry is counted,
+  # before any statement's reach there. Each rescue running, and
+  # each body completing, is noted where rescues, as
+  # RescueForks.found gives them, finds them.
+  def self.rewritten((source, relative, decisions), (loops, rescues))
+    found = MethodStatements.collect(source, relative, decisions)
+    passes = MethodLoops.passes(source, relative, loops)
+    marks = { reaches: found.reaches, passes:,
+              entries: found.entries,
+              completions: rescues.completions,
+              rescues: rescues.starts, values: rescues.values }
+    Rewriter.rewrite(source, decisions, marks)
+  end
+
+  # compiled, after noting each of its methods' loops and repeats,
+  # [{ entry => loops }, { entry => repeats }], as MethodLoops
+  # gives them, on the recorder's trace. Each call of them, and
+  # only of them, is traced on the trace of whichever start is
+  # current as it runs. restarts is the lines of the defs a retry
+  # restarts, as MethodLoops gives them. Code with no method has
+  # no call to trace, and TracePoint refuses to trace it.
+  def self.traced(compiled, (loops, repeats, restarts))
+    return compiled if loops.empty?
+
+    loops.each do |entry, held|
+      @recorder.trace.know(entry, held, repeats[entry])
+    end
+    hook = ->(point) { on_call_event(point, restarts) }
+    TracePoint.new(:call, :return, &hook).enable(target: compiled)
+    compiled
+  end
+
+  # Notes point, a TracePoint's :call or :return of a covered
+  # method, on the current start's trace. A call of a def a retry
+  # restarts, its line in restarts, is noted with its frame's
+  # depth, so a restart is not taken for a new call.
+  def self.on_call_event(point, restarts)
+    trace = @recorder.trace
+    return trace.return if point.event == :return
+    return trace.call unless restarts.include?(point.lineno)
+
+    trace.restartable_call(caller_locations.size)
   end
 
   # Writes the JSON reports, then runs the chosen reporters, for
@@ -103,8 +163,10 @@ module PathCoverage
     decisions = merged_decisions(files)
     result = Result.new(decisions, @recorder.counts,
                         @recorder.decision_paths)
+    reached = @recorder.reached
+    ways = @recorder.trace.ways
     Render.run(result.operands, files, config,
-               **result.taken, reached: @recorder.reached)
+               **result.taken, reached:, ways:)
   end
 
   # { full path => {source:, decisions:} } for every covered file:

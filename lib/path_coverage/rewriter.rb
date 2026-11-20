@@ -9,25 +9,104 @@ module PathCoverage
   module Rewriter
     # Returns source with each operand in decisions wrapped in a
     # record call, each decision as a whole in a leave call that
-    # enters it first, and each statement in reaches, { name =>
-    # offset }, after a reach call that counts its runs. Only
-    # text is inserted, never a newline, so backtrace line
-    # numbers still match the file on disk.
-    def self.rewrite(source, decisions, reaches = {})
+    # enters it first, then the inserts of marks, as mark_inserts
+    # gives them. Only text is inserted, never a newline, so
+    # backtrace line numbers still match the file on disk.
+    def self.rewrite(source, decisions, marks = {})
       inserts = decisions.flat_map do |decision, condition|
         decision_inserts(decision, condition)
       end
-      apply(source.dup, inserts + reach_inserts(reaches))
+      apply(source.dup, inserts + mark_inserts(marks))
+    end
+
+    # The inserts of marks, a hash. Each key is optional, and a
+    # missing key marks nothing. reaches is { name => offset }:
+    # each statement there gets a reach call before it, counting
+    # its runs. passes is { name => offset }: each loop body there
+    # gets a pass call first. entries is { name => offset }: each
+    # method's entry is reached there, outermost, before any
+    # statement's reach at the same place. completions is { rescue
+    # fork's name => where }: each body completing is noted there.
+    # rescues is { [fork's name, number] => offset }: each rescue
+    # running is noted there. values is { fork's name => byte
+    # range }: each rescue modifier's rescue running is noted
+    # there.
+    def self.mark_inserts(marks)
+      reach_inserts(marks.fetch(:reaches, {})) +
+        pass_inserts(marks.fetch(:passes, {})) +
+        reach_inserts(marks.fetch(:entries, {}), :entry) +
+        completed_inserts(marks.fetch(:completions, {})) +
+        rescued_inserts(marks.fetch(:rescues, {})) +
+        ran_inserts(marks.fetch(:values, {}))
+    end
+
+    # Example: { "k.rb:3:18" => 25...26 } wraps bytes 25...26.
+    # The inserts that wrap the rescue of each rescue modifier in
+    # values, { fork's name => its byte range }, in a ran call. The
+    # call keeps the rescue's value, and notes that its rescue 1
+    # ran.
+    def self.ran_inserts(values)
+      values.flat_map do |name, range|
+        rank = [range.size, LAYERS.index(:completed)]
+        call = "PathCoverage.ran(#{name.inspect}, 1, ("
+        [[range.begin, call, rank], [range.end, '))', rank, :close]]
+      end
+    end
+
+    # Example: { ["k.rb:4:2", 1] => 52 } puts a rescued call at 52.
+    # The inserts that put a rescued call after the header of each
+    # rescue in rescues, { [fork's name, its number] => offset }.
+    # The call is a statement of its own, the first its rescue
+    # runs.
+    def self.rescued_inserts(rescues)
+      rank = [Float::INFINITY, LAYERS.index(:reach)]
+      rescues.map do |(name, number), at|
+        call = "; PathCoverage.rescued(#{name.inspect}, #{number})"
+        [at, call, rank]
+      end
+    end
+
+    # Example: { "k.rb:4:2" => 30...43 } wraps bytes 30...43.
+    # The inserts that note each body of completions completing.
+    # completions is { rescue fork's name => where }. A byte range
+    # is a last statement, wrapped in a completed call that keeps
+    # its value, inside any reach before it. A byte offset is an
+    # empty body. It gets a completed call of nil, a statement of
+    # its own, because the body's value is nil either way.
+    def self.completed_inserts(completions)
+      completions.flat_map do |name, at|
+        call = "PathCoverage.completed(#{name.inspect}, "
+        next [[at, "#{call}nil); ", own_rank]] unless at.is_a?(Range)
+
+        rank = [at.size, LAYERS.index(:completed)]
+        [[at.begin, "#{call}(", rank], [at.end, '))', rank, :close]]
+      end
+    end
+
+    # The rank of a completed call that is a statement of its own,
+    # for an empty body. It is inside any reach at the same place.
+    def self.own_rank = [Float::INFINITY, LAYERS.index(:completed)]
+
+    # Example: { "k.rb:4:16" => 60 } puts a pass call at 60.
+    # The inserts that put a pass call, a statement of its own,
+    # first in each loop body in passes, { name => offset }. It
+    # comes before the reach of a row at the same place, so the
+    # row is a step of the pass.
+    def self.pass_inserts(passes)
+      rank = [Float::INFINITY, LAYERS.index(:pass)]
+      passes.map do |name, at|
+        [at, "PathCoverage.pass(#{name.inspect}); ", rank]
+      end
     end
 
     # Example: { "k.rb:2:2" => 18 } puts a reach call at 18.
     # The inserts that put a reach call, a statement of its
     # own, before each statement in reaches, outside all else
-    # there. A statement reached by
+    # there, in layer. A statement reached by
     # its byte range, eg an endless def's body, is wrapped in
     # parentheses with its call, being one expression.
-    def self.reach_inserts(reaches)
-      rank = [Float::INFINITY, LAYERS.index(:reach)]
+    def self.reach_inserts(reaches, layer = :reach)
+      rank = [Float::INFINITY, LAYERS.index(layer)]
       reaches.flat_map do |name, at|
         call = "PathCoverage.reach(#{name.inspect}); "
         next [[at, call, rank]] unless at.is_a?(Range)
@@ -87,8 +166,9 @@ module PathCoverage
     # The layers of inserts, innermost first, that break a tie
     # between inserts wrapping the same range: a leaf's call, a
     # nested kind's call around its whole, eg end_items, a decision's
-    # leave, and a statement's reach.
-    LAYERS = %i[leaf kind decision reach].freeze
+    # leave, a rescue body's last statement's completed, a
+    # statement's reach, a loop's pass, and a method's entry.
+    LAYERS = %i[leaf kind decision completed reach pass entry].freeze
 
     # The two inserts that wrap the code at range in call. Their
     # order, [size, rank], nests them among inserts at the same

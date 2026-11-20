@@ -1,7 +1,7 @@
 module PathCoverage
-  # The lists of statements a method's card has rows for: a def's
+  # The lists of statements a method's flow has rows for: a def's
   # body, the arms of each decision in it whose arms are statements,
-  # and the body of each block in it, as the card lays them out
+  # and the body of each block in it, as the flow lays them out
   # flat. It relies on its includer's rows_in, decision? and
   # decision_name.
   module StatementArms
@@ -9,7 +9,7 @@ module PathCoverage
     # block's, a lambda's and a begin's statements are rows of
     # their own, after the statement holding them, and a def's
     # body runs only when it is called, its decisions rows of its own
-    # card.
+    # flow.
     UNSEEN = %i[block_node begin_node def_node lambda_node].freeze
 
     # Example: if/else for if a then 1 else 2 end.
@@ -23,11 +23,13 @@ module PathCoverage
       clause&.type == :else_node ? "#{operator}/else" : operator
     end
 
-    # The tops of statements that end a path, leaving the method.
-    LEAVING = %w[return raise].freeze
+    # The tops of statements that end a path. A return or a raise
+    # leaves the method. A next, a break or a retry leaves its pass
+    # or its loop.
+    LEAVING = %w[return raise next break retry].freeze
 
     # True for a row that shapes its method's paths: a decision, or a
-    # return or a raise, which ends a path. Any other, eg x = 1,
+    # statement in LEAVING, which ends a path. Any other, eg x = 1,
     # runs exactly where what holds it does, so is no row.
     def shapes?(node)
       decision?(node) || LEAVING.include?(top_of(node))
@@ -40,9 +42,21 @@ module PathCoverage
       body = node.body
       return node.end_keyword_loc.start_offset if body.nil?
 
-      loc = body.location
+      loc = entered(body).location
       start = loc.start_offset
       node.equal_loc ? start...loc.end_offset : start
+    end
+
+    # The node where body, a def's, is entered on every call.
+    # Usually that is body itself. A body with a rescue or an
+    # ensure has a begin that starts at the def. Its statements
+    # are entered instead. With no statements, its first rescue
+    # is, or else its ensure.
+    def entered(body)
+      return body unless body.type == :begin_node
+
+      [body.statements, body.rescue_clause, body.ensure_clause]
+        .compact.first
     end
 
     # Example: return a ? 1 : 2 if x gives the ?:.
@@ -54,7 +68,7 @@ module PathCoverage
     # where a decision does, eg a ?:'s predicate, names that
     # decision: each is kept once, and decision itself not at
     # all. None for a top that is no decision, eg a def inside a
-    # def, whose decisions are on its own card.
+    # def, whose decisions are on its own flow.
     def inner_decisions(decision)
       return [] unless decision?(decision)
 
@@ -87,7 +101,7 @@ module PathCoverage
     # The body of each block and lambda in node, run 0 or more
     # times, and each begin: none inside an arm of statements or
     # another body, whose rows are their own, nor in a def, whose
-    # rows are its own card's.
+    # rows are its own flow's.
     def bodies_in(node)
       case node.type
       when :def_node then []
