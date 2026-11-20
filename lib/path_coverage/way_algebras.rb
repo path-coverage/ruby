@@ -1,5 +1,5 @@
 module PathCoverage
-  # The algebras CardWays can fold a card's ways in, each giving
+  # The algebras PathsWays can fold a flow's ways in, each giving
   # no ways, the one way through no rows, the one way taking a
   # labelled path, and ways added and joined one after another.
   # A way's label at a row is [row key, path index].
@@ -38,7 +38,7 @@ module PathCoverage
       def self.plus(ways, more) = ways | more
 
       # The labels of each way of ways going on to each of more:
-      # every one of either, as CardWays never joins no ways.
+      # every one of either, as PathsWays never joins no ways.
       def self.times(ways, more) = ways | more
     end
 

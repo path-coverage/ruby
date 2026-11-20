@@ -1,16 +1,16 @@
-require_relative 'card_forks'
-require_relative 'card_rescues'
+require_relative 'paths_forks'
+require_relative 'paths_rescues'
 require_relative 'manifest'
 require_relative 'method_statements'
 require_relative 'decision_paths'
 require_relative 'decision_tree'
 
 module PathCoverage
-  # How the rows of each card nest: for each row, the decision it
+  # How the rows of each flow nest: for each row, the decision it
   # runs inside, the arm of that decision it is in, and the paths of
   # that decision on which it runs, so a reader can tell which paths
-  # reach a row, and count the paths through a card as a whole.
-  module CardTree
+  # reach a row, and count the paths through a flow as a whole.
+  module PathsTree
     # Part of a decision's code that a row can be inside: an arm of
     # statements, or a leaf; owner the key of the decision's row,
     # range its bytes, arm its arm's name, nil for a leaf, on
@@ -38,11 +38,11 @@ module PathCoverage
     # not known; each nil where it does not apply.
     def self.of(source, path, decisions = nil)
       decisions = Manifest.decisions(source, path) if decisions.nil?
-      cards = MethodStatements.of(source, path, decisions)
-      cards.transform_values { nested(source, decisions, _1) }
+      flows = MethodStatements.of(source, path, decisions)
+      flows.transform_values { nested(source, decisions, _1) }
     end
 
-    # { "line:column" => its place } for each of rows, a card's,
+    # { "line:column" => its place } for each of rows, a flow's,
     # each placed in the innermost region of another row's
     # decision holding all of its own decision's code, or, for a
     # row that is no decision, where it starts: a decision
@@ -54,13 +54,13 @@ module PathCoverage
     # rescue's body's]] }, as RescueForks gives them. scopes is
     # [forks, rescues].
     def self.nested(source, decisions, rows, scopes = [{}, {}])
-      regions = card_regions(source, decisions, rows) +
-                CardForks.regions(*scopes)
+      regions = row_regions(source, decisions, rows) +
+                PathsForks.regions(*scopes)
       places = rows_placed(source, rows, [decisions, regions])
-      CardForks.placed(places, scopes, regions)
+      PathsForks.placed(places, scopes, regions)
     end
 
-    # { "line:column" => its place } for each of rows, a card's,
+    # { "line:column" => its place } for each of rows, a flow's,
     # among regions, as nested places them.
     def self.rows_placed(source, rows, (decisions, regions))
       starts = line_starts(source)
@@ -73,9 +73,9 @@ module PathCoverage
       end
     end
 
-    # The regions of the decisions of rows, a card's, decisions being
+    # The regions of the decisions of rows, a flow's, decisions being
     # { decision => Condition }.
-    def self.card_regions(source, decisions, rows)
+    def self.row_regions(source, decisions, rows)
       rows.select(&:decision).flat_map do |row|
         regions_of(source, key_of(row), decisions.fetch(row.decision))
       end

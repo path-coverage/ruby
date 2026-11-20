@@ -8,7 +8,7 @@ class ConsoleSummaryTest < TidTest
   | test
   | Each group is a heading, its own totals indented under it.
   | There is no total over every group.
-  | With no cards given, as methods are not measured, there is no
+  | With no flows given, as methods are not measured, there is no
   | combined line.
   ) do
     decision_paths = {
@@ -35,15 +35,15 @@ class ConsoleSummaryTest < TidTest
   end
 
   test 'Cs4m20', %w(
-  | Example: fee in lib/fee.rb, its card 4 of its 6 paths
+  | Example: fee in lib/fee.rb, its flow 4 of its 6 paths
   | taken, and groups code and test
   | Each group has a combined line too: code has fee's 4 / 6.
   | test, with no def, has 0 / 0, shown as -.
   ) do
-    cards = { 'lib/fee.rb:1:0' => [4, 6] }
+    flows = { 'lib/fee.rb:1:0' => [4, 6] }
     groups = { 'code' => ['lib/**/*.rb'], 'test' => ['test/**/*.rb'] }
     summary = PathCoverage::ConsoleSummary
-    lines = summary.lines({}, cards, groups)
+    lines = summary.lines({}, flows, groups)
     expected = [
       'code:',
       '  Paths alone: 0 / 0 (-)',

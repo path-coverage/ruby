@@ -1,7 +1,7 @@
 module PathCoverage
-  # The lists of statements a method's card has rows for: a def's
+  # The lists of statements a method's flow has rows for: a def's
   # body, the arms of each decision in it whose arms are statements,
-  # and the body of each block in it, as the card lays them out
+  # and the body of each block in it, as the flow lays them out
   # flat. It relies on its includer's rows_in, decision? and
   # decision_name.
   module StatementArms
@@ -9,7 +9,7 @@ module PathCoverage
     # block's, a lambda's and a begin's statements are rows of
     # their own, after the statement holding them, and a def's
     # body runs only when it is called, its decisions rows of its own
-    # card.
+    # flow.
     UNSEEN = %i[block_node begin_node def_node lambda_node].freeze
 
     # Example: if/else for if a then 1 else 2 end.
@@ -68,7 +68,7 @@ module PathCoverage
     # where a decision does, eg a ?:'s predicate, names that
     # decision: each is kept once, and decision itself not at
     # all. None for a top that is no decision, eg a def inside a
-    # def, whose decisions are on its own card.
+    # def, whose decisions are on its own flow.
     def inner_decisions(decision)
       return [] unless decision?(decision)
 
@@ -101,7 +101,7 @@ module PathCoverage
     # The body of each block and lambda in node, run 0 or more
     # times, and each begin: none inside an arm of statements or
     # another body, whose rows are their own, nor in a def, whose
-    # rows are its own card's.
+    # rows are its own flow's.
     def bodies_in(node)
       case node.type
       when :def_node then []

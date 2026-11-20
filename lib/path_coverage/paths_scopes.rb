@@ -1,10 +1,10 @@
 require 'prism'
 
 module PathCoverage
-  # The scope a top card is named for: the module or class its
-  # lines are in, as a def names a method's card.
-  module CardScopes
-    # The kinds of node that are a top card's scope.
+  # The scope a top flow is named for: the module or class its
+  # lines are in, as a def names a method's flow.
+  module PathsScopes
+    # The kinds of node that are a top flow's scope.
     HOLDERS = [Prism::ModuleNode, Prism::ClassNode].freeze
 
     # A lambda giving the scope of a line of source, as scope
@@ -17,8 +17,8 @@ module PathCoverage
     # Example: line 2, inside module Shop on lines 1 to 9, gives
     # Shop.
     # The name of the innermost of holders, modules and classes,
-    # whose lines hold line, a top card's scope, as a def is a
-    # method card's; file for a line in none.
+    # whose lines hold line, a top flow's scope, as a def is a
+    # method flow's; file for a line in none.
     def self.scope(holders, line)
       holding = holders.select do |node|
         location = node.location

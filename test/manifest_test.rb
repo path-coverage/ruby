@@ -288,8 +288,8 @@ class ManifestTest < TidTest
   test '6asy91', %w(
   | a ternary whose predicate is an && is a decision of one leaf,
   | its predicate, and the && a decision of its own, as a block
-  | method's call wholly a leaf is: each a row of its own card,
-  | the card's tree saying what the &&'s paths give that leaf
+  | method's call wholly a leaf is: each a row of its own flow,
+  | the flow's tree saying what the &&'s paths give that leaf
   ) do
     source = <<~RUBY
       def kata?(id)
@@ -366,8 +366,8 @@ class ManifestTest < TidTest
   test '6asy95', %w(
   | a ternary that is an arm of a ternary, in parentheses,
   | is a decision of its own, the arm holding it a plain arm, as an
-  | if's arm holding an if is: each is a row of its own card,
-  | the card's tree placing the inner in the outer's then arm.
+  | if's arm holding an if is: each is a row of its own flow,
+  | the flow's tree placing the inner in the outer's then arm.
   | Each is named at its ?, so a ternary never shares the name
   | of a decision starting where it does, eg its predicate's.
   ) do
@@ -741,7 +741,7 @@ class ManifestTest < TidTest
   | A leaf that is wholly a block method's call whose value
   | follows from its path is a decision of its own, as a ?: in a
   | ?:'s arm is, the leaf holding it a plain leaf: each is a
-  | row of its own card, the card's tree saying what the call's
+  | row of its own flow, the flow's tree saying what the call's
   | paths give the leaf.
   ) do
     source = <<~RUBY

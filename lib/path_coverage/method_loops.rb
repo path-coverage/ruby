@@ -1,5 +1,5 @@
 require 'prism'
-require_relative 'card_tree'
+require_relative 'paths_tree'
 require_relative 'decision'
 require_relative 'loop_forks'
 require_relative 'loop_nodes'
@@ -24,7 +24,7 @@ module PathCoverage
       decisions ||= Manifest.decisions(source, path)
       spots = spots_in(source, path, decisions)
       forks = LoopForks.of(source, path, decisions)
-      starts = CardTree.line_starts(source)
+      starts = PathsTree.line_starts(source)
       LoopNodes.defs(Prism.parse(source).value).to_h do |node|
         decision = Decision.of(path, node)
         loops = [named(node, path), forks[decision].keys]
@@ -112,7 +112,7 @@ module PathCoverage
     # no step, as Walk's repeats have them.
     def self.repeats(source, path, decisions = nil)
       rows = MethodStatements.of(source, path, decisions)
-      starts = CardTree.line_starts(source)
+      starts = PathsTree.line_starts(source)
       LoopNodes.defs(Prism.parse(source).value).to_h do |node|
         decision = Decision.of(path, node)
         tests = tests_in(node.body, path)

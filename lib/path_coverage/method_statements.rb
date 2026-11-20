@@ -10,7 +10,7 @@ require_relative 'statement_arms'
 require_relative 'totals'
 
 module PathCoverage
-  # One row of a method's card, a top-level statement or a
+  # One row of a method's flow, a top-level statement or a
   # decision at its top: where it starts; its top, what it is as
   # written, eg = for a write; how many paths it has; the name
   # of its decision, nil when it is no decision; and its own name, by
@@ -19,7 +19,7 @@ module PathCoverage
                           :name)
 
   # Finds, without running it, the top-level statements of each
-  # method in source, one row each in its method's card.
+  # method in source, one row each in its method's flow.
   module MethodStatements
     # Each function below takes decisions, { decision =>
     # Condition }, the decisions the run has in source, as
@@ -33,13 +33,13 @@ module PathCoverage
     end
 
     # { def decision => its name } for each def in source, eg
-    # { "k.rb:4:2" => :ship }, each its card's title.
+    # { "k.rb:4:2" => :ship }, each its flow's title.
     def self.names(source, path, decisions = nil)
       collect(source, path, decisions).names
     end
 
     # { def decision => its last line } for each def in source, eg
-    # { "k.rb:4:2" => 6 }, where its card ends.
+    # { "k.rb:4:2" => 6 }, where its flow ends.
     def self.lasts(source, path, decisions = nil)
       collect(source, path, decisions).lasts
     end
@@ -75,7 +75,7 @@ module PathCoverage
     # Example: RATE = x ? 2 : 1 at the top level, its then
     # taken, gives [1, 2].
     # [taken, possible] of the paths of the decisions in source on
-    # no method's card, outside every def, as top_rows gives
+    # no method's flow, outside every def, as top_rows gives
     # them; paths as Result#paths gives them.
     def self.top_level(source, path, paths, decisions = nil)
       names = top_rows(source, path, decisions).map(&:decision)
@@ -84,13 +84,13 @@ module PathCoverage
 
     # Example: RATE = x ? 2 : 1 gives a ?: row at 1:9.
     # A Statement row for each decision in source on no method's
-    # card, outside every def, for the card of its own lines, in
+    # flow, outside every def, for the flow of its own lines, in
     # the order written: where decision mode names it, its
     # operator, an elsif's elsif, and its paths.
     def self.top_rows(source, path, decisions = nil)
       collector = collect(source, path, decisions)
-      carded = collector.methods.values.flatten.map(&:decision)
-      loose = collector.decisions.except(*carded)
+      in_methods = collector.methods.values.flatten.map(&:decision)
+      loose = collector.decisions.except(*in_methods)
       rows = loose.map do |name, decision|
         top_row(source, name, decision)
       end
@@ -191,7 +191,7 @@ module PathCoverage
 
       # Notes the name and last line of node, the def at decision, and
       # where it is entered, reached under decision's own name, so its
-      # card can say how many times it was called.
+      # flow can say how many times it was called.
       def note_def(decision, node)
         @names[decision] = node.name
         @lasts[decision] = node.location.end_line

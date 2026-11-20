@@ -1,15 +1,15 @@
 module PathCoverage
-  # How a begin with a rescue forks its card. CardWays includes
+  # How a begin with a rescue forks its flow. PathsWays includes
   # it. The begin is a scope. Its body either completes, or a
   # rescue runs. A rescue can run after any prefix of a way through
   # the body, because a raise can come from anywhere. A prefix can
   # end at any row, including one inside an arm or a loop's body.
-  module CardRescues
+  module PathsRescues
     # { key => its rescues } of each rescue fork of rescues, as
     # RescueForks gives them.
     def self.counts(rescues)
       rescues.to_h do |name, (count, *)|
-        [CardTree.key_at(name), count]
+        [PathsTree.key_at(name), count]
       end
     end
 
@@ -18,11 +18,11 @@ module PathCoverage
     # rescue numbered n is run on its path n.
     def self.regions(rescues)
       rescues.flat_map do |name, (_, _, body, clauses)|
-        owner = CardTree.key_at(name)
+        owner = PathsTree.key_at(name)
         bodies = [['body', body], *clauses.map { ['rescue', _1] }]
         bodies.each_with_index.map do |(arm, range), path|
-          CardTree::Region.new(owner:, range:, arm:, on: [path],
-                               leaf: nil, leaves: nil)
+          PathsTree::Region.new(owner:, range:, arm:, on: [path],
+                                leaf: nil, leaves: nil)
         end
       end
     end

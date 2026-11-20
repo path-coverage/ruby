@@ -58,9 +58,9 @@ class SourceReportTest < TidTest
 
   test 'Sj3r30', %w(
   | the source report of a run: the operators ignored, the
-  | covered files of each group, each card row's top coloured,
+  | covered files of each group, each flow row's top coloured,
   | and each covered file's lines and decisions, each
-  | decision's fold headed by its card row's top
+  | decision's fold headed by its flow row's top
   ) do
     source = "def kata?(id)\n  ok?(id) && new?(id)\nend\n"
     decisions = PathCoverage::Manifest.decisions(source, 'k.rb')
@@ -79,12 +79,12 @@ class SourceReportTest < TidTest
     decision_paths = { 'k.rb:2:2' => paths }
     row = { 'decision' => 'k.rb:2:2', 'top' => '&&' }
     leave = { 'decision' => nil, 'top' => 'return' }
-    cards = { 'k.rb:1:0' => { 'rows' => [row, leave] } }
+    flows = { 'k.rb:1:0' => { 'rows' => [row, leave] } }
     report = PathCoverage::SourceReport
     decision = report.decision(source, decisions, 'k.rb:2:2', paths,
                                '&&')
     expected = {
-      '$schema': 'https://path-coverage.github.io/schemas/v1/' \
+      '$schema': 'https://path-coverage.github.io/schemas/v2/' \
                  'path_coverage.source.schema.json',
       schema: 1, ignored: [],
       groups: { 'Katas' => ['k.rb'], 'Other' => [] },
@@ -100,7 +100,7 @@ class SourceReportTest < TidTest
       }
     }
     assert_equal expected,
-                 report.of(files, config, decision_paths, cards)
+                 report.of(files, config, decision_paths, flows)
   end
 
   test 'Sj3r40', %w(

@@ -51,9 +51,9 @@ module PathCoverage
       end
     end
 
-    # True when report, a JSON report, lists its cards' ways: one a
-    # run wrote, which names the max_paths its cards were listed
-    # with; not one the :post reporter sent, which has no cards.
+    # True when report, a JSON report, lists its flows' ways: one a
+    # run wrote, which names the max_paths its flows were listed
+    # with; not one the :post reporter sent, which has no flows.
     def self.listed_ways?(report)
       report.key?('max_paths')
     end

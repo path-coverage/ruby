@@ -1,7 +1,7 @@
 require 'json'
 
 module PathCoverage
-  # A method card's taken ways, and its loops' passes, as the JSON
+  # A method flow's taken ways, and its loops' passes, as the JSON
   # report lists them: each way the steps one call, or one pass,
   # took, in order, a decision's {"at", "path"}, a loop's {"at",
   # "path", "passes"}, its path how many passes it made, or any
@@ -36,15 +36,15 @@ module PathCoverage
     end
 
     # { method's entry, or loop's name => { way => count } } of a
-    # JSON report's cards, as a CallTrace counts them: each card
-    # listing its calls' ways and its loops' passes; a top card
+    # JSON report's flows, as a CallTrace counts them: each flow
+    # listing its calls' ways and its loops' passes; a top flow
     # lists neither, as no call runs it.
     def self.ways(report)
-      report['cards'].each_with_object({}) do |(entry, card), found|
-        next unless card.key?('taken')
+      report['flows'].each_with_object({}) do |(entry, flow), found|
+        next unless flow.key?('taken')
 
-        found[entry] = read(entry, card['taken'])
-        card['passes'].each do |at, passes|
+        found[entry] = read(entry, flow['taken'])
+        flow['passes'].each do |at, passes|
           loop = named(entry, at)
           found[loop] = read(loop, passes)
         end
@@ -82,7 +82,7 @@ module PathCoverage
     end
 
     # The line:column of the row or loop named name, the column two
-    # digits, as a card's rows have it: "k.rb:4:6" gives "4:06".
+    # digits, as a flow's rows have it: "k.rb:4:6" gives "4:06".
     def self.at(name)
       line, column = name.split(':').last(2)
       format('%<line>s:%<column>02d', line:, column: Integer(column))

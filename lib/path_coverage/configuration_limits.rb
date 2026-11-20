@@ -1,5 +1,5 @@
 module PathCoverage
-  # The settings of a PathCoverage.start block that limit a card's
+  # The settings of a PathCoverage.start block that limit a flow's
   # ways: the most paths a method may have and still be checked,
   # and whether a loop counts as a decision. It relies on its
   # includer's ConfigurationError, and sets @max_paths and @loops

@@ -1,7 +1,7 @@
 require_relative 'test_helper'
-require 'path_coverage/card_gaps'
+require 'path_coverage/paths_gaps'
 
-class CardGapsTest < TidTest
+class PathsGapsTest < TidTest
   ROWS = [
     { 'at' => '8:04', 'decision' => 'source/fee.rb:8:4' },
     { 'at' => '8:19', 'decision' => 'source/fee.rb:8:19' },
@@ -17,20 +17,20 @@ class CardGapsTest < TidTest
 
   test 'Cg7a01', %w(
   | Example: fee, an if on an &&, then an if on order.big, its
-  | card with 4 of its paths untested; a copy with 1; price, a
-  | method with more paths than max_paths allows; and a top card
+  | flow with 4 of its paths untested; a copy with 1; price, a
+  | method with more paths than max_paths allows; and a top flow
   | One heading for each method, its name with (), then each
   | untested path as a numbered line of its choices, in order,
   | each leaf by its text. An if whose test is an && repeats
   | the &&'s choice, so only the && is named; a step with no
   | choice, eg a return, is left out; one untested path says
   | path. A method with more paths than max_paths allows is
-  | named with what to do. A top card, which no call runs, has
+  | named with what to do. A top flow, which no call runs, has
   | no lines.
   ) do
-    cards = {
-      'source/fee.rb:5:0' => card(gaps_of_fee),
-      'source/fee_copy.rb:5:0' => card([gaps_of_fee.last]),
+    flows = {
+      'source/fee.rb:5:0' => flow(gaps_of_fee),
+      'source/fee_copy.rb:5:0' => flow([gaps_of_fee.last]),
       'source/price.rb:5:0' => { 'name' => 'price', 'rows' => ROWS,
                                  'ways' => 6912, 'taken' => [] },
       'source/fee.rb:1:0' => { 'name' => 'Fee', 'rows' => ROWS,
@@ -54,7 +54,7 @@ class CardGapsTest < TidTest
       '--max-paths allows.',
       'Split it into smaller functions.'
     ]
-    lines = PathCoverage::CardGaps.lines(cards, TEXTS, PARENTS)
+    lines = PathCoverage::PathsGaps.lines(flows, TEXTS, PARENTS)
     assert_equal expected, lines
   end
 
@@ -70,7 +70,7 @@ class CardGapsTest < TidTest
     rows = [{ 'at' => '5:04', 'decision' => nil }]
     taken = [[{ 'at' => '3:04', 'path' => ['0 items'] },
               { 'at' => '5:04' }]]
-    cards = {
+    flows = {
       'lib/retry.rb:2:0' => {
         'name' => 'retry', 'rows' => rows, 'ways' => 2, 'taken' => [],
         'gaps' => [], 'impossible_taken' => taken
@@ -81,7 +81,8 @@ class CardGapsTest < TidTest
       'Remove the # path: impossible comment that declares it:',
       '  1. line 3 loop: 0 items'
     ]
-    assert_equal expected, PathCoverage::CardGaps.lines(cards, {}, {})
+    lines = PathCoverage::PathsGaps.lines(flows, {}, {})
+    assert_equal expected, lines
   end
 
   test 'Cg7a03', %w(
@@ -93,7 +94,7 @@ class CardGapsTest < TidTest
     gaps = ['completed', 'rescue 1'].map do |path|
       [{ 'at' => '4:02', 'path' => [path] }]
     end
-    cards = {
+    flows = {
       'lib/price.rb:2:2' => {
         'name' => 'of', 'rows' => [], 'ways' => 2, 'taken' => [],
         'gaps' => gaps, 'impossible_taken' => []
@@ -105,18 +106,19 @@ class CardGapsTest < TidTest
       '  1. line 4 rescue: body completes',
       '  2. line 4 rescue: rescue 1 runs'
     ]
-    assert_equal expected, PathCoverage::CardGaps.lines(cards, {}, {})
+    lines = PathCoverage::PathsGaps.lines(flows, {}, {})
+    assert_equal expected, lines
   end
 
   private
 
-  # A card of fee listing gaps as its untested paths.
-  def card(gaps)
+  # A flow of fee listing gaps as its untested paths.
+  def flow(gaps)
     { 'name' => 'fee', 'rows' => ROWS, 'ways' => 6, 'taken' => [],
       'gaps' => gaps, 'impossible_taken' => [] }
   end
 
-  # fee's 4 untested paths, each its steps as a card lists them.
+  # fee's 4 untested paths, each its steps as a flow lists them.
   def gaps_of_fee
     [
       [[true, true], [true], [false]],

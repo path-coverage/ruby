@@ -2,7 +2,7 @@ require 'prism'
 require_relative 'condition'
 
 module PathCoverage
-  # The leaves of a card whose outcomes cannot differ within one
+  # The leaves of a flow whose outcomes cannot differ within one
   # call: each a read of a local variable that its method never
   # writes, eg a parameter, where the leaf's outcome is the
   # variable's truthiness. Every such read in a call has the same
@@ -25,10 +25,10 @@ module PathCoverage
     # Example: { 32...33 => :a, 54...55 => :a } for def f(a),
     # return 0 if a, then a ? 1 : 2.
     # { leaf byte range => local name } for each truthy leaf of
-    # the decisions of rows, a card's in source, decisions being
+    # the decisions of rows, a flow's in source, decisions being
     # { decision => Condition }, that reads, outside any block, a
     # local its def never writes, for each name two or more such
-    # leaves read; none for a card in no def, or one whose def
+    # leaves read; none for a flow in no def, or one whose def
     # calls any of REWRITERS.
     def self.of(source, decisions, rows)
       conditions = decisions.values_at(*rows.map(&:decision).compact)

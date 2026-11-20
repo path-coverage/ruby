@@ -1,9 +1,9 @@
 module PathCoverage
   # Which paths of a decision row fit the path its parent takes.
-  # CardWays includes it. A row that is the whole of its parent's
+  # PathsWays includes it. A row that is the whole of its parent's
   # leaf runs only the paths that give that leaf the outcome its
   # parent's path has.
-  module CardFitting
+  module PathsFitting
     # The block's value on each path of the decision row keyed
     # key, by index. A path that does not fit outcomes gets none
     # instead. fits_of decides which paths fit.

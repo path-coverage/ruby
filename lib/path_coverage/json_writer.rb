@@ -7,7 +7,7 @@ module PathCoverage
   # other reporter can read back.
   module JsonWriter
     # The URL of the schema the JSON report follows.
-    SCHEMA = 'https://path-coverage.github.io/schemas/v1/' \
+    SCHEMA = 'https://path-coverage.github.io/schemas/v2/' \
              'path_coverage.schema.json'.freeze
 
     # Writes operands, as Result gives them, paths, as
@@ -26,14 +26,14 @@ module PathCoverage
     LISTED = %i[outside].freeze
 
     # operands, and any paths, and parts' outside:, totals:,
-    # cards:, as WithinMethods.listed gives them, and tree:, as
+    # flows:, as WithinMethods.listed gives them, and tree:, as
     # WithinMethods.tree gives it, as the JSON report's text, with
     # parts' fingerprint:, as Configuration#fingerprint gives
     # it, the names of the kinds measured, the tools that measured
     # it and their versions, and parts' reached:,
     # as Recorder#reached gives it, even empty, as a run that
     # reached no statement says so; none when not given; parts'
-    # limits:, { "loops" =>, "max_paths" => } the cards were
+    # limits:, { "loops" =>, "max_paths" => } the flows were
     # listed with; headed by its schema's URL.
     def self.json(operands, paths = {}, **parts)
       fingerprint = parts.fetch(:fingerprint, {})
@@ -54,7 +54,7 @@ module PathCoverage
     end
 
     # The keys of parts written as they are, when not empty.
-    KEPT = %i[totals cards tree].freeze
+    KEPT = %i[totals flows tree].freeze
 
     # { key => its value } of each of parts' KEPT keys that has
     # a value not empty.

@@ -9,7 +9,6 @@ coverage.
 
 - [Overview](#overview)
 - [Getting started](#getting-started)
-- [Reading the HTML](#reading-the-html)
 - [Ignoring and treating](#ignoring-and-treating)
 - [Use when you cannot edit the code!](#use-when-you-cannot-edit-the-code)
 - [What a run reports](#what-a-run-reports)
@@ -69,123 +68,6 @@ PathCoverage.start do
                                  # or 1+ items (off by default)
 end
 ```
-
-## Reading the HTML
-
-https://path-coverage.github.io/ruby/ shows a demo HTML report
-for the mock source tree in `demo/`. `make demo` builds and opens the
-same report locally.
-
-The HTML report, for people, is drawn from the two JSON files, by
-[html-reporter](https://github.com/path-coverage/html-reporter).
-
-```sh
-docker run --rm -v "$PWD/coverage:/paths" ghcr.io/path-coverage/html-reporter /paths
-```
-
-Clicking a `def` line on a file's HTML page opens that method's
-*card* to its left.
-
-A card has a row for each decision in the method, by `line:col`,
-with its counts of paths not taken and taken.
-
-Clicking a row's `▼` opens it:
-- on the left are the decision's parts, one per row: its
-  operator, eg `&&`, then each operand it tests, nested
-  operators indented under it.
-- on the right is one column for each possible path through it.
-  - the column's head is `≀0` for a path never taken, and `≀*`
-    for one taken (hover for its count). Look for zeros!
-  - the symbols in a column line up with those rows, and
-    are explained below.
-
-Hovering over code in the open card's method opens the tree holding
-that code, its row lit, or, for a `return` or `raise`, lights its row.
-A long piece of code scrolls within its row.
-
-### Boolean: `T` `F`
-
-Many parts of a decision, such as `name.size > 2`, are true or false.
-
-![A file's page: line 2, name.size > 2 && name.ascii_only?, its card open to its left](docs/example-outcome.png)
-
-- `T` the expression was true.
-- `F` the expression was false.
-
-In this example, there was no test which exercised the path where `name.size > 2` was `true`, and
-`name.ascii_only?` was `false`.
-
-### Unreachable: blank
-
-Some parts of a decision are not always evaluated.
-
-![A file's page: line 2, @x = dee || dum, its card open to its left](docs/example-unreachable.png)
-
-- "blank" the expression is never evaluated.
-
-In the second column `dee` was `T`, so because of `||`'s short-circuiting, `dum` is never evaluated.
-
-### Taken: `✓`
-
-A `?:` takes one of its arms.
-
-![A file's page: line 2, paid ? 'paid' : 'due', its card open to its left](docs/example-taken.png)
-
-- `✓` marks the column whose path goes to that arm
-
-The `paid` row is the `?:`'s predicate, `T` or `F`. Below it is one row
-per arm, `? 'paid'` and `: 'due'`. The first column, `paid` false, never
-taken, goes to `: 'due'`; the second, `paid` true, to `? 'paid'`.
-
-An `if`, `unless`, `case` or `||=` shows no arm rows: which arm a path
-takes follows from its predicate, and the code in an arm is a row of
-its own on the card.
-
-### Navigation: `∅` `●`
-
-`&.` skips the rest of its chain when its receiver is nil.
-
-![A file's page: line 2, user&.account&.owner, its card open to its left](docs/example-nil.png)
-
-- `∅` the receiver was nil, so `&.` skipped the rest of the chain.
-- `●` the receiver was not nil, so `&.` made the call.
-
-In this example, there was no test which exercised the path where
-`user` was nil.
-
-### Count: `0` `1` `*`
-
-A block method can call its block on any number of items.
-
-![A file's page: line 2, ids.any? { |id| id.odd? }, its card open to its left](docs/example-count.png)
-
-- `0` the block was called with no items.
-- `1` the block was called with one item.
-- `*` the block was called with two or more items.
-
-In this example, there was no test which exercised the path where
-the block was called with two or more items and every answer was
-`false`.
-
-### Both: `TF`
-
-A block's answers can differ from item to item.
-
-![A file's page: line 2, ids.select { |id| id.odd? }, its card open to its left](docs/example-both.png)
-
-- `T` every answer of the block was true.
-- `F` every answer of the block was false.
-- `TF` the block's answers were both true and false.
-
-In this example, there was no test which exercised the path where
-the block was called with two or more items and every answer was
-`false`.
-
-### Lots of paths!
-
-Ruby code can be very compact so short expressions can generate lots of paths!
-
-![A file's page: line 2, if user&.admin? && ids.select { |id| id.odd? }.any?, its card open to its left](docs/example-overview.png)
 
 ## Ignoring and treating
 
@@ -473,20 +355,20 @@ cannot be closed is the lesser error than hiding one that can.
 
 ### Methods
 
-Each method has a card, named by the `path:line:column` of its `def`,
+Each method has a flow, named by the `path:line:column` of its `def`,
 with a row for each statement that shapes its paths: each decision, and
 each `return` or `raise`, which ends a path. Any other statement, eg
 `x = 1`, runs exactly when what holds it does, so is no row. A decision's
 row counts its paths; a `return` or `raise` row is one path, taken
-when it is reached. A method's total adds up its rows. Its title says
-how many times it was called, so a method never called is a gap,
-even one with no rows. A file's code outside any method gets a card
+when it is reached. A method's total adds up its rows. Its `calls`
+count how many times it was called, so a method never called is a gap,
+even one with no rows. A file's code outside any method gets a flow
 of its own.
 
-The JSON report's `cards` hold each card's rows, its `ways` and its
+The JSON report's `flows` hold each flow's rows, its `ways` and its
 `calls`, and its `tree` says how those rows nest.
 
-A method's card counts only the paths its method can take. A
+A method's flow counts only the paths its method can take. A
 local variable the method never writes, eg a parameter, read as a
 leaf outside any block, has one outcome all through a call, so
 
@@ -569,7 +451,7 @@ PathCoverage.leave(PathCoverage.enter("k.rb:2:2", 2), PathCoverage.record("k.rb:
 An `if` decision's leave call wraps its predicate alone, as its path is
 decided there, so an arm that returns or raises still counts it.
 Each statement that is no decision gets a reach call before it, counting
-its run, for its card's row.
+its run, for its flow's row.
 
 A command call such as `ok? id` (after `and`) is not valid as a bare
 argument, so that leaf alone gets parentheses of its own, and so does a
@@ -688,13 +570,4 @@ lines, totals over every group, are silenced. The tool measuring paths is
 a copy of `lib/` renamed `PathCoverageSelf` (`test/self_coverage.rb`), so
 the tests start and restart `PathCoverage` as always. SimpleCov's figures
 for `lib/` are the same with it as without.
-
-`make demo` (not part of `make all`) runs `demo/run.rb` through
-`bin/build_demo.sh`, writing the report to `site/` and opening it. The
-Pages workflow (`.github/workflows/pages.yml`) runs the same script on
-each push to `main` and publishes `site/`.
-
-`bin/capture_card_images.sh` runs the examples in `demo/cards/` and
-saves this README's screenshots, `docs/example-*.png`, with headless
-Chrome. Run it again whenever the card's look changes.
 

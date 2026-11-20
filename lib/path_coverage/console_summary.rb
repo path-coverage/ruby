@@ -8,37 +8,37 @@ module PathCoverage
   # groups configured each group is a heading, its own totals
   # indented under it, and there is no total over every group.
   module ConsoleSummary
-    # The summary lines of decision_paths and, when cards, { def
+    # The summary lines of decision_paths and, when flows, { def
     # decision => [taken, size] }, are given, as they are when
-    # methods are measured, of cards; groups is { name =>
+    # methods are measured, of flows; groups is { name =>
     # [glob, ...] }.
-    def self.lines(decision_paths, cards, groups = {})
+    def self.lines(decision_paths, flows, groups = {})
       if groups.empty?
         return totals_lines(totals(decision_paths,
-                                   cards))
+                                   flows))
       end
 
-      all = group_totals(decision_paths, cards, groups)
+      all = group_totals(decision_paths, flows, groups)
       all.flat_map do |name, totals|
         ["#{name}:", *totals_lines(totals).map { |line| "  #{line}" }]
       end
     end
 
     # { 'alone' => [taken, possible] } of decision_paths, with
-    # 'combined' => [taken, possible] of cards when given.
-    def self.totals(decision_paths, cards)
+    # 'combined' => [taken, possible] of flows when given.
+    def self.totals(decision_paths, flows)
       totals = { 'alone' => Totals.alone(decision_paths) }
-      return totals if cards.nil?
+      return totals if flows.nil?
 
-      totals.merge('combined' => Totals.combined(cards))
+      totals.merge('combined' => Totals.combined(flows))
     end
 
     # { group name => totals } of each group's own decisions and
-    # cards alone.
-    def self.group_totals(decision_paths, cards, groups)
+    # flows alone.
+    def self.group_totals(decision_paths, flows, groups)
       groups.to_h do |name, globs|
-        own_cards = cards ? own(cards, globs) : nil
-        [name, totals(own(decision_paths, globs), own_cards)]
+        own_flows = flows ? own(flows, globs) : nil
+        [name, totals(own(decision_paths, globs), own_flows)]
       end
     end
 

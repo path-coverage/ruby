@@ -1,6 +1,6 @@
 require_relative '../test_helper'
 require_relative 'method_grammar'
-require 'path_coverage/card_ways'
+require 'path_coverage/paths_ways'
 require 'path_coverage/way_algebras'
 require 'path_coverage/decision_paths'
 require 'path_coverage/kernel'
@@ -50,7 +50,7 @@ class PropertyLoadTest < TidTest
   test 'Pq3L12', %w(
   | Every method MethodGrammar generates with reuse from SEEDS,
   | its leaves often repeating a parameter, has as its possible
-  | ways, as CardWays lists them, exactly the ways its calls take
+  | ways, as PathsWays lists them, exactly the ways its calls take
   | over every combination of its parameters, each way the path
   | it takes at every row it reaches. No way taken is missing,
   | so none is ever ruled out wrongly; and no way listed is
@@ -111,7 +111,7 @@ class PropertyLoadTest < TidTest
   | Every way a call witnesses, over every combination of the
   | parameters of every method MethodGrammar generates rescued
   | from SEEDS, as its call trace records it, is one MethodWays
-  | lists, so no call takes a way the card does not count. Only
+  | lists, so no call takes a way the flow does not count. Only
   | the raises written in the method can raise, so many listed
   | rescue ways are never taken; none is asserted taken.
   ) do |t|
@@ -162,7 +162,7 @@ class PropertyLoadTest < TidTest
   | the ways its calls witness over every combination of its
   | parameters are exactly the ways MethodWays lists. No way
   | taken is missing, and no way listed is never taken, so a
-  | next or a break ends its pass where the card says it does.
+  | next or a break ends its pass where the flow says it does.
   ) do |t|
     sources = looped_sources
     sources.each { |seed, source| t.write(source, "m#{seed}.rb") }
@@ -272,11 +272,11 @@ class PropertyLoadTest < TidTest
     PathCoverage.rewritten(args, [loops, rescues])
   end
 
-  # The ways CardWays lists through the one card of source, the
+  # The ways PathsWays lists through the one flow of source, the
   # file name, each way's labels in order, and the ways in order.
   def listed_ways(source, name)
     listed = PathCoverage::WayAlgebras::Listed
-    ways = PathCoverage::CardWays.of(source, name, listed)
+    ways = PathCoverage::PathsWays.of(source, name, listed)
     ways.values.first.map(&:sort).uniq.sort
   end
 

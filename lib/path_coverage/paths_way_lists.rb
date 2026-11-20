@@ -2,10 +2,10 @@ require_relative 'method_ways'
 require_relative 'ways_report'
 
 module PathCoverage
-  # The ways a method's card lists for the JSON report: those its
+  # The ways a method's flow lists for the JSON report: those its
   # calls took, its loops' passes, and of the ways one call can take,
   # those some call took, covered, and those none did, gaps.
-  module CardWayLists
+  module PathsWayLists
     # { "taken", "passes" } of the method whose entry is named
     # entry: the ways its calls took, ways being { unit's name =>
     # { way => count } }, as a CallTrace counts them; and the passes
@@ -19,7 +19,7 @@ module PathCoverage
     # the method whose entry is named entry, ways as walked has
     # them; checked [split, forked]: split [possible, impossible],
     # the ways one call can take, and those none can, as
-    # MethodWays.split_card lists them, forked the names of the
+    # MethodWays.split_flow lists them, forked the names of the
     # loops that fork there.
     def self.checked(entry, ways, ((possible, impossible), forked))
       seen = witnessed(ways.fetch(entry, {}), forked)

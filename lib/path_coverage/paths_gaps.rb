@@ -5,7 +5,7 @@ module PathCoverage
   # The terminal worklist of the untested paths through each
   # method: for each method, a heading, then each path no run
   # took, as the choices a test must make to take it.
-  module CardGaps
+  module PathsGaps
     # The instruction under a method's untested paths.
     UNTESTED = 'Add tests that take each of these paths:'.freeze
     # The instruction under a method with more paths than
@@ -16,40 +16,40 @@ module PathCoverage
     DECLARED = 'Remove the # path: impossible comment that ' \
                'declares it:'.freeze
 
-    # The lines of cards, { method's key => card }, as a JSON
+    # The lines of flows, { method's key => flow }, as a JSON
     # report has them, each choice's leaves named by their text in
     # texts, { decision => [text, ...] }; a decision whose parent,
     # in parents, { decision => its parent decision }, is stepped
     # on the same path is named there, and the parent left out. A
-    # method's card listing no gaps, its ways more than max paths
+    # method's flow listing no gaps, its ways more than max paths
     # allows, is named with what to do, so it fails and never
-    # reads as tested; a top card, run by no call, has no lines.
-    def self.lines(cards, texts, parents)
-      cards.flat_map do |key, card|
-        next [] unless card.key?('taken')
+    # reads as tested; a top flow, run by no call, has no lines.
+    def self.lines(flows, texts, parents)
+      flows.flat_map do |key, flow|
+        next [] unless flow.key?('taken')
 
-        card_lines(key, card, texts, parents)
+        method_lines(key, flow, texts, parents)
       end
     end
 
-    # The lines of card, the method's at key, as lines gives them.
-    def self.card_lines(key, card, texts, parents)
-      where = "#{key.split(':')[..-2].join(':')} #{card['name']}()"
-      return too_many(where, card) unless card.key?('gaps')
+    # The lines of flow, the method's at key, as lines gives them.
+    def self.method_lines(key, flow, texts, parents)
+      where = "#{key.split(':')[..-2].join(':')} #{flow['name']}()"
+      return too_many(where, flow) unless flow.key?('gaps')
 
-      named = Choices.new(card, texts, parents)
-      gaps = card['gaps']
-      taken = card['impossible_taken']
+      named = Choices.new(flow, texts, parents)
+      gaps = flow['gaps']
+      taken = flow['impossible_taken']
       section("#{where} has #{paths(gaps.size, 'untested ')}.",
               UNTESTED, gaps, named) +
         section("#{where} took #{paths(taken.size, '')} declared " \
                 'impossible.', DECLARED, taken, named)
     end
 
-    # The lines of card, the method's at where, with more paths
+    # The lines of flow, the method's at where, with more paths
     # than --max-paths allows: how many, and what to do.
-    def self.too_many(where, card)
-      ["#{where} has #{card['ways']} paths, more than " \
+    def self.too_many(where, flow)
+      ["#{where} has #{flow['ways']} paths, more than " \
        '--max-paths allows.', TOO_MANY]
     end
 
@@ -70,12 +70,12 @@ module PathCoverage
       "#{count} #{kind}#{count == 1 ? 'path' : 'paths'}"
     end
 
-    # The choices of a card's ways, as a test must make them.
+    # The choices of a flow's ways, as a test must make them.
     class Choices
-      # The choices of card's ways, its rows naming each step's
-      # decision, texts and parents as CardGaps.lines has them.
-      def initialize(card, texts, parents)
-        @decisions = card['rows'].to_h { [_1['at'], _1['decision']] }
+      # The choices of flow's ways, its rows naming each step's
+      # decision, texts and parents as PathsGaps.lines has them.
+      def initialize(flow, texts, parents)
+        @decisions = flow['rows'].to_h { [_1['at'], _1['decision']] }
         @texts = texts
         @parents = parents
       end

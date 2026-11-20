@@ -14,18 +14,18 @@ module PathCoverage
     SCHEMA = 1
 
     # The URL of the schema the source report follows.
-    SCHEMA_URL = 'https://path-coverage.github.io/schemas/v1/' \
+    SCHEMA_URL = 'https://path-coverage.github.io/schemas/v2/' \
                  'path_coverage.source.schema.json'.freeze
 
     # The source report of a run, headed by its schema's URL and
     # version: config's ignored operators, the
     # covered files of each of config's groups, each top of the
-    # rows of cards, { def decision => card }, coloured, and each of
+    # rows of flows, { def decision => flow }, coloured, and each of
     # files', { full path => {source:, decisions:} }, lines and
     # decisions, each decision's paths as decision_paths has
     # them, its fold headed by its row's top.
-    def self.of(files, config, decision_paths, cards)
-      rows = cards.values.flat_map { _1['rows'] }
+    def self.of(files, config, decision_paths, flows)
+      rows = flows.values.flat_map { _1['rows'] }
       tops = rows.to_h { [_1['decision'], _1['top']] }
       shown = files.to_h do |full_path, parsed|
         [config.relative(full_path),

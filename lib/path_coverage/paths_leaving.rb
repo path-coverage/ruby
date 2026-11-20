@@ -1,9 +1,9 @@
 module PathCoverage
-  # How ways leave a card. CardWays includes it. A return or a
+  # How ways leave a flow. PathsWays includes it. A return or a
   # throw returns, and no rescue catches it. A raise or a fail
   # raises, and a rescue can catch it. A next, a break or a retry
   # ends its pass, and the way goes on after its loop.
-  module CardLeaving
+  module PathsLeaving
     # Where the ways that leave by each word go, as an index into a
     # fold's parts, [on, returned, raised, passed].
     PARTS = { 'return' => 1, 'throw' => 1, 'raise' => 2, 'fail' => 2,
@@ -14,7 +14,7 @@ module PathCoverage
     # by, eg return or raise.
     def leaving(key)
       decision = @decisions.fetch(@rows[key].decision)
-      regions = CardTree.regions_of(@source, key, decision)
+      regions = PathsTree.regions_of(@source, key, decision)
       regions.select(&:leaves).flat_map do |region|
         region.on.map { [_1, region.leaves] }
       end.to_h

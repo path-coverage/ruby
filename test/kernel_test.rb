@@ -107,7 +107,7 @@ class KernelTest < TidTest
   | between # path: disable and # path: enable, then order,
   | called once, express and verbose
   | Lines between the comments are not analysed, though they
-  | run: the report has no decision there, ship's card no row
+  | run: the report has no decision there, ship's flow no row
   | there, and its 2 ways are its first if's; the only gap
   | printed is that if false.
   ) do |t|
@@ -136,10 +136,10 @@ class KernelTest < TidTest
     assert_output(expected) { t.report }
 
     json = t.json
-    card = json['cards']['shipping.rb:2:2']
+    flow = json['flows']['shipping.rb:2:2']
     assert_equal [1, ['A7'], ['shipping.rb:3:4'], ['3:04'], 2],
                  [order[:days], log.lines, json['decisions'].keys,
-                  card['rows'].map { _1['at'] }, card['ways']]
+                  flow['rows'].map { _1['at'] }, flow['ways']]
   end
 
   test '6rTSD2', %w(
@@ -182,7 +182,7 @@ class KernelTest < TidTest
   | Example: total, an each block whose body holds an if on
   | paid, then amount, called once on a paid then an unpaid
   | order
-  | total's card lists the ways its calls took, its block's
+  | total's flow lists the ways its calls took, its block's
   | passes, and of the ways one call can take, those some call
   | took, covered, with how many did, and those none did, gaps:
   | here none, each of the block's ways taken by a pass.
@@ -204,7 +204,7 @@ class KernelTest < TidTest
     orders = [{ paid: true, amount: 12 }, { paid: false, amount: 7 }]
     t.load('orders.rb')::Orders.total(orders)
     t.report
-    card = t.json['cards']['orders.rb:2:2']
+    flow = t.json['flows']['orders.rb:2:2']
     paid, unpaid = [true, false].map do |outcome|
       [{ 'at' => '5:06', 'path' => [outcome] }]
     end
@@ -213,7 +213,7 @@ class KernelTest < TidTest
     each = ->(way) { { 'way' => way, 'count' => 1 } }
     both = [each.call(paid), each.call(unpaid)]
     expected = [[each.call([block])], { '4:16' => both }, both, []]
-    actual = card.values_at('taken', 'passes', 'covered', 'gaps')
+    actual = flow.values_at('taken', 'passes', 'covered', 'gaps')
     assert_equal expected, actual
   end
 
@@ -246,13 +246,13 @@ class KernelTest < TidTest
     queue = [{ urgent: true }, { urgent: false }]
     assert_equal 3, t.load('drain.rb')::Drain.drain(queue, 10)
     t.report
-    card = t.json['cards']['drain.rb:2:2']
+    flow = t.json['flows']['drain.rb:2:2']
     test = { 'at' => '4:10', 'path' => [true, true] }
     covered = [true, false].map do |urgent|
       { 'way' => [test, { 'at' => '6:06', 'path' => [urgent] }],
         'count' => 1 }
     end
-    assert_equal covered, card['covered']
+    assert_equal covered, flow['covered']
   end
 
   test '6rTSD8', %w(
@@ -292,7 +292,7 @@ class KernelTest < TidTest
   | paid, in two runs, one on a paid order, the other on an
   | unpaid one, each run's JSON report saved
   | Rendering from the saved reports reads back each run's ways
-  | and adds them up: total's card covers both of its ways,
+  | and adds them up: total's flow covers both of its ways,
   | each once, and has no gaps, though neither run did alone.
   ) do |t|
     t.write(<<~RUBY, 'orders.rb')
@@ -326,12 +326,12 @@ class KernelTest < TidTest
     end
     PathCoverage::Render.from_json(config, runs)
     merged = JSON.parse(File.read("#{out}/path_coverage.json"))
-    card = merged['cards']['orders.rb:2:2']
+    flow = merged['flows']['orders.rb:2:2']
     covered = [true, false].map do |outcome|
       { 'way' => [{ 'at' => '5:06', 'path' => [outcome] }],
         'count' => 1 }
     end
-    assert_equal [covered, []], card.values_at('covered', 'gaps')
+    assert_equal [covered, []], flow.values_at('covered', 'gaps')
   end
 
   test '6rTSDA', %w(
@@ -362,7 +362,7 @@ class KernelTest < TidTest
     sums = orders.map { total.call(_1) }
     assert_equal [0, 5], sums
     t.report
-    card = t.json['cards']['orders.rb:2:2']
+    flow = t.json['flows']['orders.rb:2:2']
     none = { 'at' => '4:16', 'path' => ['0 items'] }
     some = { 'at' => '4:16', 'path' => ['1+ items'] }
     paid = [true, false].map { { 'at' => '5:06', 'path' => [_1] } }
@@ -370,7 +370,7 @@ class KernelTest < TidTest
       { 'way' => way, 'count' => 1 }
     end
     assert_equal [covered, [[some, paid[1]]]],
-                 card.values_at('covered', 'gaps')
+                 flow.values_at('covered', 'gaps')
   end
 
   test '6rTSD6', %w(
@@ -378,7 +378,7 @@ class KernelTest < TidTest
   | paid, 2 ways, called once on a paid order, measured with
   | max_paths 1
   | A method with more ways than max_paths lists none of them:
-  | its card lists the ways its calls took and its loops'
+  | its flow lists the ways its calls took and its loops'
   | passes, but no covered, gaps or impossible. The JSON
   | report names the max_paths and loops it was made with.
   ) do |t|
@@ -395,9 +395,9 @@ class KernelTest < TidTest
     t.load('orders.rb')::Orders.total([{ paid: true }])
     t.report
     json = t.json
-    card = json['cards']['orders.rb:2:2']
+    flow = json['flows']['orders.rb:2:2']
     assert_equal [%w(passes taken), 1, false],
-                 [(card.keys & %w(taken passes covered gaps
+                 [(flow.keys & %w(taken passes covered gaps
                                   impossible impossible_taken)).sort,
                   json['max_paths'], json['loops']]
   end
@@ -406,7 +406,7 @@ class KernelTest < TidTest
   | Example: fee, a ternary on member, then another, called once,
   | member true
   | A way giving member both outcomes is impossible, as no call
-  | can take it: fee's card lists those apart from its gaps, and
+  | can take it: fee's flow lists those apart from its gaps, and
   | none taken, as none can be.
   ) do |t|
     t.write(<<~RUBY, 'fee.rb')
@@ -420,7 +420,7 @@ class KernelTest < TidTest
     t.start
     t.load('fee.rb')::Fee.fee(true)
     t.report
-    card = t.json['cards']['fee.rb:2:2']
+    flow = t.json['flows']['fee.rb:2:2']
     way = lambda do |first, second|
       [{ 'at' => '3:18', 'path' => [first] },
        { 'at' => '4:11', 'path' => [second] }]
@@ -431,7 +431,7 @@ class KernelTest < TidTest
       [way.call(true, false), way.call(false, true)], []
     ]
     keys = %w(covered gaps impossible impossible_taken)
-    assert_equal expected, card.values_at(*keys)
+    assert_equal expected, flow.values_at(*keys)
   end
 
   test '6rTSD3', %w(
@@ -488,12 +488,12 @@ class KernelTest < TidTest
     price = t.load::Price
     %w(12 x).each { price.of(_1) }
     t.report
-    card = t.json['cards']["#{t.file}:2:2"]
+    flow = t.json['flows']["#{t.file}:2:2"]
     expected = [['completed'], ['rescue 1']].to_set do |path|
       [{ 'at' => '3:18', 'path' => path }]
     end
-    covered = card['covered'].to_set { _1['way'] }
-    assert_equal [expected, []], [covered, card['gaps']]
+    covered = flow['covered'].to_set { _1['way'] }
+    assert_equal [expected, []], [covered, flow['gaps']]
   end
 
   test '6rTS43', %w(
@@ -504,7 +504,7 @@ class KernelTest < TidTest
   | The JSON report has every path's count, and each leaf's
   | span.
   | Its totals give paths alone as [taken, possible]: [2, 5],
-  | and combined the same, fee's card having the ?: and || rows.
+  | and combined the same, fee's flow having the ?: and || rows.
   ) do |t|
     t.write(<<~RUBY, 'fee.rb')
       module Fee
@@ -872,7 +872,7 @@ class KernelTest < TidTest
   | chain's value, true or false, when every receiver was not
   | nil.
   | So the four calls take the decision's four paths.
-  | The card shows the chain's rows under its &. as user then
+  | The flow shows the chain's rows under its &. as user then
   | admin?, so the &. is not shown twice.
   | user's cells are a disc for not nil and an empty set for nil.
   | Each is titled not nil or nil, for its hover text.
@@ -1165,7 +1165,7 @@ class KernelTest < TidTest
   | `member` false.
   | The JSON report's totals are [taken, possible]:
   | alone [2, 4], one path of each if's two.
-  | combined [2, 4] too, fee's card having just its two ifs as
+  | combined [2, 4] too, fee's flow having just its two ifs as
   | rows, its writes and value none.
   ) do |t|
     t.write(<<~RUBY, 'fee.rb')
@@ -1285,7 +1285,7 @@ class KernelTest < TidTest
   | At exit it prints a line per total, as SimpleCov prints its
   | line and branch coverage.
   | Paths alone: 2 / 4, one of each if's two paths.
-  | Paths combined: 2 / 4 too, fee's card having just its two
+  | Paths combined: 2 / 4 too, fee's flow having just its two
   | ifs as rows.
   ) do |t|
     t.write(<<~RUBY, 'fee.rb')
@@ -1471,7 +1471,7 @@ class KernelTest < TidTest
   test '6rTS55', %w(
   | Example: user&.account&.owner, called with no user, and
   | with a user whose account has an owner
-  | The card shows the chain's rows as user, then account, so
+  | The flow shows the chain's rows as user, then account, so
   | they read as the code does.
   | owner has no row: it decides no path, and is called exactly
   | where account is not nil.
@@ -1529,7 +1529,7 @@ class KernelTest < TidTest
   test '6rTS6b', %w(
   | Example: ship, a write, a return if empty, then a value,
   | measured within methods, called once with a full order
-  | Its card in the HTML report shows each row's taken, and
+  | Its flow in the HTML report shows each row's taken, and
   | its JSON report holds ship's call-count.
   | The if is its one row, its then never run, so 1 of 2; the
   | write and the value are no rows.
@@ -1546,7 +1546,7 @@ class KernelTest < TidTest
     t.start { report }
     t.load('ship6b.rb')::Ship.ship(3)
     t.report
-    assert_equal [%w(ship 1), %w(4:13 1)], card_taken(t, 2)
+    assert_equal [%w(ship 1), %w(4:13 1)], flow_taken(t, 2)
     assert_equal({ 'ship6b.rb:2:2' => 1 }, t.json['reached'])
   end
 
@@ -1590,7 +1590,7 @@ class KernelTest < TidTest
   test '6rTS6d', %w(
   | Example: ship, an if then a value, measured within methods,
   | called once with a paid order
-  | Its card folds the if's tree under the if's row: its
+  | Its flow folds the if's tree under the if's row: its
   | operator, and its operands.
   ) do |t|
     t.write(<<~RUBY, 'ship6d.rb')
@@ -1614,9 +1614,9 @@ class KernelTest < TidTest
   test '6rTS6e', %w(
   | Example: rate.rb, a ?: at its top level, with no RATE set,
   | and fee, a def of a ?:, called once with big true
-  | The top level's ?: is on no card, outside every def, so
+  | The top level's ?: is on no flow, outside every def, so
   | its paths are in the methods total as they are: 1 of 2.
-  | So the methods total is fee's card's 1 of 2 and the top
+  | So the methods total is fee's flow's 1 of 2 and the top
   | level's 1 of 2: [2, 4].
   ) do |t|
     t.write(<<~RUBY, 'rate.rb')
@@ -1633,7 +1633,7 @@ class KernelTest < TidTest
 
   test '6rTS6f', %w(
   | Example: rate.rb, a ?: at its top level, with no RATE set
-  | It has a top card for line 1, as a method has a card, with
+  | It has a top flow for line 1, as a method has a flow, with
   | no calls, titled file, its scope: one ?: row, 1 of its 2
   | paths taken.
   ) do |t|
@@ -1643,16 +1643,16 @@ class KernelTest < TidTest
     t.start { report }
     t.load('rate.rb')
     t.report
-    cards = t.json['cards']
-    placed = cards.map { |decision, card| [decision, card['calls']] }
+    flows = t.json['flows']
+    placed = flows.map { |decision, flow| [decision, flow['calls']] }
     assert_equal [['rate.rb:1:0', nil]], placed
-    assert_equal [%w(file 1), %w(1:30 1)], card_taken(t, 1)
+    assert_equal [%w(file 1), %w(1:30 1)], flow_taken(t, 1)
   end
 
   test '6rTS6g', %w(
   | Example: rate.rb, module Rate holding a ?: outside any
   | method, with no RATE set
-  | Its card is titled Rate, its scope, as a method's card is
+  | Its flow is titled Rate, its scope, as a method's flow is
   | titled by its method.
   ) do |t|
     t.write(<<~RUBY, 'rate.rb')
@@ -1663,13 +1663,13 @@ class KernelTest < TidTest
     t.start { report }
     t.load('rate.rb')
     t.report
-    assert_equal [%w(Rate 1), %w(2:32 1)], card_taken(t, 2)
+    assert_equal [%w(Rate 1), %w(2:32 1)], flow_taken(t, 2)
   end
 
   test '6rTS6h', %w(
   | Example: rate.rb, class Rate holding a ?: outside any
   | method, with no RATE set
-  | Its card is titled Rate, its scope, as a module's is.
+  | Its flow is titled Rate, its scope, as a module's is.
   ) do |t|
     t.write(<<~RUBY, 'rate.rb')
       class Rate
@@ -1679,17 +1679,17 @@ class KernelTest < TidTest
     t.start { report }
     t.load('rate.rb')
     t.report
-    assert_equal [%w(Rate 1), %w(2:32 1)], card_taken(t, 2)
+    assert_equal [%w(Rate 1), %w(2:32 1)], flow_taken(t, 2)
   end
 
   test '6rTS6j', %w(
   | Example: module Fee holding fee, a def of a ?:, called once
   | with big true
-  | The JSON report lists fee's card, under its def's decision, as
+  | The JSON report lists fee's flow, under its def's decision, as
   | its page draws it: its name, first and last lines, the ways
   | through it, how many times it was called, and a row per
   | statement, with its paths, how many were taken, and its
-  | decision, so a reader finds a card's gap without the page;
+  | decision, so a reader finds a flow's gap without the page;
   | then the ways its calls took, its loops' passes, here none,
   | and of its ways those covered, the gaps, and none
   | impossible.
@@ -1719,14 +1719,14 @@ class KernelTest < TidTest
         'impossible_taken' => []
       }
     }
-    assert_equal expected, t.json['cards']
+    assert_equal expected, t.json['flows']
   end
 
   test '6rTSr1', %w(
   | Example: module Price holding of, a def parsing text as an
   | Integer, with a rescue of ArgumentError giving 0; called once
   | with '12'
-  | The rescue forks the card: 2 ways, the body completing, which
+  | The rescue forks the flow: 2 ways, the body completing, which
   | the call took, or the rescue running, a gap. Each is a step at
   | the rescue, its path completed or the rescue's number.
   ) do |t|
@@ -1756,7 +1756,7 @@ class KernelTest < TidTest
         'impossible_taken' => []
       }
     }
-    assert_equal expected, t.json['cards']
+    assert_equal expected, t.json['flows']
   end
 
   test '6rTSr2', %w(
@@ -1782,8 +1782,8 @@ class KernelTest < TidTest
     completed, ran = ['completed', 'rescue 1'].map do |path|
       [{ 'at' => '4:02', 'path' => [path] }]
     end
-    card = t.json['cards']["#{t.file}:2:2"]
-    taken = card.slice('taken', 'covered', 'gaps')
+    flow = t.json['flows']["#{t.file}:2:2"]
+    taken = flow.slice('taken', 'covered', 'gaps')
     expected = {
       'taken' => [{ 'way' => ran, 'count' => 1 }],
       'covered' => [{ 'way' => ran, 'count' => 1 }],
@@ -1811,13 +1811,13 @@ class KernelTest < TidTest
     completed, ran = ['completed', 'rescue 1'].map do |path|
       [{ 'at' => '3:02', 'path' => [path] }]
     end
-    card = t.json['cards']["#{t.file}:2:2"]
+    flow = t.json['flows']["#{t.file}:2:2"]
     expected = {
       'ways' => 2,
       'taken' => [{ 'way' => completed, 'count' => 1 }],
       'gaps' => [ran]
     }
-    assert_equal expected, card.slice('ways', 'taken', 'gaps')
+    assert_equal expected, flow.slice('ways', 'taken', 'gaps')
   end
 
   test '6rTSr4', %w(
@@ -1840,13 +1840,13 @@ class KernelTest < TidTest
     t.start { report }
     t.load::Price.of('12')
     t.report
-    card = t.json['cards']["#{t.file}:2:2"]
+    flow = t.json['flows']["#{t.file}:2:2"]
     expected = {
       'ways' => 2,
       'taken' => [{ 'way' => [{ 'at' => '3:04' }], 'count' => 1 }],
       'gaps' => [[{ 'at' => '4:02', 'path' => ['rescue 1'] }]]
     }
-    assert_equal expected, card.slice('ways', 'taken', 'gaps')
+    assert_equal expected, flow.slice('ways', 'taken', 'gaps')
   end
 
   test '6rTSr5', %w(
@@ -1871,12 +1871,12 @@ class KernelTest < TidTest
     t.start { report }
     t.load::Prices.of(%w(12 x))
     t.report
-    card = t.json['cards']["#{t.file}:2:2"]
-    covered = card['covered'].map { _1['way'] }
+    flow = t.json['flows']["#{t.file}:2:2"]
+    covered = flow['covered'].map { _1['way'] }
     expected = ['completed', 'rescue 1'].map do |path|
       [{ 'at' => '5:04', 'path' => [path] }]
     end
-    assert_equal [expected.to_set, []], [covered.to_set, card['gaps']]
+    assert_equal [expected.to_set, []], [covered.to_set, flow['gaps']]
   end
 
   test '6rTSr6', %w(
@@ -1906,15 +1906,15 @@ class KernelTest < TidTest
     parse = t.load::Parse
     [%w(x 12), %w(x), %w(12)].each { parse.first(_1) }
     t.report
-    card = t.json['cards']["#{t.file}:2:2"]
+    flow = t.json['flows']["#{t.file}:2:2"]
     rescued = { 'at' => '6:04', 'path' => ['rescue 1'] }
     expected = Set[
       [{ 'at' => '6:04', 'path' => ['completed'] }],
       [rescued, { 'at' => '8:12', 'path' => [true] }],
       [rescued, { 'at' => '8:12', 'path' => [false] }]
     ]
-    covered = card['covered'].to_set { _1['way'] }
-    assert_equal [expected, []], [covered, card['gaps']]
+    covered = flow['covered'].to_set { _1['way'] }
+    assert_equal [expected, []], [covered, flow['gaps']]
   end
 
   test '6rTSr7', %w(
@@ -1941,21 +1941,21 @@ class KernelTest < TidTest
     parse = t.load::Parse
     [%w(x 12), %w(x), %w(5)].each { parse.number(_1) }
     t.report
-    card = t.json['cards']["#{t.file}:2:2"]
+    flow = t.json['flows']["#{t.file}:2:2"]
     rescued = { 'at' => '4:02', 'path' => ['rescue 1'] }
     expected = Set[
       [{ 'at' => '4:02', 'path' => ['completed'] }],
       [rescued, { 'at' => '5:10', 'path' => [true] }],
       [rescued, { 'at' => '5:10', 'path' => [false] }]
     ]
-    covered = card['covered'].to_set { _1['way'] }
-    assert_equal [expected, []], [covered, card['gaps']]
+    covered = flow['covered'].to_set { _1['way'] }
+    assert_equal [expected, []], [covered, flow['gaps']]
   end
 
   test '6rTS6k', %w(
   | Example: module Rate holding a ?: outside any method, with
   | no RATE set
-  | The JSON report lists its top card too, under the decision of
+  | The JSON report lists its top flow too, under the decision of
   | its first line's start, titled Rate, its scope, as its page
   | draws it, so a reader finds a gap outside every def too.
   | It is no method's, so has no calls.
@@ -1978,14 +1978,14 @@ class KernelTest < TidTest
         ]
       }
     }
-    assert_equal expected, t.json['cards']
+    assert_equal expected, t.json['flows']
   end
 
   test '6rTS6n', %w(
   | Example: module Fee holding fee, an if of big holding a ?:
   | of vip, called once with big false
-  | The JSON report lists how fee's card's rows nest, under its
-  | file, then its card, each row by its line:column: the ?:
+  | The JSON report lists how fee's flow's rows nest, under its
+  | file, then its flow, each row by its line:column: the ?:
   | runs in the if's then arm, on its path 0, so a reader can
   | tell which paths reach a row, whatever the run took.
   ) do |t|
@@ -2001,16 +2001,16 @@ class KernelTest < TidTest
     t.start { report }
     t.load::Fee.fee(false, true)
     t.report
-    top = PathCoverage::CardTree::TOP
+    top = PathCoverage::PathsTree::TOP
     inner = { 'parent' => '3:4', 'in' => 'then', 'on' => [0] }
-    card = { '3:4' => top, '4:10' => top.merge(inner) }
-    assert_equal({ t.file => { '2:2' => card } }, t.json['tree'])
+    flow = { '3:4' => top, '4:10' => top.merge(inner) }
+    assert_equal({ t.file => { '2:2' => flow } }, t.json['tree'])
   end
 
   test '6rTS6p', %w(
   | Example: module Rate holding a ?: outside any method
-  | The JSON report lists how its top card's rows nest too,
-  | under the card's line:column, as cards names it.
+  | The JSON report lists how its top flow's rows nest too,
+  | under the flow's line:column, as flows names it.
   ) do |t|
     t.write(<<~RUBY, 'rate.rb')
       module Rate
@@ -2020,7 +2020,7 @@ class KernelTest < TidTest
     t.start { report }
     t.load('rate.rb')
     t.report
-    top = PathCoverage::CardTree::TOP
+    top = PathCoverage::PathsTree::TOP
     expected = { 'rate.rb' => { '2:0' => { '2:32' => top } } }
     assert_equal expected, t.json['tree']
   end
@@ -2042,11 +2042,11 @@ class KernelTest < TidTest
     pick.pick(true, true)
     pick.pick(false, true)
     t.report
-    rows = t.json['cards']["#{t.file}:2:2"]['rows'].map do |row|
+    rows = t.json['flows']["#{t.file}:2:2"]['rows'].map do |row|
       row.values_at('at', 'top', 'paths', 'taken')
     end
     assert_equal [['2:26', '?:', 2, 2], ['2:31', '?:', 2, 1]], rows
-    top = PathCoverage::CardTree::TOP
+    top = PathCoverage::PathsTree::TOP
     inner = { 'parent' => '2:26', 'in' => 'then', 'on' => [0] }
     tree = { '2:26' => top, '2:31' => top.merge(inner) }
     assert_equal tree, t.json['tree'][t.file]['2:2']
@@ -2055,7 +2055,7 @@ class KernelTest < TidTest
   test '6rTS6s', %w(
   | Example: module Pick holding pick, an if of a with an else,
   | and size, an if of a with an elsif, each called once
-  | The if's fold is headed if/else, as its card row is, and
+  | The if's fold is headed if/else, as its flow row is, and
   | names where its else keyword is, line 5, columns 4 to 8, so
   | hovering over that else in the code can open the if's fold,
   | as hovering over its if does. An if whose else arm is an
@@ -2269,7 +2269,7 @@ class KernelTest < TidTest
   | is none its method can take. On its own it is still a path,
   | so paths alone count it, and the exit report prints it as
   | never taken; but combined counts only the paths each row can
-  | take within its method, so its card row has 1 path, taken,
+  | take within its method, so its flow row has 1 path, taken,
   | and combined is [5, 5], not [5, 6]. Its ways are 1 + 2.
   ) do |t|
     t.write(<<~RUBY, 'fee.rb')
@@ -2290,10 +2290,10 @@ class KernelTest < TidTest
     assert_output("#{expected}\n") { t.report }
     totals = { 'alone' => [5, 6], 'combined' => [5, 5] }
     assert_equal totals, t.json['totals']
-    card = card_at(t, 2)
-    rows = card['rows'].map { _1.values_at('at', 'paths', 'taken') }
+    flow = flow_at(t, 2)
+    rows = flow['rows'].map { _1.values_at('at', 'paths', 'taken') }
     expected = [['3:13', 2, 2], ['4:19', 1, 1], ['5:08', 2, 2]]
-    assert_equal [3, expected], [card['ways'], rows]
+    assert_equal [3, expected], [flow['ways'], rows]
   end
 
   test '6rTS81', %w(
@@ -2371,21 +2371,21 @@ class KernelTest < TidTest
     decisions.fetch(decision).fetch('fold')
   end
 
-  # Example: ship's card gives [%w(ship 1), %w(4:13 1)].
-  # [name, taken] of the card at line first in the JSON report
+  # Example: ship's flow gives [%w(ship 1), %w(4:13 1)].
+  # [name, taken] of the flow at line first in the JSON report
   # fixture's run wrote, its rows' taken added up, then [at,
   # taken] of each row.
-  def card_taken(fixture, first)
-    card = card_at(fixture, first)
-    rows = card['rows'].map { |row| [row['at'], row['taken']] }
+  def flow_taken(fixture, first)
+    flow = flow_at(fixture, first)
+    rows = flow['rows'].map { |row| [row['at'], row['taken']] }
     taken = rows.sum { |_, count| count.to_i }
-    [[card['name'], taken], *rows].map { |name, n| [name, n.to_s] }
+    [[flow['name'], taken], *rows].map { |name, n| [name, n.to_s] }
   end
 
-  # The card at line first in the JSON report fixture's run wrote.
-  def card_at(fixture, first)
-    cards = fixture.json['cards'].values
-    cards.to_h { [_1['first'], _1] }.fetch(first)
+  # The flow at line first in the JSON report fixture's run wrote.
+  def flow_at(fixture, first)
+    flows = fixture.json['flows'].values
+    flows.to_h { [_1['first'], _1] }.fetch(first)
   end
 
   # The rows of rows of kind, eg operand; none when none are.

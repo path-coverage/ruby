@@ -1,6 +1,6 @@
 require 'fileutils'
 require 'json'
-require_relative 'card_gaps'
+require_relative 'paths_gaps'
 require_relative 'console_summary'
 require_relative 'json_writer'
 require_relative 'paths_report'
@@ -27,26 +27,26 @@ module PathCoverage
       paths = taken.values_at(:decision_paths, :outside)
       recorded = Recorded.new(operands, *paths)
       reached = taken[:reached]
-      cards = WithinMethods.listed(files, config, recorded,
+      flows = WithinMethods.listed(files, config, recorded,
                                    [reached, taken[:ways]])
       tree = WithinMethods.tree(files, config, recorded)
-      write_json(recorded, files, config, [cards, reached, tree])
-      write_ways(cards, files, config, tree)
-      write_source(files, config, recorded.paths, cards)
+      write_json(recorded, files, config, [flows, reached, tree])
+      write_ways(flows, files, config, tree)
+      write_source(files, config, recorded.paths, flows)
     end
 
     # Writes recorded as the JSON report at config's json_path:
     # its operands, decision paths, paths a treatment rules out,
-    # totals, cards, each def's card, as WithinMethods.listed
-    # gives them, tree, how each card's rows nest, the statements
+    # totals, flows, each def's flow, as WithinMethods.listed
+    # gives them, tree, how each flow's rows nest, the statements
     # reached, when known, and config's fingerprint and limits.
     def self.write_json(recorded, files, config, listed)
-      cards, reached, tree = listed
+      flows, reached, tree = listed
       report = PathsReport.of(recorded.paths, files)
       totals = totals(recorded.paths, files, config, reached)
       limits = { 'loops' => config.loops?,
                  'max_paths' => config.path_limit }
-      parts = { totals:, outside: recorded.outside, cards:, tree:,
+      parts = { totals:, outside: recorded.outside, flows:, tree:,
                 fingerprint: config.fingerprint, limits: }
       parts[:reached] = reached if reached
       path = config.json_path
@@ -54,12 +54,21 @@ module PathCoverage
     end
 
     # Writes the ways lines, each method's untested paths, as
-    # CardGaps.lines gives them for cards, beside the JSON report,
+    # PathsGaps.lines gives them for flows, beside the JSON report,
     # at ways_path, so a later check, or the :ways reporter, can
-    # show them; tree is how each card's rows nest, as
+    # show them; tree is how each flow's rows nest, as
     # WithinMethods.tree gives it.
-    def self.write_ways(cards, files, config, tree)
-      parents = tree.flat_map do |path, nested|
+    def self.write_ways(flows, files, config, tree)
+      texts = PathsReport.texts(files)
+      lines = PathsGaps.lines(flows, texts, parents_of(tree))
+      File.write(ways_path(config), lines.map { "#{_1}\n" }.join)
+    end
+
+    # { row's decision => its parent's decision } of each row in
+    # tree that runs inside another row, as WithinMethods.tree
+    # gives it. Each decision is named path:line:column.
+    def self.parents_of(tree)
+      tree.flat_map do |path, nested|
         nested.values.flat_map do |rows|
           rows.filter_map do |at, place|
             next unless place['parent']
@@ -68,8 +77,6 @@ module PathCoverage
           end
         end
       end.to_h
-      lines = CardGaps.lines(cards, PathsReport.texts(files), parents)
-      File.write(ways_path(config), lines.map { "#{_1}\n" }.join)
     end
 
     # Where the ways lines go, beside the JSON report.
@@ -78,9 +85,9 @@ module PathCoverage
     end
 
     # Writes the source report beside the JSON report, from
-    # files, decision_paths and cards, as write has them.
-    def self.write_source(files, config, decision_paths, cards)
-      source = SourceReport.of(files, config, decision_paths, cards)
+    # files, decision_paths and flows, as write has them.
+    def self.write_source(files, config, decision_paths, flows)
+      source = SourceReport.of(files, config, decision_paths, flows)
       path = config.json_path.sub(/\.json\z/, '.source.json')
       File.write(path, JSON.generate(source))
     end
@@ -89,13 +96,13 @@ module PathCoverage
     # within each decision, and within each method; with groups
     # configured, each group's own too, under groups.
     def self.totals(decision_paths, files, config, reached)
-      cards = WithinMethods.cards(files, config, decision_paths,
+      flows = WithinMethods.flows(files, config, decision_paths,
                                   reached)
-      totals = ConsoleSummary.totals(decision_paths, cards)
+      totals = ConsoleSummary.totals(decision_paths, flows)
       groups = config.groups
       return totals if groups.empty?
 
-      own = ConsoleSummary.group_totals(decision_paths, cards, groups)
+      own = ConsoleSummary.group_totals(decision_paths, flows, groups)
       totals.merge('groups' => own)
     end
   end

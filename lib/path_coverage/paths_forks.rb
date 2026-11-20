@@ -1,26 +1,26 @@
 module PathCoverage
-  # The loops of a card. forks is { loop's name => [its bytes, its
+  # The loops of a flow. forks is { loop's name => [its bytes, its
   # body's] }, as LoopForks gives them. Each loop is a scope: a
   # next or a break in its body ends a pass, and the way goes on
   # after the loop. When loops are decisions, each loop is also a
   # fork. Its path 0 is no item. Its path 1 is at least one item,
   # and runs its body, which holds its rows. A loop is placed by
   # its bytes, as a row that is no decision is. The module
-  # functions place loops, for CardTree. The instance methods fold
-  # them, for CardWays, which includes this module.
-  module CardForks
+  # functions place loops, for PathsTree. The instance methods fold
+  # them, for PathsWays, which includes this module.
+  module PathsForks
     # The region of each loop of forks, its body, run on its path
     # 1. Then the regions of each rescue fork of rescues, as
-    # CardRescues gives them.
+    # PathsRescues gives them.
     def self.regions(forks, rescues)
       forks.map do |name, (_, body)|
-        CardTree::Region.new(owner: CardTree.key_at(name),
-                             range: body, arm: 'body', on: [1],
-                             leaf: nil, leaves: nil)
-      end + CardRescues.regions(rescues)
+        PathsTree::Region.new(owner: PathsTree.key_at(name),
+                              range: body, arm: 'body', on: [1],
+                              leaf: nil, leaves: nil)
+      end + PathsRescues.regions(rescues)
     end
 
-    # places, { key => its place }, a card's rows', with the place
+    # places, { key => its place }, a flow's rows', with the place
     # of each scope too, among regions. The scopes are each loop of
     # forks and each rescue fork of rescues. All are in the order
     # they start. With no scope it is places alone.
@@ -30,8 +30,8 @@ module PathCoverage
       return places if spans.empty?
 
       scopes = spans.to_h do |name, span|
-        key = CardTree.key_at(name)
-        [key, CardTree.placed(key, span, regions, nil)]
+        key = PathsTree.key_at(name)
+        [key, PathsTree.placed(key, span, regions, nil)]
       end
       merged = places.merge(scopes)
       merged.sort_by { _1[0].split(':').map(&:to_i) }.to_h

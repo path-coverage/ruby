@@ -448,7 +448,7 @@ class MethodWaysTest < TidTest
   test 'Mw7a17', %w(
   | Example: a begin requiring json, with a rescue of LoadError,
   | outside any def, then ship, a def sending an order
-  | A begin with a rescue outside every def forks no card: only
+  | A begin with a rescue outside every def forks no flow: only
   | a def's begins do.
   ) do
     source = <<~RUBY

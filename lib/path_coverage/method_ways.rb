@@ -1,6 +1,6 @@
 require 'prism'
-require_relative 'card_tree'
-require_relative 'card_ways'
+require_relative 'paths_tree'
+require_relative 'paths_ways'
 require_relative 'decision_paths'
 require_relative 'manifest'
 require_relative 'loop_forks'
@@ -27,22 +27,22 @@ module PathCoverage
     # loops, as LoopForks finds them.
     def self.split(source, path, loops: false)
       decisions = Manifest.decisions(source, path)
-      cards = MethodStatements.of(source, path, decisions)
+      flows = MethodStatements.of(source, path, decisions)
       forks = LoopForks.of(source, path, decisions)
       rescues = RescueForks.of(source, path)
-      cards.to_h do |key, rows|
+      flows.to_h do |key, rows|
         scopes = [forks.fetch(key), rescues.fetch(key), loops]
-        [key, split_card(source, decisions, rows, scopes)]
+        [key, split_flow(source, decisions, rows, scopes)]
       end
     end
 
-    # [possible, impossible] of the card of rows in source, as
+    # [possible, impossible] of the flow of rows in source, as
     # split gives them. scopes is [forks, rescues, forking]. Each
     # loop of forks, as LoopForks gives a def's, is a scope, and a
     # fork when forking. Each rescue fork of rescues, as
-    # RescueForks gives a def's, forks the card. A way giving no
+    # RescueForks gives a def's, forks the flow. A way giving no
     # items to a loop declared never empty is impossible.
-    def self.split_card(source, decisions, rows, scopes)
+    def self.split_flow(source, decisions, rows, scopes)
       possible, all = [true, false].map do |stable|
         listed(source, decisions, rows, [stable, *scopes])
       end
@@ -76,15 +76,15 @@ module PathCoverage
     # The steps of a loop's fork, by its path: no pass, or some.
     FORKS = ['0 items', '1+ items'].freeze
 
-    # The ways through the card of rows, as steps. Each way's steps
+    # The ways through the flow of rows, as steps. Each way's steps
     # are in the order their rows are written. folding is [stable,
     # forks, rescues, forking]. Unless stable, the ways include
     # those no call can take. Each loop in forks is a scope, and
     # also a fork when forking. Each rescue in rescues is a fork.
     def self.listed(source, decisions, rows, folding)
-      ways = CardWays.card(source, decisions, rows,
-                           WayAlgebras::Listed, folding)
-      steps = rows.to_h { [CardTree.key_of(_1), _1] }
+      ways = PathsWays.flow(source, decisions, rows,
+                            WayAlgebras::Listed, folding)
+      steps = rows.to_h { [PathsTree.key_of(_1), _1] }
       named = fork_names(folding)
       ways.map do |way|
         ordered(way.map do |key, index|
@@ -99,9 +99,9 @@ module PathCoverage
     # [stable, forks, rescues, forking]. Each loop of its forks is
     # of kind :loop. Each fork of its rescues is of kind :rescue.
     def self.fork_names((_, forks, rescues))
-      loops = forks.keys.to_h { [CardTree.key_at(_1), [:loop, _1]] }
+      loops = forks.keys.to_h { [PathsTree.key_at(_1), [:loop, _1]] }
       loops.merge(rescues.keys.to_h do |name|
-        [CardTree.key_at(name), [:rescue, name]]
+        [PathsTree.key_at(name), [:rescue, name]]
       end)
     end
 

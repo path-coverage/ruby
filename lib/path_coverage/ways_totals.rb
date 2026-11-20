@@ -11,8 +11,8 @@ module PathCoverage
     # impossible, or more paths than its max_paths.
     def self.failed?(report)
       listed, over = methods(report)
-      untaken = listed.sum do |card|
-        card['gaps'].size + card['impossible_taken'].size
+      untaken = listed.sum do |flow|
+        flow['gaps'].size + flow['impossible_taken'].size
       end
       !over.empty? || untaken.positive?
     end
@@ -30,15 +30,15 @@ module PathCoverage
        "Functions over --max-paths=#{limit}: #{over.size}"]
     end
 
-    # [listed, over] of report's method cards: those listing their
+    # [listed, over] of report's method flows: those listing their
     # ways, and those with more paths than its max_paths, which
-    # list none. A top card, run by no call, has no taken ways, so
+    # list none. A top flow, run by no call, has no taken ways, so
     # is in neither.
     def self.methods(report)
-      found = report['cards'].values.group_by do |card|
-        next :top unless card.key?('taken')
+      found = report['flows'].values.group_by do |flow|
+        next :top unless flow.key?('taken')
 
-        card.key?('covered') ? :listed : :over
+        flow.key?('covered') ? :listed : :over
       end
       [found.fetch(:listed, []), found.fetch(:over, [])]
     end

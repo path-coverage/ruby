@@ -7,13 +7,13 @@ class WaysTotalsTest < TidTest
 
   test 'Wt7a01', %w(
   | Example: a report of total, 3 ways, 2 covered, and price,
-  | more paths than max_paths 8 allows, beside a top card
+  | more paths than max_paths 8 allows, beside a top flow
   | The totals are read from the report's JSON alone: the ways
   | covered out of every listed method's ways, then how many
   | methods have more paths than max_paths, naming its value. A
-  | top card, which no call runs, counts in neither.
+  | top flow, which no call runs, counts in neither.
   ) do
-    report = { 'max_paths' => 8, 'cards' => {
+    report = { 'max_paths' => 8, 'flows' => {
       'lib/a.rb:1:0' => total(2),
       'lib/b.rb:3:0' => { 'name' => 'price', 'ways' => 27,
                           'taken' => [] },
@@ -37,11 +37,11 @@ class WaysTotalsTest < TidTest
     over = { 'name' => 'price', 'ways' => 27, 'taken' => [] }
     listings = [[untested], [tested], [], [tested, tested],
                 [tested, untested], [over]]
-    reports = listings.map do |cards|
-      listed = cards.each_with_index.to_h do |card, n|
-        ["lib/a.rb:#{n + 1}:0", card]
+    reports = listings.map do |flows|
+      listed = flows.each_with_index.to_h do |flow, n|
+        ["lib/a.rb:#{n + 1}:0", flow]
       end
-      { 'max_paths' => 8, 'cards' => listed }
+      { 'max_paths' => 8, 'flows' => listed }
     end
     failed = reports.map { PathCoverage::WaysTotals.failed?(_1) }
     assert_equal [true, false, false, false, true, true], failed
@@ -56,13 +56,13 @@ class WaysTotalsTest < TidTest
   ) do
     retried = total(3).merge('impossible_taken' => [WAY])
     report = { 'max_paths' => 8,
-               'cards' => { 'lib/r.rb:2:0' => retried } }
+               'flows' => { 'lib/r.rb:2:0' => retried } }
     assert PathCoverage::WaysTotals.failed?(report)
   end
 
   private
 
-  # A card of total, 3 ways, covered of them taken, the rest gaps.
+  # A flow of total, 3 ways, covered of them taken, the rest gaps.
   def total(covered)
     { 'name' => 'total', 'ways' => 3, 'taken' => [],
       'covered' => [{ 'way' => WAY, 'count' => 1 }] * covered,

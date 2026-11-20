@@ -32,7 +32,7 @@ module PathCoverage
     # Example: ["k.rb:5:11 path taken that its method rules out:
     # `a` true"].
     # One line per path taken, or return or raise reached, that
-    # its method rules out, ruled as CardContext.ruled_out gives
+    # its method rules out, ruled as PathsContext.ruled_out gives
     # them, texts being { decision => each leaf's source text }.
     # Such a line shows a fact derived from the code to be wrong.
     def self.ruled_by_method(ruled, texts)

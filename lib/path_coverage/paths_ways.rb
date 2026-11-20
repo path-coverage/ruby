@@ -1,7 +1,7 @@
-require_relative 'card_fitting'
-require_relative 'card_leaving'
-require_relative 'card_rescues'
-require_relative 'card_tree'
+require_relative 'paths_fitting'
+require_relative 'paths_leaving'
+require_relative 'paths_rescues'
+require_relative 'paths_tree'
 require_relative 'manifest'
 require_relative 'method_statements'
 require_relative 'decision_paths'
@@ -9,8 +9,8 @@ require_relative 'stable_leaves'
 require_relative 'way_algebras'
 
 module PathCoverage
-  # The ways one call can go through each card, folded over its
-  # tree, as CardTree places its rows. Each row gives a pair,
+  # The ways one call can go through each flow, folded over its
+  # tree, as PathsTree places its rows. Each row gives a pair,
   # [ways that go on, ways that leave the method]: a return or a
   # raise leaves, and so does each path of a decision taking an
   # arm that returns or raises, eg return 0 if a. Rows one after
@@ -20,7 +20,7 @@ module PathCoverage
   # a leaf counts only those of its paths that give the leaf the
   # outcome the path has, so no impossible way is counted where
   # gives knows it. A block's body counts once, unless the block
-  # forks, as CardForks folds it.
+  # forks, as PathsForks folds it.
   # Each way also notes the outcome it gives each leaf that
   # StableLeaves finds, by its local's name, and two ways joined
   # one after the other that give one name both outcomes are no
@@ -28,11 +28,11 @@ module PathCoverage
   # The fold is in one of WayAlgebras: Counted counts the ways,
   # by default; Labelled gives the paths taken on any of them, and
   # Listed lists them.
-  class CardWays
-    include CardFitting
-    include CardForks
-    include CardLeaving
-    include CardRescues
+  class PathsWays
+    include PathsFitting
+    include PathsForks
+    include PathsLeaving
+    include PathsRescues
 
     # Example: { "k.rb:1:0" => 3 } for def f(a, b), return 0 if a,
     # then a ?: of b: 1 way leaves, 2 go on.
@@ -40,13 +40,13 @@ module PathCoverage
     # source, its decisions those of no settings.
     def self.of(source, path, algebra = WayAlgebras::Counted)
       decisions = Manifest.decisions(source, path)
-      cards = MethodStatements.of(source, path, decisions)
-      cards.transform_values do |rows|
-        card(source, decisions, rows, algebra)
+      flows = MethodStatements.of(source, path, decisions)
+      flows.transform_values do |rows|
+        flow(source, decisions, rows, algebra)
       end
     end
 
-    # The ways through a card of rows in source, in algebra,
+    # The ways through a flow of rows in source, in algebra,
     # decisions being { decision => Condition }, as
     # Manifest.decisions gives them. folding is [stable, forks,
     # rescues, forking]. With stable false, the ways include those
@@ -55,19 +55,19 @@ module PathCoverage
     # break ends a pass of. When forking, each loop is a fork too,
     # labelled [its key, 0] for 0 items and [its key, 1] for 1+
     # items, then its body's rows, walked once. Each rescue fork of
-    # rescues, a def's, forks the card.
-    def self.card(source, decisions, rows,
+    # rescues, a def's, forks the flow.
+    def self.flow(source, decisions, rows,
                   algebra = WayAlgebras::Counted,
                   folding = [true, {}, {}, false])
       stable, forks, rescues, forking = folding
-      places = CardTree.nested(source, decisions, rows,
-                               [forks, rescues])
+      places = PathsTree.nested(source, decisions, rows,
+                                [forks, rescues])
       names = stable ? StableLeaves.of(source, decisions, rows) : {}
       new(source, rows, places, decisions,
           [algebra, names, rescues, forking]).total
     end
 
-    # The fold of rows, a card's in source, placed as places has
+    # The fold of rows, a flow's in source, placed as places has
     # them. Each decision row's Condition is in decisions. folding
     # is [algebra, names, rescues, forking]. Its ways are in
     # algebra, and each step of it tallies them, as
@@ -77,17 +77,17 @@ module PathCoverage
     def initialize(source, rows, places, decisions,
                    (algebra, names, rescues, forking))
       @source = source
-      @rows = rows.to_h { |row| [CardTree.key_of(row), row] }
+      @rows = rows.to_h { |row| [PathsTree.key_of(row), row] }
       @places = places
       @decisions = decisions
       @ways = WayAlgebras::Tallied.new(algebra)
       @children = places.keys.group_by { places[_1]['parent'] }
       @names = names
-      @rescues = CardRescues.counts(rescues)
+      @rescues = PathsRescues.counts(rescues)
       @forking = forking
     end
 
-    # The ways through the card, in its algebra. Its top rows run
+    # The ways through the flow, in its algebra. Its top rows run
     # one after another. Every way counts, whether it goes on or
     # leaves, whatever its assignments.
     def total
@@ -175,7 +175,7 @@ module PathCoverage
     # The parts of the row keyed child. outcomes is its parent's
     # path's outcomes. A row that gives nothing keeps all its
     # paths. Otherwise only the paths that fit outcomes count, as
-    # CardFitting decides.
+    # PathsFitting decides.
     def child_pair(child, outcomes)
       return pair_of(child) if @places[child]['gives'].nil?
 

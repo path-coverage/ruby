@@ -32,10 +32,10 @@ class WaysReportTest < TidTest
   end
 
   test 'Wr7a02', %w(
-  | Example: a JSON report whose card for total lists its call's
+  | Example: a JSON report whose flow for total lists its call's
   | way, its each block making 2+ passes, then a return, and the
-  | block's passes; and a top card, which lists neither
-  | The ways a report's cards list are read back as a call's
+  | block's passes; and a top flow, which lists neither
+  | The ways a report's flows list are read back as a call's
   | trace counts them: each method's calls' ways under its
   | entry, each loop's passes' under the loop.
   ) do
@@ -47,11 +47,11 @@ class WaysReportTest < TidTest
       'k.rb:2:2' => { way => 1 },
       block => { paid => 1, unpaid => 1 }
     }
-    card = {
+    flow = {
       'taken' => PathCoverage::WaysReport.taken(ways['k.rb:2:2']),
       'passes' => { '4:16' => PathCoverage::WaysReport.taken(ways[block]) }
     }
-    report = { 'cards' => { 'k.rb:2:2' => card, 'k.rb:0:0' => {} } }
+    report = { 'flows' => { 'k.rb:2:2' => flow, 'k.rb:0:0' => {} } }
     assert_equal ways, PathCoverage::WaysReport.ways(report)
   end
 end
