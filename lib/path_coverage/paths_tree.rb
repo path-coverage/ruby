@@ -151,7 +151,7 @@ module PathCoverage
         skipped = possible.each_index.group_by do |i|
           possible[i][index].nil?
         end
-        on = skipped.fetch(false)
+        on = skipped.fetch(false, [])
         Region.new(owner:, range:, arm: nil, on:, leaf: index,
                    leaves: nil)
       end

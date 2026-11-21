@@ -29,7 +29,7 @@ class ProjectsTest < TidTest
   ) do |t|
     stdout, stderr, status = run_project('nested_conditions', t.dir)
     never = 'path never taken:'
-    any = "source/kata.rb:17:8 #{never} `ids`"
+    any = "source/kata.rb:17:8 #{never}"
     block = '`ok?(id) && id.size == 2`'
     call = '`ids.any? { |id| ok?(id) && id.size == 2 }`'
     expected = [
@@ -45,9 +45,7 @@ class ProjectsTest < TidTest
       "`id.start_with?('G')` false, `id.end_with?('G')` false",
       "source/kata.rb:17:4 #{never} " \
       "#{call} false, `ids.empty?` false",
-      "#{any} 1 item, #{block} false",
-      "#{any} 2+ items, #{block} true",
-      "#{any} 2+ items, #{block} false",
+      "#{any} #{block} false",
       "source/kata.rb:17:20 #{never} " \
       '`ok?(id)` true, `id.size == 2` false',
       "source/kata.rb:17:20 #{never} `ok?(id)` false",

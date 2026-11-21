@@ -39,6 +39,29 @@ class DecisionTreeTest < TidTest
     assert_equal expected, actual
   end
 
+  test 'EuNs90', %w(
+  | Example: ids.any? { |id| id.odd? }
+  | The receiver, ids, has no outcome on any path.
+  | The any?'s value on each path is its block's last answer.
+  ) do
+    source = "def k(ids) = ids.any? { |id| id.odd? }\n"
+    decision = condition('any?', 13...16, 29...36)
+    paths = [
+      { path: [nil, true], count: 1 },
+      { path: [nil, false], count: 0 }
+    ]
+    expected = {
+      operator: 'any?', counts: [0, 1],
+      cells: [false, true],
+      operands: [
+        { text: 'ids', cells: [nil, nil] },
+        { text: 'id.odd?', cells: [false, true] }
+      ]
+    }
+    actual = PathCoverage::DecisionTree.of(source, decision, paths)
+    assert_equal expected, actual
+  end
+
   test 'EuNs30', %w(
   | Example: ok?(id) && (new?(id) || id.size == 6)
   | The nested || is a subtree under the &&.

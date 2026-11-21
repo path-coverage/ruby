@@ -34,18 +34,14 @@ module PathCoverage
     any? all? none? find detect find_index take_while
   ].freeze
 
-  # How many items a block method's block was called with, as
-  # its receiver's leaf outcome: none, one, or two or more.
+  # How many passes a loop made in a call, as a step of its
+  # way: none, one, or two or more.
   ITEMS = ['0 items', '1 item', '2+ items'].freeze
 
-  # Every path a stop-early block method's call can take: how
-  # many items its block was called with, and its last answer,
-  # nil when it was never called.
-  STOP_EARLY_PATHS = [
-    [ITEMS[0], nil],
-    [ITEMS[1], true], [ITEMS[1], false],
-    [ITEMS[2], true], [ITEMS[2], false]
-  ].freeze
+  # Every path a stop-early block method's call can take: its
+  # block's last answer. How many items the block was called
+  # with is a loop's question, so the receiver's leaf is nil.
+  STOP_EARLY_PATHS = [[nil, true], [nil, false]].freeze
 
   # The methods that call their block with every item.
   EVERY_ITEM = %w[
@@ -55,15 +51,10 @@ module PathCoverage
   # A block's answers over every item it was called with.
   ANSWERS = ['all true', 'all false', 'both'].freeze
 
-  # Every path an every-item block method's call can take: how
-  # many items its block was called with, and its answers,
-  # which can be both only with two or more items.
-  EVERY_ITEM_PATHS = [
-    [ITEMS[0], nil],
-    [ITEMS[1], ANSWERS[0]], [ITEMS[1], ANSWERS[1]],
-    [ITEMS[2], ANSWERS[0]], [ITEMS[2], ANSWERS[1]],
-    [ITEMS[2], ANSWERS[2]]
-  ].freeze
+  # Every path an every-item block method's call can take: its
+  # block's answers. How many items the block was called with
+  # is a loop's question, so the receiver's leaf is nil.
+  EVERY_ITEM_PATHS = ANSWERS.map { [nil, _1] }.freeze
 
   # The block methods whose value follows from their path alone:
   # all but find and detect, whose found item may itself be nil.

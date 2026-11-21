@@ -14,8 +14,10 @@ module PathCoverage
     include RecorderWrites
 
     # One evaluation's way through its decision: the outcome of
-    # each leaf, nil for one not yet, or never, reached.
-    Trail = Struct.new(:decision, :outcomes)
+    # each leaf, nil for one not yet, or never, reached; and
+    # whether it witnesses no path, as when a block method's
+    # block was never called.
+    Trail = Struct.new(:decision, :outcomes, :unwitnessed)
 
     # Starts with no outcomes, decision paths or reaches counted.
     def initialize
@@ -92,12 +94,13 @@ module PathCoverage
     # decision still entered above trail, as one that raised
     # leaves, took trail's later outcomes, so trail's path is
     # not counted; the stack is cleared down to trail either
-    # way. A counted path is a step of its call's way.
+    # way. An unwitnessed trail's path is not counted either.
+    # A counted path is a step of its call's way.
     def leave(trail, value)
       stack = trails(trail.decision)
       clean = stack.last.equal?(trail)
       nil until stack.empty? || stack.pop.equal?(trail)
-      decided(trail) if clean
+      decided(trail) if clean && !trail.unwitnessed
       value
     end
 

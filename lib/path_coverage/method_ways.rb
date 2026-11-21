@@ -28,7 +28,7 @@ module PathCoverage
     def self.split(source, path, loops: false)
       decisions = Manifest.decisions(source, path)
       flows = MethodStatements.of(source, path, decisions)
-      forks = LoopForks.of(source, path, decisions)
+      forks = LoopForks.of(source, path)
       rescues = RescueForks.of(source, path)
       flows.to_h do |key, rows|
         scopes = [forks.fetch(key), rescues.fetch(key), loops]

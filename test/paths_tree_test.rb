@@ -35,8 +35,8 @@ class PathsTreeTest < TidTest
   | Example: kept, an && of a and a select's any?, its block a ?:
   | A row inside a leaf of its parent is in no arm, and runs on
   | each of its parent's paths that evaluate that leaf: the ?:
-  | runs only where select called its block with an item, not
-  | where a was false, nor where select had 0 items.
+  | runs only where select called its block, not where a was
+  | false.
   | It is the whole of its leaf, select's block, so gives what
   | its paths give it: not known, as neither arm's truthiness
   | is noted.
@@ -48,7 +48,7 @@ class PathsTreeTest < TidTest
     RUBY
     expected = {
       '2:2' => [nil, nil, nil, nil, nil],
-      '2:25' => ['2:2', nil, (2..11).to_a, 2, [nil, nil]]
+      '2:25' => ['2:2', nil, (0..5).to_a, 2, [nil, nil]]
     }
     assert_equal expected, places(source)
   end
@@ -102,8 +102,9 @@ class PathsTreeTest < TidTest
   | whole of a leaf counts only its paths that give the leaf the
   | outcome the path has.
   | fee: then 3, else 1, so 4. two: 2 times 2, so 4. led?: the
-  | ||'s true path takes the 2 any? paths giving true, 1 way
-  | each; each false path takes its 3 giving false, 1 + 2 + 2.
+  | ||'s true path takes the any? path giving true, 1 way; each
+  | of its 2 false paths takes the one giving false, 2 ways,
+  | so 1 + 2 * 2.
   ) do
     source = <<~RUBY
       def fee(member, paid, big)
@@ -122,7 +123,7 @@ class PathsTreeTest < TidTest
         xs.any? { |x| x.odd? && x > 1 } || xs.empty?
       end
     RUBY
-    expected = { 'k.rb:1:0' => 4, 'k.rb:8:0' => 4, 'k.rb:13:0' => 12 }
+    expected = { 'k.rb:1:0' => 4, 'k.rb:8:0' => 4, 'k.rb:13:0' => 5 }
     assert_equal expected, PathCoverage::PathsWays.of(source, 'k.rb')
   end
 
@@ -223,7 +224,7 @@ class PathsTreeTest < TidTest
   | outcome, no way is ruled out: a write, a call, or code
   | outside the method may change it between them, and a block's
   | parameter is another variable. Each keeps 1 + 2 ways, s its
-  | 1 + 7.
+  | 1 + 3.
   ) do
     source = <<~RUBY
       def w(a)
@@ -251,7 +252,7 @@ class PathsTreeTest < TidTest
     RUBY
     expected = {
       'k.rb:1:0' => 3, 'k.rb:6:0' => 3, 'k.rb:10:0' => 3,
-      'k.rb:14:0' => 3, 'k.rb:19:0' => 8
+      'k.rb:14:0' => 3, 'k.rb:19:0' => 4
     }
     assert_equal expected, PathCoverage::PathsWays.of(source, 'k.rb')
   end
@@ -267,7 +268,7 @@ class PathsTreeTest < TidTest
         xs.any? { |x| x.odd? } || xs.empty?
       end
     RUBY
-    gives = [false, true, false, true, false]
+    gives = [true, false]
     expected = {
       '2:2' => [nil, nil, nil, nil, nil],
       '2:5' => ['2:2', nil, [0, 1, 2], 0, gives]
@@ -281,20 +282,19 @@ class PathsTreeTest < TidTest
   | A row in a leaf of its parent names that leaf, by its
   | index. A row that is the whole of that leaf, as the any? is,
   | also names what each of its own possible paths gives the
-  | leaf: the any?'s value, false with 0 items, else its last
-  | answer. The ?: in the any?'s block is inside a leaf, not all
-  | of it, so gives nothing.
+  | leaf: the any?'s value, its last answer. The ?: in the
+  | any?'s block is inside a leaf, not all of it, so gives
+  | nothing, and runs on both the any?'s paths.
   ) do
     source = <<~RUBY
       def big?(a, xs, lim)
         a && xs.any? { |x| x > (lim ? 1 : 2) }
       end
     RUBY
-    gives = [false, true, false, true, false]
     expected = {
       '2:2' => [nil, nil, nil, nil, nil],
-      '2:10' => ['2:2', nil, [0, 1], 1, gives],
-      '2:30' => ['2:10', nil, [1, 2, 3, 4], 1, nil]
+      '2:10' => ['2:2', nil, [0, 1], 1, [true, false]],
+      '2:30' => ['2:10', nil, [0, 1], 1, nil]
     }
     assert_equal expected, places(source)
   end

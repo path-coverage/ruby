@@ -3,9 +3,10 @@ require_relative 'base'
 module PathCoverage
   module Kinds
     # A block method's call, eg ids.any? { |id| id.odd? }: its
-    # receiver's count of items, and its block's answers, its
-    # value following from them. Nothing else is evaluated, eg
-    # ids.size.
+    # block's answers, its value following from them. Its
+    # receiver's leaf has no outcome, as how many items the block
+    # was called with is a loop's question. Nothing else is
+    # evaluated, eg ids.size.
     module Block
       extend Base
 
@@ -14,57 +15,48 @@ module PathCoverage
       # A value that holds whatever the path, eg select's array.
       ALWAYS = ->(*) { true }
 
-      # nil, nothing found, when its block was called with no
-      # items or its last answer was false; else the item found,
-      # which may itself be nil, so nil, as no path can tell.
-      FOUND = ->(none, answer) { none || !answer ? false : nil }
+      # nil, nothing found, when its last answer was false; else
+      # the item found, which may itself be nil, so nil, as no
+      # path can tell.
+      FOUND = ->(answer) { answer ? nil : false }
 
-      # A block method's value from whether its block was called
-      # with no items, and its block's last answer; nil when the
-      # path cannot tell.
+      # Its last answer, as the value of any?, all? and
+      # find_index.
+      LAST = ->(answer) { answer }
+
+      # A block method's value from its block's last answer; nil
+      # when the path cannot tell.
       VALUES = {
-        'any?' => ->(none, answer) { !none && answer },
-        'all?' => ->(none, answer) { none || answer },
-        'none?' => ->(none, answer) { none || !answer },
+        'any?' => LAST, 'all?' => LAST, 'find_index' => LAST,
+        'none?' => lambda(&:!),
         'detect' => FOUND,
         'find' => FOUND,
-        'find_index' => ->(none, answer) { !none && answer },
         'take_while' => ALWAYS,
         **EVERY_ITEM.to_h { |name| [name, ALWAYS] }
       }.freeze
 
       # Whether select's result has items: whether any answer
       # was true.
-      KEPT = lambda do |items, answers|
-        items != ITEMS[0] && answers != ANSWERS[1]
-      end
+      KEPT = ->(answers) { answers != ANSWERS[1] }
 
-      # Whether a block method's result has items, from how many
-      # items its block was called with and its answers, eg
-      # select keeps an item when any answer was true; nil when
-      # its path cannot tell, eg take_while's last answer false
-      # after 2+ items, which may or may not be its first.
+      # Whether a block method's result has items, from its
+      # block's answers, eg select keeps an item when any answer
+      # was true; nil when its path cannot tell, eg take_while's
+      # last answer false, which may or may not be its first.
       HAS_ITEMS = {
         'select' => KEPT, 'filter' => KEPT, 'filter_map' => KEPT,
-        'reject' => lambda do |items, answers|
-          items != ITEMS[0] && answers != ANSWERS[0]
-        end,
+        'reject' => ->(answers) { answers != ANSWERS[0] },
         'partition' => ALWAYS,
-        'take_while' => lambda do |items, answer|
-          next false if items == ITEMS[0]
-          next answer if answer
-
-          items == ITEMS[1] ? false : nil
-        end
+        'take_while' => ->(answer) { answer || nil }
       }.freeze
 
       # Whether decision's result has items on the path that took
       # outcomes; nil when its kind cannot tell, eg for a decision
       # that is no block method's call.
       def self.items?(decision, outcomes)
-        receiver, body = decision.operands
+        _receiver, body = decision.operands
         rule = HAS_ITEMS[decision.operator]
-        rule&.call(outcomes[receiver], outcomes[body])
+        rule&.call(outcomes[body])
       end
 
       # The ways node can be evaluated, fixed by its shape, its
@@ -72,25 +64,25 @@ module PathCoverage
       def self.ways(node, _fixed)
         receiver, body = node.operands
         BLOCK_PATHS[node.operator].map do |items, answer|
-          value = path_value(node.operator, items, answer)
+          value = path_value(node.operator, answer)
           [{ receiver => items, body => answer }, value]
         end
       end
 
-      # Its value on a path: its count of items and its block's
-      # answer, eg false for any? called with 0 items, and always
-      # truthy for select, which gives an array; nil for find
-      # with a last answer true, whose value no path can tell.
-      def self.path_value(operator, items, answer)
-        VALUES[operator].call(items == ITEMS[0], answer)
+      # Its value on a path with its block's last answer, eg
+      # false for any? with false, and always truthy for select,
+      # which gives an array; nil for find with a last answer
+      # true, whose value no path can tell.
+      def self.path_value(operator, answer)
+        VALUES[operator].call(answer)
       end
 
-      # Its value in each column, from its count of items and its
-      # block's answer there; nil where it was not reached.
+      # Its value in each column, from its block's answer there;
+      # nil where it was not reached.
       def self.value(operator, operands)
-        receiver, body = operands
-        receiver[:cells].zip(body[:cells]).map do |items, answer|
-          items && path_value(operator, items, answer)
+        _receiver, body = operands
+        body[:cells].map do |answer|
+          answer.nil? ? nil : path_value(operator, answer)
         end
       end
 

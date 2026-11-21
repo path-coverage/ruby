@@ -165,8 +165,9 @@ class RecorderTest < TidTest
   | The call is entered before it runs.
   | It is left after it returns.
   | Each of the block's answers is noted on the way.
-  | The path is how many ids the block was called with, and
-  | its last answer, eg ['1 item', true].
+  | The path is the block's last answer, eg [nil, true], its
+  | receiver's leaf nil.
+  | A call with no ids witnesses no path.
   | The call's result and the block's answers are unchanged.
   | The receiver (ids) counts truthy when the block was called.
   | It counts falsy when the block was not called.
@@ -189,11 +190,7 @@ class RecorderTest < TidTest
     founds = calls.map { |ids, ok| any.call(ids, ok) }
     assert_equal [false, true, false, false, true], founds
     expected = {
-      decision => {
-        ['0 items', nil] => 1, ['1 item', true] => 1,
-        ['1 item', false] => 1, ['2+ items', false] => 1,
-        ['2+ items', true] => 1
-      }
+      decision => { [nil, true] => 2, [nil, false] => 2 }
     }
     assert_equal expected, recorder.decision_paths
     counts = {
@@ -208,6 +205,8 @@ class RecorderTest < TidTest
   | The block's answer (:ok) is counted.
   | It is returned unchanged.
   | It is not noted on any path.
+  | So the call, its block not called where it was entered,
+  | witnesses no path.
   ) do
     recorder = PathCoverage::Recorder.new
     decision = 'k.rb:2:6'
@@ -217,8 +216,7 @@ class RecorderTest < TidTest
     assert_same :ok, answer
     recorder.leave(trail,
                    recorder.end_items(decision, 0, begun, false))
-    expected = { decision => { ['0 items', nil] => 1 } }
-    assert_equal expected, recorder.decision_paths
+    assert_equal({}, recorder.decision_paths)
     assert_equal({ truthy: 1, falsy: 0 },
                  recorder.counts[[decision, 1]])
   end
@@ -228,9 +226,10 @@ class RecorderTest < TidTest
   | or not, and two ids, both odd, both even or one each
   | select calls its block with every item.
   | Each answer is noted.
-  | The path is how many ids, and whether the answers were
-  | all true, all false, or both.
-  | Eg [1, 2] gives ['2+ items', 'both'].
+  | The path is whether the answers were all true, all false,
+  | or both, its receiver's leaf nil.
+  | Eg [1, 2] gives [nil, 'both'].
+  | A call with no ids witnesses no path.
   | The call's result and the block's answers are unchanged.
   ) do
     recorder = PathCoverage::Recorder.new
@@ -249,9 +248,8 @@ class RecorderTest < TidTest
     assert_equal [[], [1], [], [1, 3], [], [1]], kept
     expected = {
       decision => {
-        ['0 items', nil] => 1, ['1 item', 'all true'] => 1,
-        ['1 item', 'all false'] => 1, ['2+ items', 'all true'] => 1,
-        ['2+ items', 'all false'] => 1, ['2+ items', 'both'] => 1
+        [nil, 'all true'] => 2, [nil, 'all false'] => 2,
+        [nil, 'both'] => 1
       }
     }
     assert_equal expected, recorder.decision_paths
@@ -265,6 +263,8 @@ class RecorderTest < TidTest
   | The block's answer (nil) is counted.
   | It is returned unchanged.
   | It is not noted on any path.
+  | So the call, its block not called where it was entered,
+  | witnesses no path.
   ) do
     recorder = PathCoverage::Recorder.new
     decision = 'k.rb:2:6'
@@ -273,8 +273,7 @@ class RecorderTest < TidTest
     answer = Fiber.new { recorder.answer_at(decision, 0, nil) }.resume
     assert_nil answer
     recorder.leave(trail, recorder.end_items(decision, 0, begun, []))
-    expected = { decision => { ['0 items', nil] => 1 } }
-    assert_equal expected, recorder.decision_paths
+    assert_equal({}, recorder.decision_paths)
     assert_equal({ truthy: 0, falsy: 1 },
                  recorder.counts[[decision, 1]])
   end

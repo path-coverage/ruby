@@ -88,7 +88,7 @@ limit a treatment to the files that glob matches.
   `filter_map`, `partition` or `take_while`, the path that call took
   often decides whether it kept any items. Paths where `any?` disagrees
   with that are not listed, eg `ids.select { |i| i.odd? }.any?` true
-  with `ids` empty.
+  with every answer false.
 
 A run where a treatment turns out to be wrong is reported:
 
@@ -302,9 +302,13 @@ among its patterns, is no decision.
 A call to `any?` `all?` `none?` `find` `detect` `find_index`
 `take_while` `select` `filter` `reject` `partition` `count` or
 `filter_map`, with no arguments and a block of one expression, is a decision
-named at its method. Its item count is noted from the block's own calls,
-so the receiver is never asked its size, which could consume a sequence
-that can be read only once.
+named at its method. Its paths are its block's answers: the last one for a
+method that can stop early, eg `any?` true or false, and all true, all
+false or both for one that calls its block with every item, eg `select`.
+A call whose block was never called witnesses no path. How many items the
+block was called with is a loop's question, asked by `loops`, so the
+receiver is never asked its size, which could consume a sequence that can
+be read only once.
 
 A `||=` or `&&=` write is a decision, whatever its target: a variable of any
 kind, a constant, an attribute (`self.size ||= n`) or an index
@@ -370,8 +374,8 @@ A `begin` or `def` with `rescue` clauses forks its flow: its body
 completes, or one of its rescues runs. A rescue can run after any part
 of its body, as a raise can come from any call, so which exception was
 raised is not tracked. A `rescue` modifier, `x rescue y`, forks the
-same way, with one rescue. With `loops`, each loop forks too: 0 items,
-or 1+ items, its body walked once.
+same way, with one rescue. With `loops`, each loop forks too, a block
+method's block included: 0 items, or 1+ items, its body walked once.
 
 The JSON report's `flows` hold each flow's rows, its `ways` and its
 `calls`, and its `tree` says how those rows nest.
@@ -514,7 +518,7 @@ Next:
   file's total measures its size, so each is a maximum over smaller
   parts. `max_paths` already gates the paths through one method; still
   to come:
-  - paths in one decision, eg 6 for a `select` block
+  - paths in one decision, eg 3 for a `select` block
   - paths within each decision, summed over every decision in one
     method, nested ones included, eg decisions of 2, 3 and 15 paths
     sum to 20. Every method has one, and it grows as the method gains

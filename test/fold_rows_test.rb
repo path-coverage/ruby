@@ -315,24 +315,23 @@ class FoldRowsTest < TidTest
 
   test 'gae549', %w(
   | Example: ids.any? { |id| id.ok? }
-  | The ids row shows how many items the block was called
-  | with on each path: 0, 1, or * for two or more.
+  | The ids row is blank on each path, as how many items the
+  | block was called with is a loop's question.
   | The id.ok? row shows its last answer: T or F.
-  | It is blank where the block was never called.
   ) do
     decisions = [
       {
-        operator: 'any?', counts: [0, 1, 2],
-        cells: [nil, true, false],
+        operator: 'any?', counts: [1, 2],
+        cells: [true, false],
         operands: [
-          { text: 'ids', cells: ['0 items', '1 item', '2+ items'] },
-          { text: 'id.ok?', cells: [nil, true, false] }
+          { text: 'ids', cells: [nil, nil] },
+          { text: 'id.ok?', cells: [true, false] }
         ]
       }
     ]
     operands = of_kind(rows_of(decisions), 'operand')
     actual = operands.map { shown(_1).drop(1) }
-    assert_equal [%w(0 1 *), ['', 'T', 'F']], actual
+    assert_equal [['', ''], %w(T F)], actual
   end
 
   test 'gae54a', %w(

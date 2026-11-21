@@ -114,36 +114,24 @@ class DecisionPathsTest < TidTest
   test 'Sp3x90', %w(
   | Example: ids.any? { |id| id.ok? }
   | any? can stop early, so its block's last answer decides it.
-  | A path has two parts.
-  | First, how many ids the block was called with:
-  | 0 items, 1 item, or 2+ items.
-  | Second, the block's last answer: true or false.
-  | With 0 items the block was never called, so it is nil.
+  | A path is that answer: true or false.
+  | How many ids the block was called with is a loop's question,
+  | which loops asks, so the receiver has no outcome on a path.
   ) do
     decision = condition('any?', 13...16, 29...35)
-    expected = [
-      ['0 items', nil], ['1 item', true], ['1 item', false],
-      ['2+ items', true], ['2+ items', false]
-    ]
+    expected = [[nil, true], [nil, false]]
     assert_equal expected, PathCoverage::DecisionPaths.possible(decision)
   end
 
   test 'Sp3x91', %w(
   | Example: ids.select { |id| id.ok? }
   | select calls its block with every item.
-  | A path has two parts.
-  | First, how many ids: 0 items, 1 item, or 2+ items.
-  | Second, the block's answers: all true, all false, or both.
-  | Both needs 2+ items.
-  | With 0 items the block was never called, so it is nil.
+  | A path is the block's answers: all true, all false, or both.
+  | How many ids the block was called with is a loop's question,
+  | which loops asks, so the receiver has no outcome on a path.
   ) do
     decision = condition('select', 13...16, 31...37)
-    expected = [
-      ['0 items', nil],
-      ['1 item', 'all true'], ['1 item', 'all false'],
-      ['2+ items', 'all true'], ['2+ items', 'all false'],
-      ['2+ items', 'both']
-    ]
+    expected = [[nil, 'all true'], [nil, 'all false'], [nil, 'both']]
     assert_equal expected, PathCoverage::DecisionPaths.possible(decision)
   end
 
@@ -166,24 +154,20 @@ class DecisionPathsTest < TidTest
   test 'Sp3x93', %w(
   | Example: ids.select { |i| i.odd? }.any? && c with any?
   | treated as nonempty
-  | any? is true exactly when select kept an item: with 1+
-  | items, and an answer true.
+  | any? is true exactly when select kept an item: when one
+  | of its block's answers was true.
   | So the paths with any? contradicting select are not
-  | possible, eg 0 items with any? true.
+  | possible, eg all false with any? true.
   ) do
     source = "def k(ids, c) = ids.select { |i| i.odd? }.any? && c\n"
     manifest = PathCoverage::Manifest
     decisions = manifest.decisions(source, 'k.rb', [], [], ['any?'])
     expected = [
-      ['0 items', nil, false, nil],
-      ['1 item', 'all true', true, true],
-      ['1 item', 'all true', true, false],
-      ['1 item', 'all false', false, nil],
-      ['2+ items', 'all true', true, true],
-      ['2+ items', 'all true', true, false],
-      ['2+ items', 'all false', false, nil],
-      ['2+ items', 'both', true, true],
-      ['2+ items', 'both', true, false]
+      [nil, 'all true', true, true],
+      [nil, 'all true', true, false],
+      [nil, 'all false', false, nil],
+      [nil, 'both', true, true],
+      [nil, 'both', true, false]
     ]
     actual = PathCoverage::DecisionPaths.possible(decisions.values.first)
     assert_equal expected, actual
@@ -263,14 +247,15 @@ class DecisionPathsTest < TidTest
   | path the call took, is what Ruby's any? says, or nil when
   | the path cannot tell.
   | It is never wrong.
+  | ids are never empty, as a call with no ids witnesses no path.
   ) do
-    idss = [[], [1], [2], [1, 3], [2, 4], [1, 2], [2, 1]]
-    all = [false, true, false, true, false, true, true]
+    idss = [[1], [2], [1, 3], [2, 4], [1, 2], [2, 1]]
+    all = [true, false, true, false, true, true]
     told = {
       'select' => all, 'filter' => all, 'filter_map' => all,
-      'reject' => [false, false, true, false, true, true, true],
-      'partition' => [true] * 7,
-      'take_while' => [false, true, false, true, false, nil, false]
+      'reject' => [false, true, false, true, true, true],
+      'partition' => [true] * 6,
+      'take_while' => [true, nil, true, nil, nil, nil]
     }
     actual = told.keys.to_h do |name|
       said = idss.map { |ids| told_and_real(name, ids) }
@@ -283,22 +268,18 @@ class DecisionPathsTest < TidTest
 
   test 'Sp3x96', %w(
   | Example: xs.find { |x| x > 1 } || 0
-  | find is nil when it was called with no items, or its last
-  | answer was false, as then nothing was found.
-  | So find truthy on those paths is not possible.
+  | find is nil when its last answer was false, as then
+  | nothing was found.
+  | So find truthy on that path is not possible.
   | With its last answer true it found an item, which may
   | itself be nil, so it can still be true or false.
   ) do
     source = "def k(xs) = xs.find { |x| x > 1 } || 0\n"
     decisions = PathCoverage::Manifest.decisions(source, 'k.rb')
     expected = [
-      ['0 items', nil, false, true],
-      ['1 item', true, true, nil],
-      ['1 item', true, false, true],
-      ['1 item', false, false, true],
-      ['2+ items', true, true, nil],
-      ['2+ items', true, false, true],
-      ['2+ items', false, false, true]
+      [nil, true, true, nil],
+      [nil, true, false, true],
+      [nil, false, false, true]
     ]
     actual = PathCoverage::DecisionPaths.possible(decisions.values.first)
     assert_equal expected, actual
@@ -329,23 +310,14 @@ class DecisionPathsTest < TidTest
       i.odd?.tap { |answer| answers << answer }
     end
     decision = condition(name, 0...3, 10...16)
-    outcomes = {
-      0...3 => items(answers), 10...16 => answer(name, answers)
-    }
+    outcomes = { 0...3 => nil, 10...16 => answer(name, answers) }
     [PathCoverage::Kinds::Block.items?(decision, outcomes),
      result.any?]
-  end
-
-  # The receiver's leaf outcome of a block method whose block
-  # gave answers.
-  def items(answers)
-    PathCoverage::ITEMS[[answers.size, 2].min]
   end
 
   # The block's leaf outcome: its last answer for a method that
   # stops early, else its answers over every item.
   def answer(name, answers)
-    return nil if answers.empty?
     return answers.last if PathCoverage::STOP_EARLY.include?(name)
     return PathCoverage::ANSWERS[2] if answers.uniq.size == 2
 

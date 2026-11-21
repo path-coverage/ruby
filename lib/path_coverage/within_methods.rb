@@ -156,7 +156,7 @@ module PathCoverage
         @ways = ways
         @limit = limit
         @loops = MethodLoops.of(source, path, decisions)
-        @forks = LoopForks.of(source, path, decisions)
+        @forks = LoopForks.of(source, path)
         @rescues = RescueForks.of(source, path)
         @forking = loops
       end

@@ -1231,8 +1231,8 @@ class KernelTest < TidTest
   | led? is called with [], ['Lx'], and ['ab', 'cd'].
   | It still returns :not, :led, :not.
   | The exit report prints the paths each decision never took.
-  | Eg the any? never had `ids` 1 item with the block false; the
-  | if took both its arms.
+  | Eg the && never had `id.size > 1` false; the any? took both
+  | its answers, and the if both its arms.
   ) do |t|
     t.write(<<~RUBY, 'led.rb')
       module Team
@@ -1249,13 +1249,8 @@ class KernelTest < TidTest
     team = t.load('led.rb')::Team
     led = [[], ['Lx'], %w(ab cd)].map { |ids| team.led?(ids) }
     assert_equal %i[not led not], led
-    block = "`id.start_with?('L') && id.size > 1`"
-    expected = [
-      "led.rb:3:11 path never taken: `ids` 1 item, #{block} false",
-      "led.rb:3:11 path never taken: `ids` 2+ items, #{block} true",
-      'led.rb:3:23 path never taken: ' \
-      "`id.start_with?('L')` true, `id.size > 1` false"
-    ].join("\n")
+    expected = 'led.rb:3:23 path never taken: ' \
+               "`id.start_with?('L')` true, `id.size > 1` false"
     assert_output("#{expected}\n") { t.report }
   end
 
@@ -1315,7 +1310,8 @@ class KernelTest < TidTest
   | odds is called with [], [1], and [1, 2].
   | The covered select still keeps [], [1], and [1].
   | The exit report prints the paths never taken.
-  | Eg `ns` 2+ items, `n.odd?` all true.
+  | [] witnesses no path, [1] is all true, [1, 2] both.
+  | So `n.odd?` all false was never taken.
   ) do |t|
     t.write(<<~RUBY, 'odds.rb')
       module Odds
@@ -1326,12 +1322,7 @@ class KernelTest < TidTest
     odd = t.load('odds.rb')::Odds
     odds = [[], [1], [1, 2]].map { |ns| odd.odds(ns) }
     assert_equal [[], [1], [1]], odds
-    never = 'odds.rb:2:25 path never taken: `ns`'
-    expected = [
-      "#{never} 1 item, `n.odd?` all false",
-      "#{never} 2+ items, `n.odd?` all true",
-      "#{never} 2+ items, `n.odd?` all false"
-    ].join("\n")
+    expected = 'odds.rb:2:25 path never taken: `n.odd?` all false'
     assert_output("#{expected}\n") { t.report }
   end
 

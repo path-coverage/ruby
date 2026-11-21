@@ -13,7 +13,6 @@ module PathCoverage
     # hovering as not nil or nil.
     OUTCOMES = {
       true => ['T'], false => ['F'], nil => [''],
-      ITEMS[0] => ['0'], ITEMS[1] => ['1'], ITEMS[2] => ['*'],
       ANSWERS[0] => ['T'], ANSWERS[1] => ['F'], ANSWERS[2] => ['TF'],
       PRESENCE[0] => ['', 'present', PRESENCE[0]],
       PRESENCE[1] => ['', 'absent', PRESENCE[1]]

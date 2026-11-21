@@ -23,7 +23,7 @@ module PathCoverage
     def self.of(source, path, decisions = nil)
       decisions ||= Manifest.decisions(source, path)
       spots = spots_in(source, path, decisions)
-      forks = LoopForks.of(source, path, decisions)
+      forks = LoopForks.of(source, path)
       starts = PathsTree.line_starts(source)
       LoopNodes.defs(Prism.parse(source).value).to_h do |node|
         decision = Decision.of(path, node)
